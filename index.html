@@ -91,18 +91,18 @@ const PUNTOS_BASE = [
 ];
 
 /* En negras casi todos los hoyos se juegan del mismo tee las dos vueltas.
-   Las excepciones son el 4/13 y el 9/18: ahí hay dos tees negras distintos,
-   así que en esos hoyos pedimos dos marcas en vez de una. */
+   Las excepciones son el 4/13 y el 9/18: ahi hay dos tees negras distintos,
+   asi que en esos hoyos pedimos dos marcas en vez de una. */
 const NEGRAS_DOBLE = [4, 9];
 function puntosDe(h){
   const p = PUNTOS_BASE.slice();
   if(NEGRAS_DOBLE.indexOf(h) >= 0){
     const i = p.findIndex(x=>x.id==='negras');
     p.splice(i, 1,
-      {id:'negras',  n:'Tee negras — ida',    c:'#1a1a1a',
-       d:`El que usás en el hoyo ${h}. Ojo: en este hoyo son dos tees distintos`},
-      {id:'negras2', n:'Tee negras — vuelta', c:'#52525b',
-       d:`El que usás en el hoyo ${h+9}, es otro tee`});
+      {id:'negras',  n:'Tee negras \u2014 ida',    c:'#1a1a1a',
+       d:`El que us\u00e1s en el hoyo ${h}. Ojo: en este hoyo son dos tees distintos`},
+      {id:'negras2', n:'Tee negras \u2014 vuelta', c:'#52525b',
+       d:`El que us\u00e1s en el hoyo ${h+9}, es otro tee`});
   }
   return p;
 }
@@ -257,7 +257,7 @@ function pintar(){
   </div>
 
   <div class="card">
-    <div class="lbl" style="margin-bottom:4px">Los 7 puntos de este hoyo</div>
+    <div class="lbl" style="margin-bottom:4px">Los ${PUNTOS.length} puntos de este hoyo${PUNTOS.length>7?' \u00b7 ac\u00e1 las negras son dos':''}</div>
     ${PUNTOS.map(x=>{
       const g = D[k(hoyo,x.id)], ct = control(hoyo,x.id);
       return `<div class="pt">
