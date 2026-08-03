@@ -33,6 +33,8 @@ h1{font-size:20px;margin:0 0 2px;font-weight:800}
 .hoyo.on{background:var(--acc);color:var(--ink);border-color:var(--acc)}
 .hoyo b{position:absolute;top:2px;right:4px;font-size:9px;color:var(--ok)}
 .hoyo.on b{color:var(--ink)}
+.hoyo.full{border-color:#2b6b47;color:var(--ok)}
+.hoyo.full.on{color:var(--ink)}
 .pt{display:flex;align-items:center;gap:11px;padding:13px 0;border-bottom:1px solid #1a2f4a}
 .pt:last-child{border-bottom:0}
 .pt .n{font-size:15px;font-weight:700}
@@ -78,7 +80,7 @@ const CARD = {
   8:{par:3, blancas:131, azules:121, damas:110},
   9:{par:5, blancas:506, azules:406, damas:450}
 };
-const PUNTOS = [
+const PUNTOS_BASE = [
   {id:'centro', n:'Centro del green', c:'#22c55e', d:'Parate en el medio del green', clave:true},
   {id:'frente', n:'Frente del green', c:'#4ade80', d:'Borde de adelante, sobre la línea de juego'},
   {id:'fondo',  n:'Fondo del green',  c:'#15803d', d:'Borde de atrás, sobre la línea de juego'},
@@ -87,6 +89,24 @@ const PUNTOS = [
   {id:'negras', n:'Tee negras',       c:'#1a1a1a', d:'Aunque todavía no esté medido'},
   {id:'damas',  n:'Tee damas',        c:'#ef4444', d:'Entre las dos marcas'}
 ];
+
+/* En negras casi todos los hoyos se juegan del mismo tee las dos vueltas.
+   Las excepciones son el 4/13 y el 9/18: ahí hay dos tees negras distintos,
+   así que en esos hoyos pedimos dos marcas en vez de una. */
+const NEGRAS_DOBLE = [4, 9];
+function puntosDe(h){
+  const p = PUNTOS_BASE.slice();
+  if(NEGRAS_DOBLE.indexOf(h) >= 0){
+    const i = p.findIndex(x=>x.id==='negras');
+    p.splice(i, 1,
+      {id:'negras',  n:'Tee negras — ida',    c:'#1a1a1a',
+       d:`El que usás en el hoyo ${h}. Ojo: en este hoyo son dos tees distintos`},
+      {id:'negras2', n:'Tee negras — vuelta', c:'#52525b',
+       d:`El que usás en el hoyo ${h+9}, es otro tee`});
+  }
+  return p;
+}
+const totalPuntos = ()=>[1,2,3,4,5,6,7,8,9].reduce((a,n)=>a+puntosDe(n).length, 0);
 
 let D = JSON.parse(localStorage.getItem('trisq_cancha')||'{}');
 let hoyo = 1, objetivo = 'centro', midiendo = false, muestras = [], pos = null, err = null;
@@ -102,6 +122,29 @@ function metros(a,b){
 }
 const yardas = m => Math.round(m*1.09361);
 
+/* ---------- por qué el GPS puede no arrancar ----------
+   Dos casos que no se arreglan dando permiso: el navegador interno de otra app
+   (WhatsApp, Instagram) y el archivo abierto desde la memoria del teléfono.
+   En los dos el navegador bloquea la ubicación y no avisa. Acá lo detectamos
+   antes para no dejar al jugador esperando una señal que nunca va a llegar. */
+const ENTORNO = (function(){
+  const ua = navigator.userAgent || '';
+  return {
+    enOtraApp : /FBAN|FBAV|FB_IAB|Instagram|WhatsApp|Line\/|MicroMessenger|; wv\)/i.test(ua),
+    esArchivo : location.protocol === 'file:',
+    inseguro  : (typeof isSecureContext !== 'undefined') && !isSecureContext
+  };
+})();
+function motivoProbable(){
+  if(ENTORNO.enOtraApp)
+    return 'Esto se abrió adentro de otra app (WhatsApp o similar). Ese navegador nunca deja usar el GPS. '
+         + 'Tocá los tres puntitos arriba a la derecha y elegí “Abrir en Chrome”.';
+  if(ENTORNO.esArchivo || ENTORNO.inseguro)
+    return 'El archivo se abrió desde la memoria del teléfono. Así el navegador bloquea el GPS aunque le des permiso. '
+         + 'Hay que abrirlo desde una dirección de internet.';
+  return null;
+}
+
 /* ---------- GPS ---------- */
 let watchId = null;
 function arrancarGPS(){
@@ -111,12 +154,22 @@ function arrancarGPS(){
            err = null;
            if(midiendo) muestras.push(pos);
            pintar(); },
-    e => { err = e.code===1 ? 'No diste permiso de ubicación. Habilitalo y recargá.'
+    e => { const m = motivoProbable();
+           err = m ? m
+              : e.code===1 ? 'No diste permiso de ubicación. Habilitalo y recargá.'
               : e.code===2 ? 'No se puede tomar la posición. Salí al aire libre.'
               : 'El GPS tardó demasiado. Probá de nuevo.';
            pintar(); },
     {enableHighAccuracy:true, maximumAge:0, timeout:15000}
   );
+  // Si en 12 segundos no llegó ninguna posición ni ningún error, avisamos igual.
+  setTimeout(()=>{
+    if(!pos && !err){
+      err = motivoProbable()
+         || 'El GPS no engancha. Salí a cielo abierto, esperá unos segundos y recargá la página.';
+      pintar();
+    }
+  }, 12000);
 }
 
 /* ---------- capturar un punto: promedia 6 segundos de lecturas ---------- */
@@ -139,7 +192,7 @@ function capturar(){
       guardar();
       if(navigator.vibrate) navigator.vibrate(120);
       // saltamos solo al siguiente punto que falte
-      const falta = PUNTOS.find(x=>!D[k(hoyo,x.id)]);
+      const falta = puntosDe(hoyo).find(x=>!D[k(hoyo,x.id)]);
       if(falta) objetivo = falta.id;
       pintar();
     } else pintar();
@@ -157,14 +210,16 @@ function control(h,id){
 
 /* ---------- pantalla ---------- */
 function pintar(){
-  const hechos = Object.keys(D).length, total = 9*PUNTOS.length;
+  const PUNTOS = puntosDe(hoyo);
+  const hechos = Object.keys(D).length, total = totalPuntos();
   const luz = !pos ? 'x' : pos.acc<=8 ? 'b' : pos.acc<=20 ? 'm' : 'x';
   const p = PUNTOS.find(x=>x.id===objetivo);
   const ya = D[k(hoyo,objetivo)];
 
   document.getElementById('app').innerHTML = `
 
-  ${err ? `<div class="aviso err">${err}</div><div style="height:12px"></div>` : ''}
+  ${err ? `<div class="aviso err">${err}</div><div style="height:12px"></div>`
+     : (!pos && motivoProbable()) ? `<div class="aviso">${motivoProbable()}</div><div style="height:12px"></div>` : ''}
 
   <div class="gps">
     <span class="luz ${luz}"></span>
@@ -181,8 +236,8 @@ function pintar(){
   <div style="height:12px"></div>
   <div class="lbl" style="margin-bottom:7px">Hoyo</div>
   <div class="g9">${[1,2,3,4,5,6,7,8,9].map(n=>{
-    const c = PUNTOS.filter(x=>D[k(n,x.id)]).length;
-    return `<button class="hoyo ${n===hoyo?'on':''}" onclick="hoyo=${n};objetivo=(PUNTOS.find(x=>!D[k(${n},x.id)])||PUNTOS[0]).id;pintar()">
+    const pn = puntosDe(n), c = pn.filter(x=>D[k(n,x.id)]).length;
+    return `<button class="hoyo ${n===hoyo?'on':''} ${c===pn.length?'full':''}" onclick="hoyo=${n};objetivo=(puntosDe(${n}).find(x=>!D[k(${n},x.id)])||puntosDe(${n})[0]).id;pintar()">
       ${n}${c?`<b>${c}</b>`:''}</button>`;}).join('')}</div>
 
   <div style="height:14px"></div>
@@ -223,7 +278,7 @@ function pintar(){
 
   <div class="card">
     <div class="bar"><i style="width:${Math.round(hechos/total*100)}%"></i></div>
-    <div class="dim2" style="font-size:13px">${hechos} de ${total} puntos · ${9-[1,2,3,4,5,6,7,8,9].filter(n=>PUNTOS.every(x=>D[k(n,x.id)])).length} hoyos sin terminar</div>
+    <div class="dim2" style="font-size:13px">${hechos} de ${total} puntos · ${9-[1,2,3,4,5,6,7,8,9].filter(n=>puntosDe(n).every(x=>D[k(n,x.id)])).length} hoyos sin terminar</div>
     <div style="height:12px"></div>
     <button class="btn" onclick="bajar()">Guardar el archivo</button>
     <div class="row" style="margin-top:8px">
@@ -254,7 +309,7 @@ function armar(){
   for(let h=1;h<=9;h++){
     const o = {par:CARD[h].par, green:{}, tees:{}, largo:{}};
     ['frente','centro','fondo'].forEach(g=>{const x=D[k(h,g)]; if(x) o.green[g]=[x.lat,x.lon,x.acc];});
-    ['blancas','azules','negras','damas'].forEach(t=>{
+    ['blancas','azules','negras','negras2','damas'].forEach(t=>{
       const x=D[k(h,t)]; if(x){ o.tees[t]=[x.lat,x.lon,x.acc];
         const c=D[k(h,'centro')]; if(c) o.largo[t]=yardas(metros(x,c)); }});
     out.hoyos[h]=o;
