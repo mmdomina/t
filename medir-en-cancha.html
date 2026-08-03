@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="theme-color" content="#070e18">
+<title>Medir Trisquelia en cancha</title>
+<style>
+:root{--bg:#070e18;--card:#101f33;--line:#1e3552;--txt:#e8eef6;--dim:#93a9c4;--dim2:#61758f;
+      --acc:#4d9de0;--acc2:#2b7cc4;--gold:#e9c46a;--red:#f87171;--ok:#3ddc84;--ink:#02101f}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--txt);font-size:17px;
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  -webkit-font-smoothing:antialiased;overscroll-behavior:none}
+body{padding:14px 14px calc(20px + env(safe-area-inset-bottom))}
+h1{font-size:20px;margin:0 0 2px;font-weight:800}
+.sub{color:var(--dim2);font-size:13px;margin-bottom:14px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:16px;margin-bottom:12px}
+.lbl{font-size:12px;color:var(--dim2);font-weight:700;text-transform:uppercase;letter-spacing:.07em}
+.big{font-size:40px;font-weight:800;letter-spacing:-.03em;line-height:1}
+.btn{display:block;width:100%;padding:17px;border-radius:15px;border:0;cursor:pointer;
+  font-family:inherit;font-size:17px;font-weight:800;background:var(--acc2);color:var(--ink)}
+.btn:active{transform:scale(.985)}
+.btn.ghost{background:transparent;border:1px solid var(--line);color:var(--txt);font-weight:700}
+.btn.sm{padding:12px;font-size:15px;border-radius:12px}
+.btn.gordo{padding:30px;font-size:24px;border-radius:20px;background:var(--ok);color:#04240f}
+.btn:disabled{opacity:.35}
+.row{display:flex;gap:8px}
+.g3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.g9{display:grid;grid-template-columns:repeat(9,1fr);gap:5px}
+.hoyo{padding:13px 0;border-radius:11px;border:1px solid var(--line);background:var(--card);
+  color:var(--dim);font-weight:800;font-family:inherit;font-size:15px;position:relative}
+.hoyo.on{background:var(--acc);color:var(--ink);border-color:var(--acc)}
+.hoyo b{position:absolute;top:2px;right:4px;font-size:9px;color:var(--ok)}
+.hoyo.on b{color:var(--ink)}
+.pt{display:flex;align-items:center;gap:11px;padding:13px 0;border-bottom:1px solid #1a2f4a}
+.pt:last-child{border-bottom:0}
+.pt .n{font-size:15px;font-weight:700}
+.pt .d{font-size:12px;color:var(--dim2)}
+.pt button{margin-left:auto;padding:11px 15px;border-radius:11px;border:1px solid var(--line);
+  background:transparent;color:var(--dim);font-size:14px;font-weight:800;font-family:inherit}
+.pt button.on{background:var(--gold);color:#2a2005;border-color:var(--gold)}
+.pt button.ok{color:var(--ok);border-color:#2b6b47}
+.dot{width:14px;height:14px;border-radius:50%;flex:0 0 auto;border:2px solid #0006}
+.bar{height:8px;border-radius:99px;background:#14304e;overflow:hidden;margin:10px 0 5px}
+.bar i{display:block;height:100%;background:var(--acc);border-radius:99px}
+.gps{display:flex;align-items:center;gap:9px;padding:11px 13px;border-radius:13px;
+  background:#0a1727;border:1px solid var(--line);font-size:14px}
+.luz{width:11px;height:11px;border-radius:50%;flex:0 0 auto;background:var(--dim2)}
+.luz.b{background:var(--ok);box-shadow:0 0 9px #3ddc8480}
+.luz.m{background:var(--gold)}
+.luz.x{background:var(--red)}
+.aviso{background:#3a3117;border:1px solid #5c4a1f;border-radius:13px;padding:13px;
+  color:var(--gold);font-size:14px;font-weight:600;line-height:1.5}
+.err{background:#3d1e1e;border-color:#7a3a3a;color:#ffb4b4}
+.dim{color:var(--dim)}.dim2{color:var(--dim2)}.ok{color:var(--ok)}
+textarea{width:100%;height:130px;background:#0a1727;border:1px solid var(--line);border-radius:12px;
+  color:var(--txt);font-family:ui-monospace,monospace;font-size:11px;padding:11px}
+</style>
+</head>
+<body>
+
+<h1>Medir Trisquelia</h1>
+<div class="sub">Parate en el punto y tocá el botón grande. La app guarda tu coordenada.</div>
+
+<div id="app"></div>
+
+<script>
+/* ---------- la tarjeta, para controlar cada punto ---------- */
+const CARD = {
+  1:{par:4, blancas:335, azules:338, damas:316},
+  2:{par:4, blancas:366, azules:395, damas:354},
+  3:{par:5, blancas:525, azules:520, damas:459},
+  4:{par:3, blancas:175, azules:156, damas:120},
+  5:{par:4, blancas:320, azules:330, damas:290},
+  6:{par:4, blancas:415, azules:395, damas:383},
+  7:{par:4, blancas:405, azules:435, damas:385},
+  8:{par:3, blancas:131, azules:121, damas:110},
+  9:{par:5, blancas:506, azules:406, damas:450}
+};
+const PUNTOS = [
+  {id:'centro', n:'Centro del green', c:'#22c55e', d:'Parate en el medio del green', clave:true},
+  {id:'frente', n:'Frente del green', c:'#4ade80', d:'Borde de adelante, sobre la línea de juego'},
+  {id:'fondo',  n:'Fondo del green',  c:'#15803d', d:'Borde de atrás, sobre la línea de juego'},
+  {id:'blancas',n:'Tee blancas',      c:'#f5f5f5', d:'Entre las dos marcas, en la ida'},
+  {id:'azules', n:'Tee azules',       c:'#3b82f6', d:'Entre las dos marcas, en la vuelta'},
+  {id:'negras', n:'Tee negras',       c:'#1a1a1a', d:'Aunque todavía no esté medido'},
+  {id:'damas',  n:'Tee damas',        c:'#ef4444', d:'Entre las dos marcas'}
+];
+
+let D = JSON.parse(localStorage.getItem('trisq_cancha')||'{}');
+let hoyo = 1, objetivo = 'centro', midiendo = false, muestras = [], pos = null, err = null;
+const guardar = ()=>localStorage.setItem('trisq_cancha', JSON.stringify(D));
+const k = (h,id)=>h+':'+id;
+
+/* ---------- distancia entre dos coordenadas ---------- */
+function metros(a,b){
+  const R=6371000, f1=a.lat*Math.PI/180, f2=b.lat*Math.PI/180;
+  const df=(b.lat-a.lat)*Math.PI/180, dl=(b.lon-a.lon)*Math.PI/180;
+  const x=Math.sin(df/2)**2+Math.cos(f1)*Math.cos(f2)*Math.sin(dl/2)**2;
+  return 2*R*Math.atan2(Math.sqrt(x),Math.sqrt(1-x));
+}
+const yardas = m => Math.round(m*1.09361);
+
+/* ---------- GPS ---------- */
+let watchId = null;
+function arrancarGPS(){
+  if(!navigator.geolocation){ err='Este navegador no tiene GPS.'; pintar(); return; }
+  watchId = navigator.geolocation.watchPosition(
+    p => { pos = {lat:p.coords.latitude, lon:p.coords.longitude, acc:p.coords.accuracy};
+           err = null;
+           if(midiendo) muestras.push(pos);
+           pintar(); },
+    e => { err = e.code===1 ? 'No diste permiso de ubicación. Habilitalo y recargá.'
+              : e.code===2 ? 'No se puede tomar la posición. Salí al aire libre.'
+              : 'El GPS tardó demasiado. Probá de nuevo.';
+           pintar(); },
+    {enableHighAccuracy:true, maximumAge:0, timeout:15000}
+  );
+}
+
+/* ---------- capturar un punto: promedia 6 segundos de lecturas ---------- */
+function capturar(){
+  if(!pos){ return; }
+  midiendo = true; muestras = [pos];
+  pintar();
+  let seg = 6;
+  const t = setInterval(()=>{
+    seg--;
+    document.getElementById('cuenta') && (document.getElementById('cuenta').textContent = seg);
+    if(seg<=0){
+      clearInterval(t); midiendo = false;
+      // nos quedamos con las lecturas más precisas y las promediamos
+      const buenas = muestras.slice().sort((a,b)=>a.acc-b.acc).slice(0, Math.max(3,Math.ceil(muestras.length/2)));
+      const lat = buenas.reduce((a,x)=>a+x.lat,0)/buenas.length;
+      const lon = buenas.reduce((a,x)=>a+x.lon,0)/buenas.length;
+      const acc = Math.round(buenas.reduce((a,x)=>a+x.acc,0)/buenas.length);
+      D[k(hoyo,objetivo)] = {lat:+lat.toFixed(7), lon:+lon.toFixed(7), acc, n:buenas.length};
+      guardar();
+      if(navigator.vibrate) navigator.vibrate(120);
+      // saltamos solo al siguiente punto que falte
+      const falta = PUNTOS.find(x=>!D[k(hoyo,x.id)]);
+      if(falta) objetivo = falta.id;
+      pintar();
+    } else pintar();
+  }, 1000);
+}
+function borrar(h,id){ delete D[k(h,id)]; guardar(); pintar(); }
+
+/* ---------- control contra la tarjeta ---------- */
+function control(h,id){
+  const c = D[k(h,'centro')], t = D[k(h,id)];
+  if(!c || !t || !CARD[h][id]) return null;
+  const med = yardas(metros(t,c)), esp = CARD[h][id], dif = med-esp;
+  return {med, esp, dif, ok: Math.abs(dif)<=12};
+}
+
+/* ---------- pantalla ---------- */
+function pintar(){
+  const hechos = Object.keys(D).length, total = 9*PUNTOS.length;
+  const luz = !pos ? 'x' : pos.acc<=8 ? 'b' : pos.acc<=20 ? 'm' : 'x';
+  const p = PUNTOS.find(x=>x.id===objetivo);
+  const ya = D[k(hoyo,objetivo)];
+
+  document.getElementById('app').innerHTML = `
+
+  ${err ? `<div class="aviso err">${err}</div><div style="height:12px"></div>` : ''}
+
+  <div class="gps">
+    <span class="luz ${luz}"></span>
+    <div style="flex:1;min-width:0">
+      ${pos ? `<b>GPS ±${Math.round(pos.acc)} m</b>
+        <div class="dim2" style="font-size:12px">${
+          pos.acc<=8?'Precisión buena, podés marcar':
+          pos.acc<=20?'Aceptable. Esperá unos segundos a que baje':
+          'Muy poca precisión. Esperá o salí a cielo abierto'}</div>`
+        : `<b>Buscando señal…</b><div class="dim2" style="font-size:12px">Dale unos segundos</div>`}
+    </div>
+  </div>
+
+  <div style="height:12px"></div>
+  <div class="lbl" style="margin-bottom:7px">Hoyo</div>
+  <div class="g9">${[1,2,3,4,5,6,7,8,9].map(n=>{
+    const c = PUNTOS.filter(x=>D[k(n,x.id)]).length;
+    return `<button class="hoyo ${n===hoyo?'on':''}" onclick="hoyo=${n};objetivo=(PUNTOS.find(x=>!D[k(${n},x.id)])||PUNTOS[0]).id;pintar()">
+      ${n}${c?`<b>${c}</b>`:''}</button>`;}).join('')}</div>
+
+  <div style="height:14px"></div>
+  <div class="card" style="text-align:center;padding:20px 16px">
+    <div class="lbl">Hoyo ${hoyo} · par ${CARD[hoyo].par}</div>
+    <div style="font-size:23px;font-weight:800;margin:6px 0 3px">${p.n}</div>
+    <div class="dim" style="font-size:14px;margin-bottom:16px">${p.d}</div>
+
+    ${midiendo
+      ? `<button class="btn gordo" disabled>Midiendo… <span id="cuenta">6</span></button>
+         <div class="dim2" style="font-size:13px;margin-top:10px">Quedate quieto donde estás</div>`
+      : `<button class="btn gordo" onclick="capturar()" ${pos?'':'disabled'}>
+           ${ya?'MARCAR DE NUEVO':'MARCAR ACÁ'}</button>`}
+
+    ${ya?`<div class="ok" style="font-size:13px;margin-top:12px;font-weight:700">
+       ✓ Guardado con ±${ya.acc} m</div>`:''}
+  </div>
+
+  <div class="card">
+    <div class="lbl" style="margin-bottom:4px">Los 7 puntos de este hoyo</div>
+    ${PUNTOS.map(x=>{
+      const g = D[k(hoyo,x.id)], ct = control(hoyo,x.id);
+      return `<div class="pt">
+        <span class="dot" style="background:${x.c}"></span>
+        <div style="min-width:0;flex:1">
+          <div class="n">${x.n}</div>
+          <div class="d">${ g ? (ct
+              ? `<span style="color:${ct.ok?'var(--ok)':'var(--gold)'};font-weight:700">
+                   ${ct.ok?'✓':'~'} medís ${ct.med} · tarjeta ${ct.esp}</span>`
+              : `guardado ±${g.acc} m`)
+            : 'sin marcar' }</div>
+        </div>
+        <button class="${objetivo===x.id?'on':(g?'ok':'')}" onclick="objetivo='${x.id}';pintar()">
+          ${objetivo===x.id?'acá':(g?'✓':'ir')}</button>
+        ${g?`<button onclick="borrar(${hoyo},'${x.id}')">✕</button>`:''}
+      </div>`;}).join('')}
+  </div>
+
+  <div class="card">
+    <div class="bar"><i style="width:${Math.round(hechos/total*100)}%"></i></div>
+    <div class="dim2" style="font-size:13px">${hechos} de ${total} puntos · ${9-[1,2,3,4,5,6,7,8,9].filter(n=>PUNTOS.every(x=>D[k(n,x.id)])).length} hoyos sin terminar</div>
+    <div style="height:12px"></div>
+    <button class="btn" onclick="bajar()">Guardar el archivo</button>
+    <div class="row" style="margin-top:8px">
+      <button class="btn ghost sm" onclick="ver()">Ver los datos</button>
+      <button class="btn ghost sm" onclick="if(confirm('¿Borrar todo?')){D={};guardar();pintar()}">Borrar todo</button>
+    </div>
+    <textarea id="salida" style="margin-top:10px;display:none"></textarea>
+  </div>
+
+  <div class="card">
+    <div class="lbl" style="margin-bottom:8px">Cómo se usa</div>
+    <div class="dim" style="font-size:14px;line-height:1.65">
+      Llegás al green, te parás en el medio y tocás <b style="color:var(--txt)">MARCAR ACÁ</b>.
+      Esperás seis segundos sin moverte. Después caminás al borde de adelante y marcás,
+      y al de atrás. Los tees los marcás cuando pasás por ellos.<br><br>
+      Apuntá a que la luz esté <span class="ok">verde</span>. Si está amarilla o roja,
+      esperá unos segundos parado: el GPS se va afinando solo.<br><br>
+      Cuando tengas el centro del green y un tee, la app compara contra la tarjeta y
+      te avisa si algo quedó corrido.<br><br>
+      Se guarda solo en el teléfono. Podés cerrar y seguir después.
+    </div>
+  </div>
+  `;
+}
+function ver(){ const t=document.getElementById('salida'); t.style.display='block'; t.value=JSON.stringify(armar(),null,1); }
+function armar(){
+  const out = {club:'Trisquelia Golf Club', medido:new Date().toISOString().slice(0,10), hoyos:{}};
+  for(let h=1;h<=9;h++){
+    const o = {par:CARD[h].par, green:{}, tees:{}, largo:{}};
+    ['frente','centro','fondo'].forEach(g=>{const x=D[k(h,g)]; if(x) o.green[g]=[x.lat,x.lon,x.acc];});
+    ['blancas','azules','negras','damas'].forEach(t=>{
+      const x=D[k(h,t)]; if(x){ o.tees[t]=[x.lat,x.lon,x.acc];
+        const c=D[k(h,'centro')]; if(c) o.largo[t]=yardas(metros(x,c)); }});
+    out.hoyos[h]=o;
+  }
+  return out;
+}
+function bajar(){
+  const b=new Blob([JSON.stringify(armar(),null,1)],{type:'application/json'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(b); a.download='trisquelia-medido.json'; a.click();
+}
+arrancarGPS();
+pintar();
+</script>
+</body>
+</html>
