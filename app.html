@@ -26,8 +26,9 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh;pad
   box-shadow:0 30px 80px rgba(0,0,0,.6)}
 @media(min-width:520px){#frame{border-radius:38px;height:844px;border:1px solid #1d3529}}
 
-#status{height:34px;display:flex;align-items:center;justify-content:space-between;
-  padding:0 22px;font-size:12px;font-weight:600;color:var(--dim);flex:0 0 auto}
+#status{height:30px;display:flex;align-items:center;justify-content:center;
+  padding:0 22px;font-size:12px;font-weight:700;letter-spacing:.06em;
+  color:var(--dim);flex:0 0 auto}
 #screen{flex:1 1 auto;overflow-y:auto;overflow-x:hidden;padding:0 0 12px;scroll-behavior:smooth}
 #screen::-webkit-scrollbar{width:0}
 
@@ -134,7 +135,8 @@ td.name{text-align:left;font-weight:600;font-size:13px}
 </head>
 <body>
 <div id="frame">
-  <div id="status"><span>9:41</span><span id="appname">Trisquelia</span><span>100%</span></div>
+  <!-- La barra de estado del teléfono ya está arriba. Acá sólo el nombre del club. -->
+  <div id="status"><span id="appname">Trisquelia</span></div>
   <div id="screen"></div>
   <div id="nav"></div>
   <div class="toast" id="toast"></div>
@@ -1629,18 +1631,18 @@ function clubInvierno(){
       En la Copa Trisquelia se dan el 85% de la diferencia de handicap.</div>
     <div class="grid2">
       <div><div class="lbl">Tu handicap</div>
-        <input value="${S.vA??10}" inputmode="decimal" oninput="S.vA=+this.value||0;render()"
+        <input value="${S.vA??10}" inputmode="decimal" oninput="S.vA=+this.value||0;pintarVentaja()"
           style="width:100%;margin-top:6px;padding:12px;border-radius:11px;background:var(--nav);
           border:1px solid var(--line);color:var(--txt);font-family:inherit;font-size:15px;font-weight:700;text-align:center"></div>
       <div><div class="lbl">El del rival</div>
-        <input value="${S.vB??18}" inputmode="decimal" oninput="S.vB=+this.value||0;render()"
+        <input value="${S.vB??18}" inputmode="decimal" oninput="S.vB=+this.value||0;pintarVentaja()"
           style="width:100%;margin-top:6px;padding:12px;border-radius:11px;background:var(--nav);
           border:1px solid var(--line);color:var(--txt);font-family:inherit;font-size:15px;font-weight:700;text-align:center"></div>
     </div>
     <div style="text-align:center;margin-top:14px">
-      <div class="big acc">${ventaja(S.vA??10, S.vB??18)}</div>
+      <div class="big acc" id="ventNum">${ventaja(S.vA??10, S.vB??18)}</div>
       <div class="dim" style="font-size:12px">golpes de ventaja para el de mayor handicap,
-      en los hoyos de valuación 1 a ${ventaja(S.vA??10, S.vB??18)}</div>
+      en los hoyos de valuación 1 a <span id="ventHasta">${ventaja(S.vA??10, S.vB??18)}</span></div>
     </div>
   </div>`;
 }
@@ -2463,8 +2465,10 @@ function vOnboard(){
     <p style="font-size:15px;margin-bottom:26px">La app del club. Tu tarjeta, tus distancias,
     los torneos y los resultados de ${CLUB.corto}.</p>
     <div style="text-align:left;margin-bottom:26px">
-      ${[['📍','GPS en los 9 hoyos, con las dos vueltas'],['📊','Tu index y tu handicap de cancha'],
-         ['🎒','Tus distancias reales, palo por palo'],['🏆','Torneos y resultados']].map(([i,t])=>
+      ${[['📍','Cuánto te queda al green, hoyo por hoyo'],
+         ['📏','Las distancias de cada hoyo, desde las cuatro salidas'],
+         ['📊','Cargás tu index y sabés con cuánto jugás'],
+         ['🏆','Torneos, inscripciones y resultados']].map(([i,t])=>
         `<div class="row" style="margin-bottom:12px"><div class="ico">${i}</div>
           <div style="font-size:14px;font-weight:600">${t}</div></div>`).join('')}
     </div>
@@ -2482,7 +2486,7 @@ function vOnboard(){
         <div class="dim2" style="font-size:11px">${CLUB.cancha.hoyosFisicos} hoyos · par ${CLUB.cancha.par} en 18</div></div>
     </div>
     ${[['socio','Soy socio de Trisquelia','⛳',
-        'Todo: tu cuenta, la cuota, el padrón, el ranking del club y los avisos internos.'],
+        'Todo: tu cuenta, la cuota, el ranking del club y los avisos internos.'],
        ['invitado','No soy socio','🎟️',
         'Jugás igual con GPS, tarjeta y estadísticas. Ves los torneos y los resultados.']]
       .map(([k,t,ic,d])=>
@@ -2587,24 +2591,37 @@ function vOnboard(){
   if(S.onb===3) return `<div class="fade">${paso(2,'Tu usuario')}
     <div class="pad">
     <p>El usuario es tu email. Con eso recuperás la clave si te la olvidás.</p>
+    ${(S.hallado && S.hallado.mail) ? `
+    <div class="card" style="border-color:var(--acc);padding:13px">
+      <div class="row" style="align-items:flex-start"><div class="ico">✉️</div>
+      <div style="min-width:0">
+        <div style="font-weight:700;font-size:13px">Usá el mismo mail que tiene el club</div>
+        <div class="dim" style="font-size:12px;margin-top:2px">Es el que figura en el padrón y ya lo
+        dejamos cargado abajo. Si usás otro, después no vas a poder recuperar la clave por ese camino
+        y vas a tener que pedirle a la comisión que te lo cambie.</div>
+      </div></div>
+    </div>` : ''}
     <div class="card">
       <div class="lbl">Email</div>
       <input value="${S.email||''}" placeholder="nombre@correo.com" inputmode="email" oninput="S.email=this.value"
         style="width:100%;margin:6px 0 14px;padding:14px;border-radius:12px;background:var(--nav);
         border:1px solid var(--line);color:var(--txt);font-family:inherit;font-size:15px">
       <div class="lbl">Clave</div>
-      <input type="password" value="" placeholder="Al menos 8 caracteres" oninput="S.clave=this.value.length"
+      <input type="password" value="" placeholder="Al menos 8 caracteres" oninput="evalClave(this.value)"
         style="width:100%;margin:6px 0 6px;padding:14px;border-radius:12px;background:var(--nav);
         border:1px solid var(--line);color:var(--txt);font-family:inherit;font-size:15px">
-      <div class="bar" style="height:5px"><i style="width:${Math.min(100,(S.clave||0)*10)}%;
-        background:${(S.clave||0)>=8?'var(--acc)':'var(--gold)'}"></i></div>
-      <div class="dim2" style="font-size:11px;margin-top:7px">
-        ${(S.clave||0)===0?'Elegí una clave.':((S.clave||0)<8?'Le faltan caracteres.':'Buena clave.')}</div>
+      <div class="bar" style="height:5px"><i id="claveBar" style="width:${Math.min(100,(S.clave||0)*8)}%;
+        background:${S.claveOk?'var(--acc)':'var(--gold)'}"></i></div>
+      <div class="dim2" id="claveMsg" style="font-size:11px;margin-top:7px">${S.claveMsg||'Elegí una clave.'}</div>
+      <div class="dim2" style="font-size:11px;margin-top:5px">
+        Sin reglas de mayúsculas ni símbolos. Lo que la hace fuerte es que sea larga:
+        <b style="color:var(--dim)">mipaloesundriver</b> es mejor que <b style="color:var(--dim)">Tr1sq!</b></div>
       <div class="sep"></div>
       <div class="row"><div class="ico">📱</div><div style="min-width:0">
         <div style="font-weight:600;font-size:13px">¿Preferís sin clave?</div>
-        <div class="dim2" style="font-size:11px">Te mandamos un código al email cada vez que entrás.</div></div></div>
-      <button class="btn ghost sm" style="margin-top:10px" onclick="S.email=S.email||'socio@trisquelia.com';S.clave=8;S.onb=4;render();toast('Entrás con código al email')">
+        <div class="dim2" style="font-size:11px">Te mandamos un código al email cada vez que entrás.
+        No hay clave que recordar ni que te puedan robar.</div></div></div>
+      <button class="btn ghost sm" style="margin-top:10px" onclick="S.email=S.email||'socio@trisquelia.com';S.clave=8;S.claveOk=true;S.claveMsg='';S.onb=4;render();toast('Entrás con código al email')">
         Entrar con código, sin clave</button>
     </div>
     <button class="btn" onclick="crearCuenta()">Crear la cuenta</button>
@@ -3235,13 +3252,57 @@ function buscarPadron(){
 }
 function verificarCodigo(){
   if((S.codigo||'').replace(/\D/g,'').length<6){toast('Poné los 6 dígitos del código');return;}
-  S.padronEstado='verificado'; S.padronOk=true; render();
+  S.padronEstado='verificado'; S.padronOk=true;
+  // Dejamos cargado el mail que el club ya tiene: es el que conviene usar de usuario.
+  if(!S.email && S.hallado && S.hallado.mail) S.email = S.hallado.mail;
+  render();
   toast('✅ Identidad verificada');
 }
 function reiniciarBusqueda(){ S.padronEstado=null; S.padronOk=false; S.hallado=null; S.codigo=''; render(); }
+/* Claves: nos importa el largo, no las mayúsculas ni los símbolos.
+   Las reglas de composición hacen que la gente ponga Trisquelia1! y se la olvide.
+   Lo único que bloqueamos son las claves obvias. Nunca guardamos el texto de la
+   clave: sólo el largo y si pasa o no. */
+const CLAVES_OBVIAS = ['12345678','123456789','contraseña','password','trisquelia',
+  'golf','qwertyui','11111111','abcd1234','clavegolf'];
+/* IMPORTANTE: acá no se puede llamar a render(). Redibujar la pantalla en cada
+   tecla destruye el campo y borra lo que la persona venía escribiendo.
+   Sólo tocamos la barrita y el mensaje. */
+function evalClave(v){
+  const t = String(v||''), bajo = t.toLowerCase();
+  S.clave = t.length;
+  if(t.length === 0){ S.claveOk=false; S.claveMsg='Elegí una clave.'; }
+  else if(t.length < 8){ const f = 8-t.length;
+    S.claveOk=false; S.claveMsg = f===1 ? 'Le falta un carácter.' : `Le faltan ${f} caracteres.`; }
+  else {
+    const nombre = (S.hallado && S.hallado.n || '').toLowerCase().split(' ').filter(x=>x.length>3);
+    const propio = [ (S.dni||'') ].concat(nombre).filter(Boolean);
+    if(CLAVES_OBVIAS.indexOf(bajo) >= 0){
+      S.claveOk=false; S.claveMsg='Esa clave es de las primeras que prueba cualquiera. Poné otra.';
+    } else if(propio.some(x => x && bajo.includes(x.toLowerCase()))){
+      S.claveOk=false; S.claveMsg='No uses tu DNI ni tu nombre en la clave.';
+    } else {
+      S.claveOk=true;
+      S.claveMsg = t.length>=14 ? 'Muy buena clave.' : 'Buena clave. Si la hacés más larga, mejor.';
+    }
+  }
+  const bar = document.getElementById('claveBar');
+  const msg = document.getElementById('claveMsg');
+  if(bar){ bar.style.width = Math.min(100, S.clave*8)+'%';
+           bar.style.background = S.claveOk ? 'var(--acc)' : 'var(--gold)'; }
+  if(msg){ msg.textContent = S.claveMsg; }
+}
+/* Igual que en la clave: nada de render() mientras se escribe. */
+function pintarVentaja(){
+  const v = ventaja(S.vA??10, S.vB??18);
+  const a = document.getElementById('ventNum'), b = document.getElementById('ventHasta');
+  if(a) a.textContent = v;
+  if(b) b.textContent = v;
+}
 function crearCuenta(){
   if(!S.email||!S.email.includes('@')){toast('Poné un email válido');return;}
   if((S.clave||0)<8){toast('La clave necesita al menos 8 caracteres');return;}
+  if(S.claveOk===false && (S.clave||0)>=8){toast(S.claveMsg);return;}
   // el DNI queda tomado: nadie más puede registrarse con él
   if(S.hallado) S.hallado.cuenta = S.email;
   S.onb=4; render(); toast('Cuenta creada · te mandamos un mail de confirmación');
