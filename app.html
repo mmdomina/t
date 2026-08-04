@@ -3064,12 +3064,26 @@ function vDash(){
           <span style="font-size:13px">Pin ${t.toLowerCase()}</span></div>`).join('')}</div>
     </div>
   </div>
-  <div class="card"><h3>Estado de la cancha</h3>
-      ${[['Greens','Bueno'],['Fairways','Bueno'],['Bunkers','Normal'],['Driving range','Abierto']].map(([l,v])=>
-        `<div class="between" style="padding:9px 0;border-bottom:1px solid var(--hair)">
-          <span style="font-weight:600;font-size:13px">${l}</span>
-          <span class="acc" style="font-size:13px;font-weight:700">${v}</span></div>`).join('')}
-      <button class="btn ghost sm" style="margin-top:11px" onclick="toast('Estado actualizado y publicado')">Actualizar estado</button>
+  <div class="card"><h3>¿La cancha está abierta?</h3>
+      <div class="dim" style="font-size:12px;margin-bottom:11px">
+        Es lo primero que ve el socio al abrir la app. Lo que pongas acá lo ven los 123.</div>
+      <div class="grid2">
+        <button class="chip ${CANCHA_ESTADO.abierta?'on':''}" style="padding:15px 6px;font-size:14px"
+          onclick="setCancha(true)">Abierta</button>
+        <button class="chip ${CANCHA_ESTADO.abierta?'':'on'}" style="padding:15px 6px;font-size:14px"
+          onclick="setCancha(false)">Cerrada</button>
+      </div>
+      <div class="lbl" style="margin:14px 0 5px">Aclaración, si hace falta</div>
+      <input value="${CANCHA_ESTADO.nota||''}" placeholder="Ej: aireación de greens hasta el viernes"
+        oninput="CANCHA_ESTADO.nota=this.value"
+        style="width:100%;padding:13px;border-radius:12px;background:var(--nav);
+        border:1px solid var(--line);color:var(--txt);font-family:inherit;font-size:14px">
+      <div class="dim2" style="font-size:11px;margin-top:7px">
+        ${CANCHA_ESTADO.porQuien
+          ? 'Última vez: '+CANCHA_ESTADO.porQuien+', '+CANCHA_ESTADO.desde
+          : 'Nadie lo tocó todavía'}</div>
+      <button class="btn sm" style="margin-top:11px" onclick="publicarCancha()">
+        Guardar y avisar a los socios</button>
     </div>`:''}
 
     ${puede('torneos')?`
@@ -3531,6 +3545,20 @@ function traer(){
   if(idx===null){ toast('Poné tu index. Va de +5.0 a 54.0'); return; }
   S.user.hcp = idx; S.indexDias = 0; S.fedOk = true;
   toast(`Index ${verIndex(idx)} guardado · salís ${verHcp(hcpCancha(idx))} de blancas/azules`);
+  render();
+}
+/* El estado de la cancha lo carga una persona, no se deduce de nada.
+   Queda registrado quién lo cambió y cuándo. */
+function setCancha(abierta){
+  CANCHA_ESTADO.abierta = abierta;
+  render();
+}
+function publicarCancha(){
+  CANCHA_ESTADO.porQuien = quien().n.split(' ')[0];
+  CANCHA_ESTADO.desde = new Date().toLocaleDateString('es-AR',{day:'numeric',month:'short'})
+                      + ' ' + new Date().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});
+  toast(CANCHA_ESTADO.abierta ? 'Cancha abierta · aviso enviado a los socios'
+                              : 'Cancha cerrada · aviso enviado a los socios');
   render();
 }
 function togBag(i){
