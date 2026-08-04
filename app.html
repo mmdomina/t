@@ -35,10 +35,10 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh;pad
 /* ---------- nav ---------- */
 #nav{flex:0 0 auto;display:flex;background:var(--nav);border-top:1px solid var(--line);
   padding:8px 4px calc(10px + env(safe-area-inset-bottom))}
-#nav button{flex:1;background:none;border:0;color:var(--dim2);font-size:10px;font-weight:600;
+#nav button{flex:1;min-width:0;background:none;border:0;color:var(--dim2);font-size:9.5px;font-weight:600;
   display:flex;flex-direction:column;align-items:center;gap:4px;padding:4px 0;cursor:pointer;
   font-family:inherit;letter-spacing:.02em;transition:color .15s}
-#nav button svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8;
+#nav button svg{width:21px;height:21px;stroke:currentColor;fill:none;stroke-width:1.8;
   stroke-linecap:round;stroke-linejoin:round}
 #nav button.on{color:var(--acc)}
 
@@ -922,7 +922,8 @@ const NAVS = {
     ['play','Jugar','M12 21V5m0 0 7 3-7 3M6.5 21h11'],
     ['stats','Stats','M4 20V10m5 10V4m5 16v-7m5 7V7'],
     ['club','Club','M12 3l8 4.5v9L12 21l-8-4.5v-9L12 3Zm0 0v18m8-13.5L4 16.5m16 0L4 7.5'],
-    ['social','Social','M9 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm-7 8a7 7 0 0 1 14 0m2-14a4 4 0 0 1 0 8m5 6a7 7 0 0 0-5-6.7']
+    ['social','Social','M9 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm-7 8a7 7 0 0 1 14 0m2-14a4 4 0 0 1 0 8m5 6a7 7 0 0 0-5-6.7'],
+    ['me','Perfil','M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm-7 8a7 7 0 0 1 14 0']
   ],
   club:[
     ['dash','Panel','M4 20V10m5 10V4m5 16v-7m5 7V7'],
