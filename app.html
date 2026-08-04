@@ -828,6 +828,20 @@ function clubFor(d){
    verdad: el largo del hoyo según la tarjeta, menos lo que ya pegaste.
    Cuando esté el trazado, va a salir de tu posición real. */
 const GPS_REAL = false;
+
+/* Tope de la barra para cargar un golpe. Un drive con rodada y viento a favor
+   pasa los 300 tranquilamente, así que 300 quedaba corto. */
+const TIRO_MIN = 3, TIRO_MAX = 380;
+
+/* Clima: todavía no está conectado a ningún servicio. Mientras sea false, la app
+   dice que no lo tiene en vez de inventar una temperatura. */
+const CLIMA_REAL = false;
+const CLIMA = {temp:null, ic:'', dir:'', kmh:null};
+
+/* Estado de la cancha. Lo carga quien tenga el permiso 'cancha' — hoy Chelo.
+   Es un dato que siempre es cierto porque lo pone una persona, no se deduce
+   de cuánta gente usa la app. */
+const CANCHA_ESTADO = {abierta:true, nota:'', porQuien:null, desde:null};
 const PROF_GREEN = 12;          // profundidad estimada del green, en yardas
 function gps(h){
   const largo = yards(h);
@@ -923,14 +937,18 @@ function vHome(){
 
     <div class="grid2">
       <div class="card" style="margin:0">
-        <div class="lbl">La cancha ahora</div>
-        <div style="font-size:20px;font-weight:800;margin-top:4px">3 grupos</div>
-        <div class="dim" style="font-size:12px">~10 min de espera en el 1</div>
+        <div class="lbl">Estado de la cancha</div>
+        <div style="font-size:20px;font-weight:800;margin-top:4px"
+          class="${CANCHA_ESTADO.abierta?'acc':'gold'}">${CANCHA_ESTADO.abierta?'Abierta':'Cerrada'}</div>
+        <div class="dim" style="font-size:12px">${CANCHA_ESTADO.nota||'Sin novedades'}</div>
       </div>
       <div class="card" style="margin:0">
         <div class="lbl">Clima en cancha</div>
-        <div style="font-size:20px;font-weight:800;margin-top:4px">14° ☁️</div>
-        <div class="dim" style="font-size:12px">Viento SO 18 km/h</div>
+        ${CLIMA_REAL
+          ? `<div style="font-size:20px;font-weight:800;margin-top:4px">${CLIMA.temp}° ${CLIMA.ic}</div>
+             <div class="dim" style="font-size:12px">Viento ${CLIMA.dir} ${CLIMA.kmh} km/h</div>`
+          : `<div style="font-size:15px;font-weight:700;margin-top:4px" class="dim">Sin conectar</div>
+             <div class="dim2" style="font-size:11px">Falta enchufar el servicio de clima</div>`}
       </div>
     </div>
 
@@ -1108,13 +1126,19 @@ function shotPanel(h){
     <div style="text-align:center;margin-bottom:6px">
       <span id="sd" style="font-size:40px;font-weight:800;letter-spacing:-.03em">${S.shotDist}</span>
       <span class="dim" style="font-weight:700"> yds</span>
-      ${sel&&!sel.putter?`<div class="dim2" style="font-size:11px">tu media con ${sel.c}: ${avg(sel)} yds</div>`:'<div style="height:15px"></div>'}
+      ${sel&&!sel.putter
+        ? `<div class="dim2" style="font-size:11px">${sel.shots.length
+            ? `tu media con ${sel.c}: ${avg(sel)} yds · ${confianza(sel).txt}`
+            : `todavía no cargaste ningún golpe con ${sel.c}`}</div>`
+        : '<div style="height:15px"></div>'}
     </div>
-    <input type="range" min="3" max="300" value="${S.shotDist}"
+    <input type="range" min="${TIRO_MIN}" max="${TIRO_MAX}" value="${S.shotDist}"
       oninput="S.shotDist=+this.value;document.getElementById('sd').textContent=this.value"
       style="width:100%;accent-color:var(--acc);height:28px">
-    <div class="grid4" style="margin-top:4px">
-      ${[-10,-1,1,10].map(d=>`<button class="chip" onclick="nudge(${d})">${d>0?'+':''}${d}</button>`).join('')}
+    <div class="dim2" style="font-size:11px;text-align:center;margin-top:2px">
+      Corré la barra, o ajustá de a poco acá abajo</div>
+    <div class="grid4" style="margin-top:6px">
+      ${[-10,-1,1,10].map(d=>`<button class="chip" onclick="nudge(${d})">${d>0?'+':'−'}${Math.abs(d)} yds</button>`).join('')}
     </div>
 
     <div class="lbl" style="margin:16px 0 8px">3 · ¿Dónde quedó?</div>
@@ -3428,7 +3452,7 @@ function pickClub(c){
   S.shotDist = b.putter ? 8 : (avg(b)||b.base);
   render();
 }
-function nudge(d){S.shotDist=Math.max(3,Math.min(300,S.shotDist+d));render();}
+function nudge(d){S.shotDist=Math.max(TIRO_MIN,Math.min(TIRO_MAX,S.shotDist+d));render();}
 function saveShot(h){
   if(!S.shotClub){toast('Elegí un palo');return;}
   const b=BAG.find(x=>x.c===S.shotClub);
