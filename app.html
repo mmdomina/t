@@ -275,7 +275,7 @@ const S = {
        con el primer torneo que se publique desde la app.
    [x] Hoyo 19: fuera de la app (está tercerizado). Solo se puede avisar
        un evento o un menú especial desde los avisos de Chelo.
-   [x] Pro shop base del torneo: $35.000. Con sponsor lo carga Daniel
+   [x] Pro shop base del torneo: $30.000. Con sponsor lo carga Daniel.
        cada vez que publica un torneo nuevo.
    [x] Chelo carga los montos de cuota (se definen en comisión) y avisa.
    [x] Accesos: Félix Córdoba → salidas y resultados. Chelo Caballero → avisos, estado
@@ -323,8 +323,32 @@ const CLUBS_DB = {
     inauguracion:'10 de abril de 2009',
     fundadores:'René Fuentes Andrada y Susana Vila',
     padrino:'Estanislao Goya',
-    socios:120,                                // ← a confirmar con el club
-    cuota:'$52.000',                           // ← a confirmar
+    socios:123,                                // del padrón 2026
+    /* Qué se paga por jugar un torneo. Lo elige Daniel al publicarlo. */
+    torneoPrecios:{
+      normal:30000,
+      sponsor:35000,
+      nota:'La inscripción a la Copa del Club y a la Copa Trisquelia se informa cerca de '
+         + 'la fecha, y se estima al valor de un torneo sin sponsor.'
+    },
+
+    /* Cuotas 2026. Ojo con la lógica: el valor es el de la izquierda, y pagando
+       del 1 al 10 se accede al precio con beneficio. No es una multa, es un descuento. */
+    cuotas:{
+      vence:10,
+      items:[
+        {n:'Socio',                                v:150000, b:130000},
+        {n:'2º integrante familiar',               v:70000,  b:63000},
+        {n:'3º y demás integrantes familiares',    v:55000,  b:42000},
+        {n:'Socio no residente',                   v:125000, b:110000},
+        {n:'2º integrante familiar no residente',  v:65000,  b:55000},
+        {n:'Socio a más de 300 km',                v:78000,  b:70000}
+      ],
+      otros:[
+        {n:'Locker guardapalos', v:14000},
+        {n:'Green fee no socios', v:35000}
+      ]
+    },
     app:'Trisquelia',
 
     /* --- identidad visual (colores a confirmar contra el logo oficial) --- */
@@ -375,17 +399,19 @@ const CLUBS_DB = {
        casillero de blancas la ida y en el de azules la vuelta. Las yardas
        de abajo son estimaciones que dictó Mauro a ojo, hoyo por hoyo. */
     tees:[
-      /* NEGRAS · no están en la tarjeta ni tienen medición oficial.
-         Lo concreto que sabe el club: la cancha suma 540 yardas desde
-         negras, y hay UN SOLO tee por hoyo salvo en la cancha 4 y la 9,
-         donde hay dos (por eso el 4/13 y el 9/18 cambian de yardaje).
-         Los números de abajo respetan las dos cosas: parten de lo que
-         estimó Mauro hoyo por hoyo y se ajustan para dar 6814 exactas.
-         Se reemplazan cuando salga la recategorización. */
+      /* NEGRAS · SIN NINGÚN NÚMERO CONFIABLE, y por eso van vacías.
+         Hay dos cifras dando vueltas y las dos están mal:
+           · la tarjeta imprime 6547, pero el club dice que esa medición es errónea;
+           · el club habla de "540 yardas más", que daría 6814, pero es un número
+             global que nadie midió hoyo por hoyo.
+         Antes acá había una estimación repartiendo esas 540. La saqué: prefiero
+         que la app diga "sin medir" a que muestre una distancia inventada.
+         Se juega igual desde negras; lo que no hay es yardaje ni handicap de cancha.
+         Único dato firme: UN SOLO tee por hoyo salvo el 4/13 y el 9/18. */
       {id:'negras', n:'Negras', c:'#1a1a1a', r:null, s:null, sinMedir:true,
-       y:[363,427,545,190,380,431,462,140,541, 363,427,545,165,380,431,462,140,422],
+       y:null,
        mismoTee:[true,true,true,false,true,true,true,true,false],
-       nota:'Un solo tee por hoyo salvo el 4/13 y el 9/18'},
+       nota:'Todavía sin medir. Se cargan con la recategorización.'},
       {id:'mixta',  n:'Blancas / Azules', c:'#f5f5f5', c2:'#3b82f6',
        r:69.8, s:122, ratingProvisorio:true,
        y:[335,366,525,175,320,415,405,131,506, 338,395,520,156,330,395,435,121,406],
@@ -439,7 +465,7 @@ const CLUBS_DB = {
       {ic:'🏆',t:'Torneo Ciudad de General Pico',s:'Clásico anual del club · inscripción en secretaría'},
       {ic:'⛳',t:'Abierto de Profesionales de General Pico',s:'Trisquelia recibe al Tour de Profesionales'},
       {ic:'🌱',t:'Estado de la cancha',s:'Greens en buen estado · driving range abierto'},
-      {ic:'💳',t:'Cuota de agosto',s:'Vence el 5 · consultá tu estado de cuenta',socios:true},
+      {ic:'💳',t:'Cuota de agosto',s:'$150.000 · pagando del 1 al 10, $130.000',socios:true},
       {ic:'⚑',t:'Recategorización de la cancha',s:'Se incorporan las salidas negras · valores provisionales en la app'}
     ],
     shop:[ {n:'Docena de pelotas',p:'—',ic:'🥎'},{n:'Guante',p:'—',ic:'🧤'},
@@ -454,7 +480,7 @@ const CLUBS_DB = {
              modo:'escalonada',        // 'escalonada' | 'simultanea'
              hora:'11:30',             // hora única, si es simultánea
              cupo:52, inscriptos:34, precio:'—',
-             proshop:'$35.000', proshopNota:'Con sponsors sube — lo carga Daniel en cada torneo',
+             proshop:'$30.000', proshopNota:'Sin sponsor. Con sponsor son $35.000 — lo carga Daniel',
              cambio:null },            // motivo del último cambio, si lo hubo
     miembros:[ {n:'Socio Uno',i:'S1',hcp:8.1},{n:'Socia Dos',i:'S2',hcp:12.4},
                {n:'Socio Tres',i:'S3',hcp:11.0},{n:'Socio Cuatro',i:'S4',hcp:21.7},
@@ -682,6 +708,8 @@ const best = b => b.shots.length ? Math.max(...b.shots) : 0;
 const disp = b => { if(b.shots.length<2) return 0; const m=avg(b);
   return Math.round(Math.sqrt(b.shots.reduce((a,c)=>a+(c-m)**2,0)/b.shots.length)); };
 const inBag = () => BAG.filter(b=>b.on && !b.putter);
+const pesos = n => '$' + Number(n).toLocaleString('es-AR');
+const cuotaSocio = () => CLUB.cuotas.items[0];
 // huecos entre palos consecutivos
 function gaps(){const l=inBag().slice().sort((a,b)=>media(b)-media(a));
   return l.map((b,i)=> i<l.length-1 ? {a:b, b:l[i+1], g:media(b)-media(l[i+1])} : null).filter(Boolean);}
@@ -778,11 +806,19 @@ function deltas(t){
      .slice(0,resto).forEach(([,i])=>out[i]++);
   return _dcache[t.id]=out;
 }
-function yards(h){
-  const t = tee();
-  if(t.y) return t.y[h-1];                       // tarjeta propia de esa salida
-  return Math.round(COURSE.holes[h-1].y * t.f);  // derivada por factor
+/* Una salida sin yardas propias y sin factor no tiene medición: es el caso de
+   negras hasta la recategorización. Devolvemos null y cada pantalla decide cómo
+   decirlo, en vez de inventar un número. */
+const sinMedida = t => !t.y && !t.f;
+function yardaDe(t,h){
+  if(t.y) return t.y[h-1];
+  if(t.f) return Math.round(COURSE.holes[h-1].y * t.f);
+  return null;
 }
+function yards(h){ return yardaDe(tee(), h); }
+/* Para dibujar el hoyo hace falta un largo sí o sí: si la salida no está medida,
+   usamos la de blancas/azules sólo para la forma del dibujo, nunca para mostrar. */
+const largoDibujo = h => yards(h) ?? yardaDe(CLUB.tees.find(t=>t.id==='mixta'), h);
 /* ¿este hoyo se juega del mismo tee que su par de la otra vuelta? */
 function repiteTee(h){
   const t=tee(); if(!t.mismoTee) return false;
@@ -802,7 +838,8 @@ function hcpCancha(index, t, hoyos){
 }
 /* hace cuántos días se actualizó el index */
 const ydsDe = t => t.y ? t.y.reduce((a,b)=>a+b,0)
-  : COURSE.holes.reduce((a,h)=>a+Math.round(h.y*t.f),0);
+  : t.f ? COURSE.holes.reduce((a,h)=>a+Math.round(h.y*t.f),0)
+  : null;
 const diasIndex = () => S.indexDias;
 const indexViejo = () => S.indexDias >= 7;
 
@@ -853,8 +890,11 @@ function gps(h){
   const largo = yards(h);
   const dados = (R.shots[h]||[]).reduce((a,x)=>{
     const b = BAG.find(z=>z.c===x.c);
-    return a + (b && b.putter ? 0 : x.d);
+    return a + ((b && b.putter) || x.d==null ? 0 : x.d);
   }, 0);
+  // Salida sin medir: no hay de dónde sacar la distancia. Lo decimos.
+  if(largo==null) return {front:null, mid:null, back:null, sinMedir:true,
+                          desdeTee:dados===0, dados};
   const centro = Math.max(0, largo - dados);
   const prof = par(h)===3 ? 9 : PROF_GREEN;
   return {front: Math.max(0,centro-prof), mid: centro, back: centro+prof,
@@ -864,6 +904,7 @@ function gps(h){
    tengas; en el resto, el que más se acerque a lo que falta. */
 function paloSugerido(h){
   const g = gps(h);
+  if(g.sinMedir) return {club:null, salida:g.desdeTee, dist:null};
   if(g.desdeTee && par(h)>3){
     const largos = inBag().slice().sort((a,b)=>media(b)-media(a));
     if(!largos.length) return {club:null, salida:true, dist:g.mid};
@@ -925,7 +966,7 @@ function vHome(){
           <div style="font-size:12px" class="${indexViejo()?'gold':'dim'}">
             ${indexViejo()?'⚠️ Actualizalo, cambió el jueves':'Al día'}</div></div>
         <div style="text-align:right"><div class="lbl">De cancha</div>
-          <div class="big">${hcpCancha(S.user.hcp)}</div>
+          <div class="big">${verHcp(hcpCancha(S.user.hcp))}</div>
           <div style="font-size:12px" class="dim">${tee().n.toLowerCase()} · slope ${tee().s}</div></div>
       </div>
     </div>
@@ -1013,9 +1054,8 @@ function holeSVG(h){
   const c   = CANCHA[CLUB.fisico[h-1]] || {dog:0,ancho:1,haz:[],gb:[]};
   const p   = par(h), W=200, H=312, base=272, gy=54;
   const largoRef = 545;
-  const yd  = t => (t.y ? t.y[h-1] : Math.round(COURSE.holes[h-1].y*t.f));
   const yDe = v => base - (v/largoRef)*(base-gy);
-  const tAct = tee(), largo = yd(tAct), yTee = yDe(largo);
+  const tAct = tee(), largo = largoDibujo(h), yTee = yDe(largo);
   // el fairway va del tee al green, curvado según el dogleg
   const cx  = 100 + c.dog*32, anc = 25*c.ancho;
   const yPos = d => yTee - (d/largoRef)*(base-gy);      // yardas desde el tee
@@ -1072,8 +1112,8 @@ function holeSVG(h){
     <path d="M100 ${gy+2} v-17 l10 4.5 -10 4.5" fill="#c8202e" stroke="#c8202e" stroke-width="1"/>
 
     <!-- las salidas, cada una a su distancia real -->
-    ${CLUB.tees.map(t=>{
-      const v=yd(t), y=yDe(v), act=t.id===tAct.id;
+    ${CLUB.tees.filter(t=>yardaDe(t,h)!=null).map(t=>{
+      const v=yardaDe(t,h), y=yDe(v), act=t.id===tAct.id;
       const nom = t.id==='mixta' ? (h<=9?'Blancas':'Azules') : t.n;
       const col = t.id==='mixta' ? (h<=9?'#f5f5f5':'#3b82f6') : t.c;
       return `<g opacity="${act?1:.5}">
@@ -1193,10 +1233,14 @@ function vPlay(){
   <div class="pad" style="margin-top:12px">
     <div class="card">
       <div class="grid3">
-        <div class="dist"><div class="lbl">Frente</div><div class="n">${g.front}</div></div>
-        <div class="dist"><div class="lbl">Centro</div><div class="n mid">${g.mid}</div></div>
-        <div class="dist"><div class="lbl">Fondo</div><div class="n">${g.back}</div></div>
+        <div class="dist"><div class="lbl">Frente</div><div class="n">${g.front ?? '—'}</div></div>
+        <div class="dist"><div class="lbl">Centro</div><div class="n mid">${g.mid ?? '—'}</div></div>
+        <div class="dist"><div class="lbl">Fondo</div><div class="n">${g.back ?? '—'}</div></div>
       </div>
+      ${g.sinMedir?`<div class="aviso-tee" style="background:var(--tint);border-radius:11px;
+        padding:10px 12px;margin-top:10px;font-size:12px" class="dim">
+        Las <b style="color:var(--txt)">negras todavía no están medidas</b>. Podés jugar y anotar
+        igual, pero no hay distancias hasta que salga la recategorización.</div>`:''}
       <div class="sep"></div>
       ${rec ? `<div class="between">
         <div><div class="lbl">Palo sugerido</div>
@@ -1261,7 +1305,7 @@ function vPlay(){
       <div class="row" style="align-items:flex-start"><div class="ico" style="background:#5c4a1f">🏅</div>
         <div style="min-width:0"><div style="font-weight:700;font-size:14px">¿Controlaste tu index?</div>
           <div class="dim" style="font-size:12px">Lo actualizaste hace ${diasIndex()} días y el handicap cambia los jueves.
-          Con ${S.user.hcp} salís ${hcpCancha(S.user.hcp)} de ${tee().n.toLowerCase()}.</div></div></div>
+          Con index ${verIndex(S.user.hcp)} salís ${verHcp(hcpCancha(S.user.hcp))} de ${tee().n.toLowerCase()}.</div></div></div>
       <div class="grid2" style="margin-top:11px">
         <button class="chip" onclick="go('handicap')">Actualizarlo</button>
         <button class="chip" onclick="S.chequeoRonda=true;render();toast('Listo, seguimos')">Está al día</button>
@@ -1828,7 +1872,7 @@ function clubShop(){return `<div class="grid2">
   ${esSocio()?`<div class="card" style="margin-bottom:24px"><div class="between">
     <div><div class="lbl">Cuenta de socio</div><div style="font-weight:700">Consumos del mes</div></div>
     <div class="big">$47.400</div></div>
-    <div class="dim" style="font-size:12px;margin-top:8px">Se debita el 5 de cada mes junto con la cuota.</div>
+    <div class="dim" style="font-size:12px;margin-top:8px">Se cobra junto con la cuota.</div>
   </div>`:`<div class="card" style="margin-bottom:24px">
     <div class="dim" style="font-size:13px">Como invitado pagás en el mostrador. Los socios lo debitan de su cuenta.</div>
   </div>`}`;}
@@ -1935,9 +1979,9 @@ function vHandicap(){
         <th>18 h</th><th>9 h</th></tr></thead><tbody>
       ${CLUB.tees.map(t=>`<tr style="${S.tee===t.id?'background:var(--tint)':''}">
         <td class="name">${bolita(t)}${t.n}${t.sinMedir?' *':''}</td>
-        <td class="dim">${ydsDe(t)}</td><td class="dim">${t.r}/${t.s}</td>
-        <td style="font-weight:800;font-size:15px">${hcpCancha(idx,t,18)}</td>
-        <td style="font-weight:700">${hcpCancha(idx,t,9)}</td></tr>`).join('')}
+        <td class="dim">${ydsDe(t) ?? '—'}</td><td class="dim">${t.r?t.r+'/'+t.s:'sin medir'}</td>
+        <td style="font-weight:800;font-size:15px">${verHcp(hcpCancha(idx,t,18))}</td>
+        <td style="font-weight:700">${verHcp(hcpCancha(idx,t,9))}</td></tr>`).join('')}
       </tbody></table>
       <div class="dim" style="font-size:12px;margin-top:10px">
         Blancas y azules dan <b>un solo</b> handicap de cancha, porque son la misma vuelta:
@@ -2095,7 +2139,7 @@ function vNotif(){return `<div class="fade">
        ['👏','Javier felicitó tu ronda','"Ese birdie en el 6 fue tremendo"','hace 3 h',false],
        ['🏅','Cambió el handicap de la semana','Fijate el tuyo y actualizalo en la app','jueves',true],
        ['🌧️','Alerta de lluvia el domingo','70% de probabilidad entre 10 y 13 hs','ayer',false],
-       ['💳','Cuota de agosto','Se debita el 5/8 · $86.000','hace 2 días',false]].map(([i,t,s,w,nw])=>
+       ['💳','Cuota de agosto',`${pesos(cuotaSocio().v)} · del 1 al 10, ${pesos(cuotaSocio().b)}`,'hace 2 días',false]].map(([i,t,s,w,nw])=>
       `<div class="item" style="${nw?'background:var(--tint);border-radius:12px;padding:12px 10px':''}">
         <div class="ico">${i}</div><div style="flex:1;min-width:0">
         <div style="font-weight:700;font-size:14px">${t}</div>
@@ -2107,10 +2151,7 @@ function vNotif(){return `<div class="fade">
    Si la digital reemplaza al papel, tiene que decir exactamente lo mismo:
    par y valuación de cada hoyo, yardas de las tres salidas, subtotales de
    ida y vuelta, rating y slope, y el bloque de firmas. */
-function ydsTee(t,h){
-  if(t.y) return t.y[h-1];
-  return Math.round(COURSE.holes[h-1].y * t.f);
-}
+function ydsTee(t,h){ return yardaDe(t,h); }
 function tablaTarjeta(desde,hasta,rot){
   const hs = COURSE.holes.slice(desde-1,hasta);
   const sub = a => a.reduce((x,y)=>x+y,0);
@@ -2145,7 +2186,7 @@ function vTarjeta(){
     <div class="card" style="padding:14px">
       <div class="grid2" style="gap:14px">
         ${[['Jugador','Mauro Domina'],['Fecha','31/07/2026'],
-           ['Salida',tee().n],['Handicap','index '+S.user.hcp+' · cancha '+hcpCancha(S.user.hcp)],
+           ['Salida',tee().n],['Handicap','index '+verIndex(S.user.hcp)+' · cancha '+verHcp(hcpCancha(S.user.hcp))],
            ['Rating / Slope',tee().r+' / '+tee().s],['Recorrido',S.vuelta+' hoyos · par '+
              (S.vuelta===9?COURSE.holes.slice(0,9).reduce((a,x)=>a+x.par,0):parTotal())]].map(([l,v])=>
           `<div><div class="lbl">${l}</div><div style="font-weight:700;font-size:13px">${v}</div></div>`).join('')}
@@ -2498,7 +2539,7 @@ function vSummary(){
       <div class="pill" style="font-size:14px;padding:6px 16px">${fmtPar(tp)} al par · ${p.length} hoyos</div>
       <div class="sep"></div>
       <div class="between"><div><div class="lbl">Handicap</div>
-        <div style="font-weight:800;font-size:18px">${S.user.hcp} · cancha ${hcpCancha(S.user.hcp)}</div></div>
+        <div style="font-weight:800;font-size:18px">${verIndex(S.user.hcp)} · cancha ${verHcp(hcpCancha(S.user.hcp))}</div></div>
         <div style="text-align:right"><div class="lbl">Stableford</div>
         <div style="font-weight:800;font-size:18px">31 pts</div></div></div>
     </div>
@@ -2744,14 +2785,16 @@ function vOnboard(){
         style="width:100%;margin-top:7px;padding:14px;border-radius:12px;background:var(--nav);
         border:1px solid var(--line);color:var(--txt);font-family:inherit;font-size:16px;font-weight:700;letter-spacing:.06em">
       <div class="lbl" style="margin-top:14px">Tu handicap index</div>
-      <input value="${S.fedOk?'7.4':''}" placeholder="Ej. 7.4" inputmode="decimal" oninput="S.hcpIn=this.value"
+      <input value="${S.hcpIn||''}" placeholder="Ej. 7.4 · los &quot;más&quot; van así: +2.3" inputmode="decimal" oninput="S.hcpIn=this.value"
         style="width:100%;margin-top:7px;padding:14px;border-radius:12px;background:var(--nav);
         border:1px solid var(--line);color:var(--txt);font-family:inherit;font-size:16px;font-weight:700">
       ${S.fedOk?`
       <div class="sep"></div>
       <div class="row" style="background:var(--tint);border-radius:12px;padding:12px">
-        <div class="ico">🏌️</div><div><div style="font-weight:700">Index 7.4 · salís ${hcpCancha(7.4)} de blancas/azules</div>
-        <div class="dim" style="font-size:12px">Negras ${hcpCancha(7.4,CLUB.tees[0])} · damas ${hcpCancha(7.4,CLUB.tees[2])}</div></div>
+        <div class="ico">🏌️</div><div>
+        <div style="font-weight:700">Index ${verIndex(S.user.hcp)} · salís ${verHcp(hcpCancha(S.user.hcp))} de blancas/azules</div>
+        <div class="dim" style="font-size:12px">Damas ${verHcp(hcpCancha(S.user.hcp,CLUB.tees[2]))} ·
+          negras todavía sin rating</div></div>
       </div>`:''}
       <button class="btn ${S.fedOk?'ghost':''} sm" style="margin-top:12px" onclick="traer()">
         ${S.fedOk?'Corregir':'Guardar mi handicap'}</button>
@@ -2817,7 +2860,7 @@ function vMe(){
       <div style="flex:1;min-width:0"><div style="font-weight:800;font-size:17px">${S.user.name}</div>
         <div class="dim" style="font-size:13px">Socio ${S.user.socio} · ${S.user.club}</div>
         <div style="margin-top:5px"><span class="pill">Index ${S.user.hcp}</span>
-          <span class="pill" style="margin-left:5px">Cancha ${hcpCancha(S.user.hcp)}</span></div></div>
+          <span class="pill" style="margin-left:5px">Cancha ${verHcp(hcpCancha(S.user.hcp))}</span></div></div>
       ${crest(46)}
     </div></div>
 
@@ -2869,11 +2912,11 @@ function vMe(){
     <h2>Ajustes</h2>
     <div class="card" style="margin-bottom:24px">
       ${[['🎒','Mi bolsa',BAG.filter(b=>b.on).length+' palos · '+BAG.reduce((a,b)=>a+b.shots.length,0)+' golpes cargados',"go('bag')"],
-         ['🏅','Mi handicap',S.user.hcp+' · sale '+hcpCancha(S.user.hcp)+' de '+tee().n.toLowerCase(),"go('handicap')"],
+         ['🏅','Mi handicap',verIndex(S.user.hcp)+' · sale '+verHcp(hcpCancha(S.user.hcp))+' de '+tee().n.toLowerCase(),"go('handicap')"],
          ['📏','Unidades','Yardas',"toast('Cambiado a metros')"],
          ['⌚','Reloj / wearable','Garmin conectado',"toast('Garmin sincronizado')"],
          ['🔔','Notificaciones','Torneos y tee times',"go('notif')"],
-         ...(esSocio()?[['💳','Cuota y pagos','Al día · vence 5/8',"toast('Cuota al día')"],
+         ...(esSocio()?[['💳','Cuota y pagos',`${pesos(cuotaSocio().v)} · del 1 al ${CLUB.cuotas.vence}, ${pesos(cuotaSocio().b)}`,"toast('Cuota al día')"],
          ['👥','Invitados','2 pases disponibles',"toast('Pase de invitado enviado')"]]:[])].map(([i,t,s,f])=>
         `<div class="item" style="cursor:pointer" onclick="${f}"><div class="ico">${i}</div>
           <div style="flex:1;min-width:0">
@@ -3055,14 +3098,36 @@ function vDash(){
     ${puede('cuotas')?`
     <h2>Cuotas</h2>
     <div class="card">
-      <div class="between" style="margin-bottom:12px">
-        <div><div class="lbl">Cuota mensual vigente</div>
-          <div class="big">${CLUB.cuota}</div></div>
-        <div style="text-align:right"><div class="lbl">Cuota extraordinaria</div>
-          <div style="font-weight:700;font-size:15px">ninguna activa</div></div>
+      <div class="dim" style="font-size:12px;margin-bottom:10px">
+        Pagando <b style="color:var(--txt)">del 1 al ${CLUB.cuotas.vence}</b> se accede al precio con beneficio.</div>
+      <div class="item" style="padding:6px 0;border-bottom:1px solid var(--line)">
+        <div style="flex:1" class="lbl">Categoría</div>
+        <div style="width:82px;text-align:right" class="lbl">Valor</div>
+        <div style="width:82px;text-align:right" class="lbl">1 al ${CLUB.cuotas.vence}</div>
       </div>
-      <div class="dim" style="font-size:12px;margin-bottom:11px">
-        El monto se define en comisión. Lo cargás acá y el aviso a los socios sale con el nuevo valor.</div>
+      ${CLUB.cuotas.items.map(c=>`<div class="item" style="padding:9px 0">
+        <div style="flex:1;min-width:0;font-size:13px;font-weight:600">${c.n}</div>
+        <div style="width:82px;text-align:right;font-size:13px" class="dim">${pesos(c.v)}</div>
+        <div style="width:82px;text-align:right;font-size:13px;font-weight:800" class="acc">${pesos(c.b)}</div>
+      </div>`).join('')}
+      <div class="sep"></div>
+      ${CLUB.cuotas.otros.map(o=>`<div class="item" style="padding:8px 0">
+        <div style="flex:1;font-size:13px;font-weight:600">${o.n}</div>
+        <div style="font-size:13px;font-weight:800">${pesos(o.v)}</div>
+      </div>`).join('')}
+      <div class="sep"></div>
+      <div class="lbl" style="margin-bottom:4px">Torneos</div>
+      <div class="item" style="padding:8px 0">
+        <div style="flex:1;font-size:13px;font-weight:600">Torneo sin sponsor</div>
+        <div style="font-size:13px;font-weight:800">${pesos(CLUB.torneoPrecios.normal)}</div>
+      </div>
+      <div class="item" style="padding:8px 0">
+        <div style="flex:1;font-size:13px;font-weight:600">Torneo con sponsor</div>
+        <div style="font-size:13px;font-weight:800">${pesos(CLUB.torneoPrecios.sponsor)}</div>
+      </div>
+      <div class="dim2" style="font-size:11px;margin-top:6px">${CLUB.torneoPrecios.nota}</div>
+      <div class="dim" style="font-size:12px;margin:11px 0">
+        Los montos se definen en comisión. Los cargás acá y el aviso a los socios sale con los nuevos valores.</div>
       <div class="grid2">
         <button class="chip" style="padding:13px 6px" onclick="toast('Nuevo valor de cuota cargado · avisá a los socios')">💳 Cambiar el monto</button>
         <button class="chip" style="padding:13px 6px" onclick="toast('Cuota extraordinaria creada · definí monto y vencimiento')">💰 Cuota extraordinaria</button>
@@ -3412,7 +3477,7 @@ function crearCuenta(){
 function skipOnb(){S.onboarded=true;S.tab='home';render();}
 function actualizarIndex(){
   S.indexDias=0; S.chequeoRonda=true; render();
-  toast(`Index actualizado · salís ${hcpCancha(S.user.hcp)} de ${tee().n.toLowerCase()}`);
+  toast(`Index actualizado · salís ${verHcp(hcpCancha(S.user.hcp))} de ${tee().n.toLowerCase()}`);
 }
 function avisar(t){ toast(`📣 "${t}" enviado a los ${CLUB.socios} socios`); }
 function publicarResultados(){
@@ -3439,10 +3504,32 @@ function cambioClima(motivo){
   render();
 }
 function limpiarCambio(){ CLUB.torneo.cambio=null; render(); }
+/* El index del Sistema Mundial va de +5.0 (los que dan ventaja) a 54.0.
+   Los "más" se escriben con el signo adelante y por dentro son negativos:
+   un +2.3 resta golpes en vez de sumarlos. */
+const INDEX_MIN = -5.0, INDEX_MAX = 54.0;
+function leerIndex(txt){
+  const t = String(txt||'').trim().replace(',', '.');
+  if(!t) return null;
+  const mas = t.startsWith('+');
+  const n = parseFloat(mas ? t.slice(1) : t);
+  if(isNaN(n)) return null;
+  const v = mas ? -Math.abs(n) : n;
+  if(v < INDEX_MIN || v > INDEX_MAX) return null;
+  return Math.round(v*10)/10;
+}
+/* Cómo se escribe un index para mostrarlo: los "más" llevan el signo adelante. */
+const verIndex = v => v==null ? '—' : (v<0 ? '+'+Math.abs(v).toFixed(1) : v.toFixed(1));
+/* Igual para el handicap de cancha: los negativos se escriben con más. */
+const verHcp = v => v==null ? '—' : (v<0 ? '+'+Math.abs(v) : String(v));
+
 function traer(){
   if(!S.mat||S.mat.length<4){toast('Cargá tu número de matrícula');return;}
-  S.fedOk=!S.fedOk;
-  if(S.fedOk){ S.user.hcp=7.4; S.indexDias=0; toast(`Index guardado · salís ${hcpCancha(14.2)} de blancas/azules`); }
+  if(S.fedOk){ S.fedOk=false; render(); return; }          // el botón "Corregir"
+  const idx = leerIndex(S.hcpIn);
+  if(idx===null){ toast('Poné tu index. Va de +5.0 a 54.0'); return; }
+  S.user.hcp = idx; S.indexDias = 0; S.fedOk = true;
+  toast(`Index ${verIndex(idx)} guardado · salís ${verHcp(hcpCancha(idx))} de blancas/azules`);
   render();
 }
 function togBag(i){
