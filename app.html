@@ -598,22 +598,47 @@ function GROUP(){
 /* ---------- LA BOLSA: los palos del jugador y sus golpes reales ----------
    Cada palo guarda el historial de distancias que el jugador fue cargando.
    La media, la dispersión y el caddie salen de ACÁ, no de una tabla genérica. */
+/* Todos los palos que se pueden llevar. El jugador elige los suyos, hasta 14,
+   que es el máximo que permiten las reglas. Los que vienen marcados son una
+   bolsa típica: se destildan y se cambian sin problema.
+   Las distancias "base" son sólo un punto de partida; se corrigen solas con
+   los golpes que el jugador va cargando en la cancha. */
 const BAG = [
-  {c:'Dr', name:'Driver TSR3 9°',   base:238, n:34, on:true},
-  {c:'3w', name:'Madera 3 Sim2',    base:212, n:21, on:true},
-  {c:'5w', name:'Madera 5 Sim2',    base:196, n:12, on:true},
-  {c:'4h', name:'Híbrido 4',        base:185, n:18, on:true},
-  {c:'5i', name:'Hierro 5 P790',    base:172, n:23, on:true},
-  {c:'6i', name:'Hierro 6 P790',    base:162, n:29, on:true},
-  {c:'7i', name:'Hierro 7 P790',    base:150, n:41, on:true},
-  {c:'8i', name:'Hierro 8 P790',    base:138, n:37, on:true},
-  {c:'9i', name:'Hierro 9 P790',    base:126, n:33, on:true},
-  {c:'PW', name:'Pitching 46°',     base:112, n:44, on:true},
-  {c:'GW', name:'Gap 50°',          base:98,  n:26, on:true},
-  {c:'SW', name:'Sand 54°',         base:82,  n:31, on:true},
-  {c:'LW', name:'Lob 58°',          base:64,  n:19, on:true},
-  {c:'Pt', name:'Putter Spider',    base:0,   n:0,  on:true, putter:true}
+  {c:'Dr', g:'Maderas',  name:'Driver',       base:238, n:34, on:true},
+  {c:'2w', g:'Maderas',  name:'Madera 2',     base:225, n:0,  on:false},
+  {c:'3w', g:'Maderas',  name:'Madera 3',     base:212, n:21, on:true},
+  {c:'4w', g:'Maderas',  name:'Madera 4',     base:204, n:0,  on:false},
+  {c:'5w', g:'Maderas',  name:'Madera 5',     base:196, n:12, on:true},
+  {c:'7w', g:'Maderas',  name:'Madera 7',     base:186, n:0,  on:false},
+  {c:'9w', g:'Maderas',  name:'Madera 9',     base:176, n:0,  on:false},
+  {c:'2h', g:'Híbridos', name:'Híbrido 2',    base:200, n:0,  on:false},
+  {c:'3h', g:'Híbridos', name:'Híbrido 3',    base:192, n:0,  on:false},
+  {c:'4h', g:'Híbridos', name:'Híbrido 4',    base:185, n:18, on:true},
+  {c:'5h', g:'Híbridos', name:'Híbrido 5',    base:177, n:0,  on:false},
+  {c:'6h', g:'Híbridos', name:'Híbrido 6',    base:169, n:0,  on:false},
+  {c:'1i', g:'Hierros',  name:'Hierro 1',     base:200, n:0,  on:false},
+  {c:'2i', g:'Hierros',  name:'Hierro 2',     base:192, n:0,  on:false},
+  {c:'3i', g:'Hierros',  name:'Hierro 3',     base:186, n:0,  on:false},
+  {c:'4i', g:'Hierros',  name:'Hierro 4',     base:179, n:0,  on:false},
+  {c:'5i', g:'Hierros',  name:'Hierro 5',     base:172, n:23, on:true},
+  {c:'6i', g:'Hierros',  name:'Hierro 6',     base:162, n:29, on:true},
+  {c:'7i', g:'Hierros',  name:'Hierro 7',     base:150, n:41, on:true},
+  {c:'8i', g:'Hierros',  name:'Hierro 8',     base:138, n:37, on:true},
+  {c:'9i', g:'Hierros',  name:'Hierro 9',     base:126, n:33, on:true},
+  {c:'PW', g:'Wedges',   name:'Pitching 46°', base:112, n:44, on:true},
+  {c:'AW', g:'Wedges',   name:'Approach 50°', base:98,  n:26, on:true},
+  {c:'GW', g:'Wedges',   name:'Gap 52°',      base:92,  n:0,  on:false},
+  {c:'SW', g:'Wedges',   name:'Sand 54°',     base:82,  n:31, on:true},
+  {c:'S6', g:'Wedges',   name:'Sand 56°',     base:76,  n:0,  on:false},
+  {c:'LW', g:'Wedges',   name:'Lob 58°',      base:64,  n:19, on:true},
+  {c:'L0', g:'Wedges',   name:'Lob 60°',      base:58,  n:0,  on:false},
+  {c:'L4', g:'Wedges',   name:'Lob 64°',      base:48,  n:0,  on:false},
+  {c:'Ch', g:'Otros',    name:'Chipper',      base:35,  n:0,  on:false},
+  {c:'Pt', g:'Otros',    name:'Putter',       base:0,   n:0,  on:true, putter:true}
 ];
+const GRUPOS = ['Maderas','Híbridos','Hierros','Wedges','Otros'];
+const bagPorGrupo = () => GRUPOS.map(g => [g, BAG.map((b,i)=>({b,i})).filter(x=>x.b.g===g)])
+                                .filter(([,l]) => l.length);
 // generamos el historial inicial de forma determinista (como si el jugador ya hubiera cargado golpes)
 BAG.forEach((b,i)=>{
   b.shots=[];
@@ -625,13 +650,35 @@ BAG.forEach((b,i)=>{
   }
 });
 const avg  = b => b.shots.length ? Math.round(b.shots.reduce((a,c)=>a+c,0)/b.shots.length) : 0;
+
+/* La media que usa el caddie.
+   Arranca en la distancia general del palo y cada golpe que el jugador carga la
+   corre un poco hacia lo suyo. Sin escalones: a los 8 golpes pesa mitad y mitad,
+   a los 25 el número ya es prácticamente el de él.
+   Esto evita el problema de recomendar con dos golpes cargados, que puede estar
+   cualquier cosa, y también el de ignorar 30 golpes propios por no llegar a un
+   número redondo. */
+const PESO_BASE = 8;
+const media = b => {
+  if(!b) return 0;
+  const n = b.shots.length, suma = b.shots.reduce((a,c)=>a+c,0);
+  return Math.round((b.base*PESO_BASE + suma) / (PESO_BASE + n));
+};
+/* En qué etapa está ese palo, para poder decirlo sin mentir. */
+function confianza(b){
+  const n = b ? b.shots.length : 0;
+  if(n === 0)  return {nivel:'estimado',  txt:'estimado',                 clase:'dim2'};
+  if(n < 5)    return {nivel:'arrancando',txt:`arrancando · ${n} golpe${n>1?'s':''}`, clase:'dim2'};
+  if(n < 20)   return {nivel:'afinando',  txt:`afinándose · ${n} golpes`, clase:'dim'};
+  return              {nivel:'tuyo',      txt:`tuyo · ${n} golpes`,       clase:'acc'};
+}
 const best = b => b.shots.length ? Math.max(...b.shots) : 0;
 const disp = b => { if(b.shots.length<2) return 0; const m=avg(b);
   return Math.round(Math.sqrt(b.shots.reduce((a,c)=>a+(c-m)**2,0)/b.shots.length)); };
 const inBag = () => BAG.filter(b=>b.on && !b.putter);
 // huecos entre palos consecutivos
-function gaps(){const l=inBag().slice().sort((a,b)=>avg(b)-avg(a));
-  return l.map((b,i)=> i<l.length-1 ? {a:b, b:l[i+1], g:avg(b)-avg(l[i+1])} : null).filter(Boolean);}
+function gaps(){const l=inBag().slice().sort((a,b)=>media(b)-media(a));
+  return l.map((b,i)=> i<l.length-1 ? {a:b, b:l[i+1], g:media(b)-media(l[i+1])} : null).filter(Boolean);}
 
 /* derivados de la config del club */
 const FEED = () => CLUB.feed;
@@ -769,8 +816,10 @@ function stableford(s,p,hcp,phcp){ // puntos stableford netos
   return Math.max(0, 2 - d);
 }
 function clubFor(d){
-  let bb=inBag()[0],diff=1e9;
-  inBag().forEach(c=>{const x=Math.abs(avg(c)-d);if(x<diff){diff=x;bb=c;}});
+  const l = inBag();
+  if(!l.length) return null;
+  let bb=l[0],diff=1e9;
+  l.forEach(c=>{const x=Math.abs(media(c)-d);if(x<diff){diff=x;bb=c;}});
   return bb;
 }
 /* ---------- DISTANCIAS ----------
@@ -796,7 +845,8 @@ function gps(h){
 function paloSugerido(h){
   const g = gps(h);
   if(g.desdeTee && par(h)>3){
-    const largos = inBag().slice().sort((a,b)=>avg(b)-avg(a));
+    const largos = inBag().slice().sort((a,b)=>media(b)-media(a));
+    if(!largos.length) return {club:null, salida:true, dist:g.mid};
     return {club:largos[0], salida:true, dist:g.mid};
   }
   return {club:clubFor(g.mid), salida:false, dist:g.mid};
@@ -1100,7 +1150,7 @@ function vPlay(){
   <div style="position:relative">${holeSVG(h)}
     <div style="position:absolute;top:10px;left:14px" class="pill ${GPS_REAL?'':'gold'}">
       ${GPS_REAL?'GPS activo':'Sin GPS todavía'}</div>
-    <div style="position:absolute;top:10px;right:14px" class="pill blue">🎯 ${rec.c}</div>
+    ${rec?`<div style="position:absolute;top:10px;right:14px" class="pill blue">🎯 ${rec.c}</div>`:''}
   </div>
 
   <div class="pad" style="margin-top:12px">
@@ -1111,14 +1161,24 @@ function vPlay(){
         <div class="dist"><div class="lbl">Fondo</div><div class="n">${g.back}</div></div>
       </div>
       <div class="sep"></div>
-      <div class="between">
+      ${rec ? `<div class="between">
         <div><div class="lbl">Palo sugerido</div>
-          <div style="font-weight:800;font-size:16px">${rec.c} <span class="dim" style="font-weight:500;font-size:13px">· tu media ${avg(rec)} yds</span></div></div>
-        <div style="text-align:right"><div class="lbl">Ajuste</div>
-          <div style="font-weight:700;font-size:13px" class="gold">+4 viento</div></div>
+          <div style="font-weight:800;font-size:16px">${rec.c}
+            <span class="dim" style="font-weight:500;font-size:13px">· ${media(rec)} yds</span></div></div>
+        <div style="text-align:right"><div class="lbl">De dónde sale</div>
+          <div style="font-weight:700;font-size:13px" class="${confianza(rec).clase}">${confianza(rec).txt}</div></div>
       </div>
-      <div style="font-size:12px;margin-top:8px" class="dim">
-        💡 Basado en tus ${rec.shots.length} golpes cargados con ${rec.c} (dispersión ±${disp(rec)} yds).</div>
+      <div style="font-size:12px;margin-top:8px" class="dim">${
+        confianza(rec).nivel==='estimado'
+          ? `💡 Todavía no cargaste ningún golpe con ${rec.c}. Por ahora uso la distancia general
+             de ese palo; a medida que cargues, el número pasa a ser el tuyo.`
+          : confianza(rec).nivel==='tuyo'
+          ? `💡 Sale de tus ${rec.shots.length} golpes con ${rec.c}. Tu dispersión es de ±${disp(rec)} yds.`
+          : `💡 Todavía es una mezcla entre la distancia general y tus ${rec.shots.length} golpes.
+             Con unos cuantos más va a ser sólo tuyo.`}</div>`
+      : `<div class="dim" style="font-size:13px">Todavía no armaste la bolsa.
+          <a href="#" class="acc" onclick="go('bag');return false">Cargá tus palos</a>
+          y te digo con cuál pegar.</div>`}
       <div class="sep"></div>
       <div class="grid2">
         <div><div class="lbl" style="margin-bottom:6px">Estacas en cancha</div>
@@ -1874,7 +1934,9 @@ function vBag(){
       <div style="font-size:13px" class="dim">Cada golpe que cargás en la cancha corrige la media de ese palo.
       Cuantos más cargues, más afinado juega el caddie.</div>
     </div>
-    ${BAG.map((b,i)=>`<div class="card" style="${b.on?'':'opacity:.45'}">
+    ${bagPorGrupo().map(([g,lista])=>`
+      <div class="lbl" style="margin:16px 0 6px">${g}</div>
+      ${lista.map(({b,i})=>`<div class="card" style="${b.on?'':'opacity:.45'}">
       <div class="between">
         <div style="min-width:0;flex:1">
           <div style="font-weight:800;font-size:15px">${b.c} · ${b.name}</div>
@@ -1890,7 +1952,7 @@ function vBag(){
           return `<div style="flex:1;height:${h}px;background:${s>m?'var(--acc)':'#2f7a4f'};border-radius:2px"></div>`}).join('')}
       </div>
       <div class="dim2" style="font-size:10px;margin-top:4px">Tus últimos ${Math.min(24,b.shots.length)} golpes con este palo</div>`:''}
-    </div>`).join('')}
+    </div>`).join('')}`).join('')}
     <button class="btn ghost sm" style="margin-bottom:24px" onclick="toast('Escaneá el código del palo o buscalo por modelo')">
       + Agregar un palo</button>
   </div></div>`;
@@ -2638,7 +2700,7 @@ function vOnboard(){
       <div class="row" style="background:var(--tint);border-radius:12px;padding:11px 13px;margin-bottom:14px">
         <div class="ico" style="background:var(--card)">🏅</div>
         <div style="min-width:0"><div style="font-weight:700;font-size:13px">${CLUB.federacion}</div>
-          <div class="dim2" style="font-size:11px">Tu matrícula y tu index, los mismos que le pasás a Félix</div></div>
+          <div class="dim2" style="font-size:11px">La matrícula es para que el profesional pueda cargar tu tarjeta en la federación sin buscarla. El index lo actualizás vos los jueves.</div></div>
       </div>
       <div class="lbl">Número de matrícula</div>
       <input value="${S.mat||''}" placeholder="Ej. 104738" inputmode="numeric" oninput="S.mat=this.value"
@@ -2673,15 +2735,18 @@ function vOnboard(){
     <p>Marcá los palos que llevás. Cada vez que pegues vas cargando con qué palo y cuánto
     pegaste, y la app arma <b>tus</b> distancias reales.</p>
     <div class="card" style="padding:12px">
-      ${BAG.map((b,i)=>`<div class="item" style="padding:9px 0">
+      ${bagPorGrupo().map(([g,lista])=>`
+        <div class="lbl" style="margin:10px 0 2px">${g}</div>
+        ${lista.map(({b,i})=>`<div class="item" style="padding:9px 0">
         <button class="chip ${b.on?'on':''}" style="width:44px;padding:9px 0;flex:0 0 auto"
           onclick="togBag(${i})">${b.on?'✓':''}</button>
         <div style="flex:1;min-width:0"><div style="font-weight:700;font-size:14px">${b.c} · ${b.name}</div>
           <div class="dim" style="font-size:12px">${b.putter?'Putter':'Media estimada '+b.base+' yds — se corrige con tus golpes'}</div>
-        </div></div>`).join('')}
+        </div></div>`).join('')}`).join('')}
     </div>
     <div class="dim2" style="font-size:11px;margin-bottom:12px">
-      Máximo 14 palos según las reglas. Llevás ${BAG.filter(b=>b.on).length}.</div>
+      Están todos los palos que existen: marcá los tuyos.
+      Las reglas permiten <b>14 como máximo</b> — llevás ${BAG.filter(b=>b.on).length}.</div>
     <button class="btn" onclick="S.onb=6;render()">Continuar</button>
     <button class="btn ghost sm" style="margin-top:8px" onclick="S.onb=6;render()">Lo hago después</button>
     </div></div>`;
@@ -3345,15 +3410,15 @@ function traer(){
 }
 function togBag(i){
   const on=BAG.filter(b=>b.on).length;
-  if(!BAG[i].on && on>=14){toast('Máximo 14 palos');return;}
+  if(!BAG[i].on && on>=14){toast('Ya llevás 14. Sacá uno para poder poner otro');return;}
   BAG[i].on=!BAG[i].on;render();
 }
 function openShot(h){
   S.shotOpen=true;
   const g=gps(h), rec=clubFor(g.mid);
-  S.shotClub=S.shotClub||rec.c;
+  S.shotClub = S.shotClub || (rec ? rec.c : null);
   const b=BAG.find(x=>x.c===S.shotClub);
-  S.shotDist=b&&!b.putter?avg(b):8;
+  S.shotDist = b && !b.putter ? media(b) : 8;
   S.shotRes=S.shotRes||'fw';
   render();
 }
