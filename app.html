@@ -636,6 +636,12 @@ const BAG = [
   {c:'Ch', g:'Otros',    name:'Chipper',      base:35,  n:0,  on:false},
   {c:'Pt', g:'Otros',    name:'Putter',       base:0,   n:0,  on:true, putter:true}
 ];
+/* Cómo se muestra cada palo en los botones chicos. A los wedges los llama todo
+   el mundo por los grados — "el 56", "el 60" — no "el sand" ni "el lob". */
+const ETIQ = {PW:'46°', AW:'50°', GW:'52°', SW:'54°', S6:'56°', LW:'58°', L0:'60°', L4:'64°'};
+const etiq = b => !b ? '?' : (ETIQ[b.c] || b.c);
+const palo = c => BAG.find(b => b.c === c);
+
 const GRUPOS = ['Maderas','Híbridos','Hierros','Wedges','Otros'];
 const bagPorGrupo = () => GRUPOS.map(g => [g, BAG.map((b,i)=>({b,i})).filter(x=>x.b.g===g)])
                                 .filter(([,l]) => l.length);
@@ -1105,8 +1111,8 @@ function shotPanel(h){
       const r=RES.find(x=>x[0]===s2.r)||RES[0];
       return `<div class="item" style="padding:9px 0">
         <div class="ico" style="font-size:13px;font-weight:800">${i+1}</div>
-        <div style="flex:1;min-width:0"><div style="font-weight:700;font-size:14px">${s2.c}
-          <span class="dim" style="font-weight:500"> · ${s2.d} yds</span></div>
+        <div style="flex:1;min-width:0"><div style="font-weight:700;font-size:14px">${etiq(palo(s2.c))}
+          <span class="dim" style="font-weight:500"> · ${s2.d==null?'sin distancia':s2.d+' yds'}</span></div>
           <div class="dim" style="font-size:12px">${r[2]} ${r[1]}</div></div>
         <button class="chip" style="padding:6px 10px" onclick="delShot(${h},${i})">✕</button>
       </div>`}).join('')}</div>`
@@ -1119,17 +1125,22 @@ function shotPanel(h){
     <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px">
       ${BAG.filter(b=>b.on).map(b=>
         `<button class="chip ${S.shotClub===b.c?'on':''}" style="padding:11px 2px;font-size:12px"
-          onclick="pickClub('${b.c}')">${b.c}</button>`).join('')}
+          onclick="pickClub('${b.c}')">${etiq(b)}</button>`).join('')}
     </div>
 
     <div class="lbl" style="margin:16px 0 4px">2 · ¿Cuánto pegaste?</div>
+    ${GPS_REAL ? '' : `<div class="aviso-inline" style="background:var(--tint);border-radius:11px;
+      padding:10px 12px;margin-bottom:10px;font-size:12px" class="dim">
+      Esto es a ojo, y a ojo nadie acierta. Cuando la cancha esté medida, la app va a
+      calcular sola cuánto pegaste y este paso desaparece.
+      Si no tenés idea, tocá <b>No sé cuánto pegué</b>: igual queda anotado el palo.</div>`}
     <div style="text-align:center;margin-bottom:6px">
       <span id="sd" style="font-size:40px;font-weight:800;letter-spacing:-.03em">${S.shotDist}</span>
       <span class="dim" style="font-weight:700"> yds</span>
       ${sel&&!sel.putter
         ? `<div class="dim2" style="font-size:11px">${sel.shots.length
-            ? `tu media con ${sel.c}: ${avg(sel)} yds · ${confianza(sel).txt}`
-            : `todavía no cargaste ningún golpe con ${sel.c}`}</div>`
+            ? `tu media con el ${etiq(sel)}: ${avg(sel)} yds · ${confianza(sel).txt}`
+            : `todavía no cargaste ningún golpe con el ${etiq(sel)}`}</div>`
         : '<div style="height:15px"></div>'}
     </div>
     <input type="range" min="${TIRO_MIN}" max="${TIRO_MAX}" value="${S.shotDist}"
@@ -1147,7 +1158,9 @@ function shotPanel(h){
         onclick="S.shotRes='${k}';render()"><div style="font-size:15px">${i}</div>${l}</button>`).join('')}
     </div>
 
-    <div class="grid2" style="margin-top:14px">
+    <button class="btn ghost sm" style="margin-top:14px" onclick="saveShot(${h},true)">
+      No sé cuánto pegué</button>
+    <div class="grid2" style="margin-top:8px">
       <button class="btn ghost sm" onclick="S.shotOpen=false;render()">Cancelar</button>
       <button class="btn sm" onclick="saveShot(${h})">Guardar golpe</button>
     </div>`
@@ -1174,7 +1187,7 @@ function vPlay(){
   <div style="position:relative">${holeSVG(h)}
     <div style="position:absolute;top:10px;left:14px" class="pill ${GPS_REAL?'':'gold'}">
       ${GPS_REAL?'GPS activo':'Sin GPS todavía'}</div>
-    ${rec?`<div style="position:absolute;top:10px;right:14px" class="pill blue">🎯 ${rec.c}</div>`:''}
+    ${rec?`<div style="position:absolute;top:10px;right:14px" class="pill blue">🎯 ${etiq(rec)}</div>`:''}
   </div>
 
   <div class="pad" style="margin-top:12px">
@@ -1187,17 +1200,17 @@ function vPlay(){
       <div class="sep"></div>
       ${rec ? `<div class="between">
         <div><div class="lbl">Palo sugerido</div>
-          <div style="font-weight:800;font-size:16px">${rec.c}
+          <div style="font-weight:800;font-size:16px">${etiq(rec)}
             <span class="dim" style="font-weight:500;font-size:13px">· ${media(rec)} yds</span></div></div>
         <div style="text-align:right"><div class="lbl">De dónde sale</div>
           <div style="font-weight:700;font-size:13px" class="${confianza(rec).clase}">${confianza(rec).txt}</div></div>
       </div>
       <div style="font-size:12px;margin-top:8px" class="dim">${
         confianza(rec).nivel==='estimado'
-          ? `💡 Todavía no cargaste ningún golpe con ${rec.c}. Por ahora uso la distancia general
+          ? `💡 Todavía no cargaste ningún golpe con el ${etiq(rec)}. Por ahora uso la distancia general
              de ese palo; a medida que cargues, el número pasa a ser el tuyo.`
           : confianza(rec).nivel==='tuyo'
-          ? `💡 Sale de tus ${rec.shots.length} golpes con ${rec.c}. Tu dispersión es de ±${disp(rec)} yds.`
+          ? `💡 Sale de tus ${rec.shots.length} golpes con el ${etiq(rec)}. Tu dispersión es de ±${disp(rec)} yds.`
           : `💡 Todavía es una mezcla entre la distancia general y tus ${rec.shots.length} golpes.
              Con unos cuantos más va a ser sólo tuyo.`}</div>`
       : `<div class="dim" style="font-size:13px">Todavía no armaste la bolsa.
@@ -1430,7 +1443,7 @@ function statBolsa(){
   <div class="card"><h3>Tus distancias reales</h3>
     ${l.map(b=>`<div style="margin-bottom:13px">
       <div class="between" style="font-size:13px;margin-bottom:4px">
-        <span style="font-weight:700">${b.c} <span class="dim2" style="font-weight:500;font-size:11px">${b.shots.length} golpes</span></span>
+        <span style="font-weight:700">${etiq(b)} <span class="dim2" style="font-weight:500;font-size:11px">${b.shots.length} golpes</span></span>
         <span class="mono" style="font-weight:800">${avg(b)} <span class="dim2" style="font-size:11px;font-weight:600">±${disp(b)}</span></span></div>
       <div style="position:relative;height:9px;background:var(--tint);border-radius:99px">
         <div style="position:absolute;left:${Math.max(0,((avg(b)-disp(b))/mx)*100)}%;
@@ -1443,11 +1456,11 @@ function statBolsa(){
 
   <div class="card"><h3>Huecos entre palos</h3>
     ${G.map(x=>`<div class="between" style="padding:8px 0;border-bottom:1px solid var(--hair)">
-      <span style="font-size:13px"><b>${x.a.c}</b> <span class="dim2">→</span> <b>${x.b.c}</b></span>
+      <span style="font-size:13px"><b>${etiq(x.a)}</b> <span class="dim2">→</span> <b>${etiq(x.b)}</b></span>
       <span class="pill ${x.g>=20?'red':x.g<=6?'gold':''}" style="font-size:11px">${x.g} yds</span></div>`).join('')}
     <div class="dim" style="font-size:12px;margin-top:10px">
       ${hueco.length
-        ? `⚠️ Tenés ${hueco.length} hueco${hueco.length>1?'s':''} de 20+ yds (${hueco.map(x=>x.a.c+'–'+x.b.c).join(', ')}). Ahí te quedan golpes "entre palos".`
+        ? `⚠️ Tenés ${hueco.length} hueco${hueco.length>1?'s':''} de 20+ yds (${hueco.map(x=>etiq(x.a)+'–'+etiq(x.b)).join(', ')}). Ahí te quedan golpes "entre palos".`
         : '✅ Tu bolsa está bien escalonada, sin huecos grandes.'}</div>
   </div>
 
@@ -1963,7 +1976,7 @@ function vBag(){
       ${lista.map(({b,i})=>`<div class="card" style="${b.on?'':'opacity:.45'}">
       <div class="between">
         <div style="min-width:0;flex:1">
-          <div style="font-weight:800;font-size:15px">${b.c} · ${b.name}</div>
+          <div style="font-weight:800;font-size:15px">${etiq(b)} · ${b.name}</div>
           <div class="dim" style="font-size:12px">${b.putter?'Putter — no mide distancia'
             :`Media <b class="acc">${avg(b)}</b> yds · mejor ${best(b)} · ±${disp(b)} · ${b.shots.length} golpes`}</div>
         </div>
@@ -2764,7 +2777,7 @@ function vOnboard(){
         ${lista.map(({b,i})=>`<div class="item" style="padding:9px 0">
         <button class="chip ${b.on?'on':''}" style="width:44px;padding:9px 0;flex:0 0 auto"
           onclick="togBag(${i})">${b.on?'✓':''}</button>
-        <div style="flex:1;min-width:0"><div style="font-weight:700;font-size:14px">${b.c} · ${b.name}</div>
+        <div style="flex:1;min-width:0"><div style="font-weight:700;font-size:14px">${etiq(b)} · ${b.name}</div>
           <div class="dim" style="font-size:12px">${b.putter?'Putter':'Media estimada '+b.base+' yds — se corrige con tus golpes'}</div>
         </div></div>`).join('')}`).join('')}
     </div>
@@ -3453,25 +3466,29 @@ function pickClub(c){
   render();
 }
 function nudge(d){S.shotDist=Math.max(TIRO_MIN,Math.min(TIRO_MAX,S.shotDist+d));render();}
-function saveShot(h){
+/* sinDist = el jugador no sabe cuánto pegó. Se anota el palo y el golpe cuenta
+   para la tarjeta, pero NO entra en la media: un número inventado la arruina. */
+function saveShot(h, sinDist){
   if(!S.shotClub){toast('Elegí un palo');return;}
-  const b=BAG.find(x=>x.c===S.shotClub);
+  const b=palo(S.shotClub);
   R.shots[h]=R.shots[h]||[];
-  R.shots[h].push({c:S.shotClub,d:S.shotDist,r:S.shotRes||'fw'});
-  const antes=avg(b);
-  b.shots.push(S.shotDist);
-  const ahora=avg(b);
-  // el score del hoyo se sincroniza con los golpes cargados
+  R.shots[h].push({c:S.shotClub, d: sinDist ? null : S.shotDist, r:S.shotRes||'fw'});
   R.scores[h]=R.shots[h].length; S.playing=true;
   S.shotOpen=false;
-  toast(b.putter ? `Putt cargado · ${R.shots[h].length} golpes en el hoyo`
-    : `${b.c}: tu media pasó de ${antes} a ${ahora} yds (${b.shots.length} golpes)`);
+  if(sinDist || b.putter){
+    toast(b.putter ? `Putt cargado · ${R.shots[h].length} golpes en el hoyo`
+                   : `Golpe con el ${etiq(b)} anotado, sin distancia`);
+  } else {
+    const antes=avg(b);
+    b.shots.push(S.shotDist);
+    toast(`El ${etiq(b)}: tu media pasó de ${antes} a ${avg(b)} yds (${b.shots.length} golpes)`);
+  }
   render();
 }
 function delShot(h,i){
   const s=R.shots[h][i];
-  const b=BAG.find(x=>x.c===s.c);
-  const k=b.shots.lastIndexOf(s.d); if(k>-1)b.shots.splice(k,1);
+  const b=palo(s.c);
+  if(b && s.d!=null){ const k=b.shots.lastIndexOf(s.d); if(k>-1) b.shots.splice(k,1); }
   R.shots[h].splice(i,1);
   if(R.shots[h].length)R.scores[h]=R.shots[h].length; else delete R.scores[h];
   render();
