@@ -157,7 +157,8 @@ const S = {
   certifico:false, firmoLaOtra:false, entregada:false, presento:null, padronEstado:null, hallado:null, codigo:'', email:'', clave:0,
   shotOpen:false, shotClub:null, shotDist:150, shotRes:'fw',
   tee:'mixta', vuelta:18,
-  user:{name:'Mauro Domina', ini:'MD', hcp:7.4, socio:'#1047', club:'Trisquelia Golf Club'},
+  user:{name:'Mauro Domina', ini:'MD', hcp:7.4, socio:'#1047', club:'Trisquelia Golf Club',
+        cat:null},   // 'cab' | 'dam' — categoría de juego, define la salida
   booked:{}, // "07:30": true
 };
 
@@ -398,6 +399,34 @@ const CLUBS_DB = {
        tienen medición oficial. Hoy el que sale de negras anota en el
        casillero de blancas la ida y en el de azules la vuelta. Las yardas
        de abajo son estimaciones que dictó Mauro a ojo, hoyo por hoyo. */
+  /* ===== COORDENADAS REALES DE LA CANCHA =====
+     Medidas por Mauro el 5 de agosto de 2026, promediando 6 segundos de GPS
+     en cada punto. Precisión: ±3 a 4 metros en los 65 puntos.
+     El green es del hoyo físico: sirve para la ida y para la vuelta. */
+  geo:{
+    greens:{
+      1:{f:[-35.6553255,-63.7886862], c:[-35.6553704,-63.7888056], b:[-35.6553784,-63.7888754]},
+      2:{f:[-35.6524197,-63.7878453], c:[-35.652327,-63.7878502], b:[-35.6522395,-63.7878095]},
+      3:{f:[-35.6555625,-63.7907756], c:[-35.6556394,-63.7908129], b:[-35.655714,-63.7908652]},
+      4:{f:[-35.6560352,-63.7888789], c:[-35.6560368,-63.7887724], b:[-35.6560462,-63.7886287]},
+      5:{f:[-35.6561728,-63.7913998], c:[-35.6561758,-63.7915282], b:[-35.6561266,-63.7916231]},
+      6:{f:[-35.6525826,-63.7911159], c:[-35.65247,-63.7911344], b:[-35.652441,-63.7911705]},
+      7:{f:[-35.6556598,-63.7923889], c:[-35.6557645,-63.7923298], b:[-35.6558601,-63.7922348]},
+      8:{f:[-35.65666,-63.7917248], c:[-35.6567108,-63.7916278], b:[-35.6568446,-63.7916228]},
+      9:{f:[-35.6570698,-63.7859637], c:[-35.6571221,-63.7858665], b:[-35.6571956,-63.7858161]}
+    },
+    tees:{
+      1:{blancas:[-35.6562864,-63.785972], azules:[-35.6561875,-63.7858544], negras:[-35.656261,-63.7856323], damas:[-35.6561668,-63.7861747]},
+      2:{blancas:[-35.6551456,-63.7889944], azules:[-35.655296,-63.7891336], negras:[-35.6554744,-63.7892174], damas:[-35.655039,-63.7889193]},
+      3:{blancas:[-35.652074,-63.7882142], azules:[-35.6521148,-63.7883779], negras:[-35.6519766,-63.7881264], damas:[-35.6525661,-63.7883221]},
+      4:{blancas:[-35.6558055,-63.7903395], azules:[-35.6557431,-63.7900415], negras:[-35.6558305,-63.7905235], negras2:[-35.6556273,-63.7901857], damas:[-35.6559483,-63.7899522]},
+      5:{blancas:[-35.6565743,-63.7885834], azules:[-35.6566122,-63.7884176], negras:[-35.6566284,-63.7881043], damas:[-35.6565461,-63.7886803]},
+      6:{blancas:[-35.6557828,-63.7916576], azules:[-35.6556799,-63.7914346], negras:[-35.655836,-63.7916149], damas:[-35.6553186,-63.7913762]},
+      7:{blancas:[-35.6525011,-63.7916217], azules:[-35.6523598,-63.7916095], negras:[-35.6522584,-63.7916125], damas:[-35.652655,-63.7916583]},
+      8:{blancas:[-35.6560554,-63.7925974], azules:[-35.6561364,-63.7925789], negras:[-35.6560163,-63.7925965], damas:[-35.6561409,-63.7925211]},
+      9:{blancas:[-35.6569447,-63.7908567], azules:[-35.6568213,-63.7897933], negras:[-35.6569433,-63.7911999], negras2:[-35.6570488,-63.790056], damas:[-35.6568774,-63.7906294]}
+    }
+  },
     tees:[
       /* NEGRAS · SIN NINGÚN NÚMERO CONFIABLE, y por eso van vacías.
          Hay dos cifras dando vueltas y las dos están mal:
@@ -408,10 +437,15 @@ const CLUBS_DB = {
          que la app diga "sin medir" a que muestre una distancia inventada.
          Se juega igual desde negras; lo que no hay es yardaje ni handicap de cancha.
          Único dato firme: UN SOLO tee por hoyo salvo el 4/13 y el 9/18. */
-      {id:'negras', n:'Negras', c:'#1a1a1a', r:null, s:null, sinMedir:true,
-       y:null,
+      /* NEGRAS · yardas medidas con GPS el 5/8/2026, porque no existe medición
+         oficial: no están en la tarjeta y la recategorización todavía no salió.
+         Ojo: son en línea recta desde donde estaban las marcas ese día, así que
+         no son comparables con las yardas de tarjeta de las otras salidas.
+         Rating y slope siguen sin existir, así que no hay handicap de cancha. */
+      {id:'negras', n:'Negras', c:'#1a1a1a', r:null, s:null, medidoGPS:true,
+       y:[332,406,519,175,343,412,432,128,527, 332,406,519,148,343,412,432,128,414],
        mismoTee:[true,true,true,false,true,true,true,true,false],
-       nota:'Todavía sin medir. Se cargan con la recategorización.'},
+       nota:'Medidas con GPS, todavía sin homologar'},
       /* OFICIAL. Sale de la tabla del club "Sistema de Handicap Mundial ·
          439 Trisquelia Golf Club · Cat: Caballeros · Tee: Azul · Par 71".
          Con estos dos números la fórmula del WHS reproduce esa tabla fila por fila. */
@@ -419,8 +453,11 @@ const CLUBS_DB = {
        r:70.0, s:126,
        y:[335,366,525,175,320,415,405,131,506, 338,395,520,156,330,395,435,121,406],
        nota:'Ida por blancas (1 al 9), vuelta por azules (10 al 18)'},
-      /* DAMAS · todavía estimado. Falta la tabla de damas del club. */
+      /* DAMAS · rating y slope todavía estimados: falta la tabla de damas del club.
+         Las yardas sí son las de la tarjeta. El 9/18 tiene dos tees: en el 18 las
+         rojas están 16 pasos adelante de las azules (406 − 16 = 390). */
       {id:'damas',  n:'Damas', c:'#ef4444', r:71.5, s:120, ratingProvisorio:true,
+       mismoTee:[true,true,true,true,true,true,true,true,false],
        y:[316,354,459,120,290,383,385,110,450, 316,354,459,120,290,383,385,110,390],
        nota:'Mismo tee de ida y de vuelta'}
     ],
@@ -874,7 +911,10 @@ function clubFor(d){
    en vez de inventar dónde estás parado, la app usa lo único que sabe de
    verdad: el largo del hoyo según la tarjeta, menos lo que ya pegaste.
    Cuando esté el trazado, va a salir de tu posición real. */
-const GPS_REAL = false;
+/* Ya tenemos las coordenadas de los 9 greens y de todas las salidas, medidas
+   en cancha. Desde acá la app mide de verdad: distancia en línea recta desde
+   donde está parado el jugador hasta el frente, el centro y el fondo del green. */
+const GPS_REAL = true;
 
 /* Tope de la barra para cargar un golpe. Un drive con rodada y viento a favor
    pasa los 300 tranquilamente, así que 300 quedaba corto. */
@@ -889,20 +929,64 @@ const CLIMA = {temp:null, ic:'', dir:'', kmh:null};
    Es un dato que siempre es cierto porque lo pone una persona, no se deduce
    de cuánta gente usa la app. */
 const CANCHA_ESTADO = {abierta:true, nota:'', porQuien:null, desde:null};
-const PROF_GREEN = 12;          // profundidad estimada del green, en yardas
+const PROF_GREEN = 12;          // sólo se usa si no hay GPS ni coordenadas
+
+/* ---------- dónde está el jugador ---------- */
+let POS = null;                 // {lat, lon, acc} o null si todavía no enganchó
+let POS_ERR = null;
+function arrancarGPS(){
+  if(!navigator.geolocation){ POS_ERR='Este teléfono no tiene GPS.'; return; }
+  navigator.geolocation.watchPosition(
+    p => { POS = {lat:p.coords.latitude, lon:p.coords.longitude, acc:p.coords.accuracy};
+           POS_ERR = null;
+           if(S.tab==='play' && S.onboarded) pintarDistancias(); },
+    e => { POS_ERR = e.code===1 ? 'No diste permiso de ubicación.'
+                   : e.code===2 ? 'Sin señal. Salí a cielo abierto.'
+                   : 'El GPS tardó demasiado.';
+           if(S.tab==='play' && S.onboarded) pintarDistancias(); },
+    {enableHighAccuracy:true, maximumAge:2000, timeout:15000});
+}
+/* metros entre dos coordenadas */
+function metros(a,b){
+  const R_=6371000, f1=a[0]*Math.PI/180, f2=b[0]*Math.PI/180;
+  const df=(b[0]-a[0])*Math.PI/180, dl=(b[1]-a[1])*Math.PI/180;
+  const x=Math.sin(df/2)**2+Math.cos(f1)*Math.cos(f2)*Math.sin(dl/2)**2;
+  return 2*R_*Math.atan2(Math.sqrt(x),Math.sqrt(1-x));
+}
+const aYardas = m => Math.round(m*1.09361);
+const greenDe = h => CLUB.geo && CLUB.geo.greens[CLUB.fisico[h-1]];
+
+/* Distancia al green.
+   Con GPS enganchado: medida real desde donde estás.
+   Sin GPS: se estima con el largo del hoyo menos lo que llevás pegado. */
 function gps(h){
+  const g = greenDe(h);
+  if(GPS_REAL && POS && g){
+    const p=[POS.lat,POS.lon];
+    return {front:aYardas(metros(p,g.f)), mid:aYardas(metros(p,g.c)),
+            back:aYardas(metros(p,g.b)), real:true, acc:Math.round(POS.acc),
+            desdeTee:!(R.shots[h]||[]).length, dados:0};
+  }
   const largo = yards(h);
   const dados = (R.shots[h]||[]).reduce((a,x)=>{
     const b = BAG.find(z=>z.c===x.c);
     return a + ((b && b.putter) || x.d==null ? 0 : x.d);
   }, 0);
-  // Salida sin medir: no hay de dónde sacar la distancia. Lo decimos.
   if(largo==null) return {front:null, mid:null, back:null, sinMedir:true,
                           desdeTee:dados===0, dados};
   const centro = Math.max(0, largo - dados);
   const prof = par(h)===3 ? 9 : PROF_GREEN;
   return {front: Math.max(0,centro-prof), mid: centro, back: centro+prof,
-          desdeTee: dados===0, dados};
+          desdeTee: dados===0, dados, esperandoGPS: GPS_REAL && !POS};
+}
+/* Refresca sólo los tres números, sin redibujar la pantalla entera:
+   el GPS avisa una vez por segundo y no queremos que parpadee todo. */
+function pintarDistancias(){
+  const g = gps(S.hole);
+  const set=(id,v)=>{const e=document.getElementById(id); if(e) e.textContent = v ?? '—';};
+  set('dFront',g.front); set('dMid',g.mid); set('dBack',g.back);
+  const e=document.getElementById('gpsPill');
+  if(e) e.textContent = g.real ? `GPS ±${g.acc} m` : (POS_ERR || 'Buscando señal…');
 }
 /* qué palo tiene sentido: en la salida de un par 4 o 5, el más largo que
    tengas; en el resto, el que más se acerque a lo que falta. */
@@ -1230,22 +1314,25 @@ function vPlay(){
     Ver la tarjeta completa</button></div>
 
   <div style="position:relative">${holeSVG(h)}
-    <div style="position:absolute;top:10px;left:14px" class="pill ${GPS_REAL?'':'gold'}">
-      ${GPS_REAL?'GPS activo':'Sin GPS todavía'}</div>
+    <div style="position:absolute;top:10px;left:14px" class="pill ${g.real?'':'gold'}" id="gpsPill">
+      ${g.real ? `GPS ±${g.acc} m` : (POS_ERR || 'Buscando señal…')}</div>
     ${rec?`<div style="position:absolute;top:10px;right:14px" class="pill blue">🎯 ${etiq(rec)}</div>`:''}
   </div>
 
   <div class="pad" style="margin-top:12px">
     <div class="card">
       <div class="grid3">
-        <div class="dist"><div class="lbl">Frente</div><div class="n">${g.front ?? '—'}</div></div>
-        <div class="dist"><div class="lbl">Centro</div><div class="n mid">${g.mid ?? '—'}</div></div>
-        <div class="dist"><div class="lbl">Fondo</div><div class="n">${g.back ?? '—'}</div></div>
+        <div class="dist"><div class="lbl">Frente</div><div class="n" id="dFront">${g.front ?? '—'}</div></div>
+        <div class="dist"><div class="lbl">Centro</div><div class="n mid" id="dMid">${g.mid ?? '—'}</div></div>
+        <div class="dist"><div class="lbl">Fondo</div><div class="n" id="dBack">${g.back ?? '—'}</div></div>
       </div>
-      ${g.sinMedir?`<div class="aviso-tee" style="background:var(--tint);border-radius:11px;
+      ${g.esperandoGPS?`<div style="background:var(--tint);border-radius:11px;
         padding:10px 12px;margin-top:10px;font-size:12px" class="dim">
-        Las <b style="color:var(--txt)">negras todavía no están medidas</b>. Podés jugar y anotar
-        igual, pero no hay distancias hasta que salga la recategorización.</div>`:''}
+        Buscando el GPS. Mientras tanto te muestro una estimación con el largo del hoyo.
+        En cuanto enganche, los números pasan a ser tu distancia real.</div>`:''}
+      ${g.sinMedir?`<div style="background:var(--tint);border-radius:11px;
+        padding:10px 12px;margin-top:10px;font-size:12px" class="dim">
+        Sin distancias en este hoyo: falta la medición y el GPS todavía no enganchó.</div>`:''}
       <div class="sep"></div>
       ${rec ? `<div class="between">
         <div><div class="lbl">Palo sugerido</div>
@@ -2785,6 +2872,13 @@ function vOnboard(){
         <div style="min-width:0"><div style="font-weight:700;font-size:13px">${CLUB.federacion}</div>
           <div class="dim2" style="font-size:11px">La matrícula es para que el profesional pueda cargar tu tarjeta en la federación sin buscarla. El index lo actualizás vos los jueves.</div></div>
       </div>
+      <div class="lbl">Desde qué salidas jugás</div>
+      <div class="grid2" style="margin-top:7px;margin-bottom:16px">
+        <button class="chip ${S.user.cat==='cab'?'on':''}" style="padding:14px 6px;font-size:14px"
+          onclick="setCat('cab')">Caballeros</button>
+        <button class="chip ${S.user.cat==='dam'?'on':''}" style="padding:14px 6px;font-size:14px"
+          onclick="setCat('dam')">Damas</button>
+      </div>
       <div class="lbl">Número de matrícula</div>
       <input value="${S.mat||''}" placeholder="Ej. 104738" inputmode="numeric" oninput="S.mat=this.value"
         style="width:100%;margin-top:7px;padding:14px;border-radius:12px;background:var(--nav);
@@ -2795,12 +2889,23 @@ function vOnboard(){
         border:1px solid var(--line);color:var(--txt);font-family:inherit;font-size:16px;font-weight:700">
       ${S.fedOk?`
       <div class="sep"></div>
-      <div class="row" style="background:var(--tint);border-radius:12px;padding:12px">
-        <div class="ico">🏌️</div><div>
-        <div style="font-weight:700">Index ${verIndex(S.user.hcp)} · salís ${verHcp(hcpCancha(S.user.hcp))} de blancas/azules</div>
-        <div class="dim" style="font-size:12px">Damas ${verHcp(hcpCancha(S.user.hcp,CLUB.tees[2]))} ·
-          negras todavía sin rating</div></div>
-      </div>`:''}
+      ${(()=>{ const sal=salidaPorIndex(S.user.hcp, S.user.cat); if(!sal) return '';
+        const tSal=teePorId(sal.tee), tHcp=teePorId(sal.hcpCon);
+        return `<div style="background:var(--tint);border-radius:12px;padding:14px">
+        <div class="row" style="align-items:flex-start"><div class="ico">${bolita(tSal)}</div>
+        <div style="min-width:0">
+          <div style="font-weight:800;font-size:15px">Salís de ${tSal.n.toLowerCase()}</div>
+          <div class="dim" style="font-size:12px">${sal.por}</div>
+        </div></div>
+        <div class="sep"></div>
+        <div class="between">
+          <div><div class="lbl">Tu index</div>
+            <div style="font-weight:800;font-size:19px">${verIndex(S.user.hcp)}</div></div>
+          <div style="text-align:right"><div class="lbl">Handicap de cancha</div>
+            <div class="big acc" style="font-size:30px">${verHcp(hcpCancha(S.user.hcp, tHcp))}</div></div>
+        </div>
+        ${sal.aviso?`<div class="dim2" style="font-size:11px;margin-top:9px;line-height:1.5">${sal.aviso}</div>`:''}
+      </div>`;})()}`:''}
       <button class="btn ${S.fedOk?'ghost':''} sm" style="margin-top:12px" onclick="traer()">
         ${S.fedOk?'Corregir':'Guardar mi handicap'}</button>
     </div>
@@ -3523,6 +3628,29 @@ function cambioClima(motivo){
   render();
 }
 function limpiarCambio(){ CLUB.torneo.cambio=null; render(); }
+/* De qué salida le toca jugar a cada uno.
+   Damas: rojas siempre, sin mirar el index.
+   Caballeros: hasta 10.3 de index van de negras; de 10.4 en adelante, blancas/azules.
+   El corte en 10.3 no es caprichoso: es el último index que juega con 10 de cancha.
+
+   Ojo con las negras: no tienen rating ni slope, así que no existe un handicap
+   "de negras". El club ya lo resuelve así — el que sale de negras anota en el
+   casillero de blancas a la ida y de azules a la vuelta. La app hace lo mismo:
+   te manda a negras pero te da el handicap de la tabla de blancas/azules. */
+const CORTE_NEGRAS = 10.3;
+function salidaPorIndex(idx, cat){
+  if(cat === 'dam') return {tee:'damas', hcpCon:'damas',
+    por:'En damas se juega siempre de rojas.'};
+  if(idx == null)   return null;
+  if(idx <= CORTE_NEGRAS) return {tee:'negras', hcpCon:'mixta',
+    por:`Con index hasta ${CORTE_NEGRAS} te corresponden las negras.`,
+    aviso:'Las negras todavía no están homologadas, así que tu handicap sale de la '
+        + 'tabla de blancas/azules. Es lo mismo que hacés hoy en la tarjeta de papel.'};
+  return {tee:'mixta', hcpCon:'mixta',
+    por:`Con index de ${(CORTE_NEGRAS+0.1).toFixed(1)} en adelante, blancas y azules.`};
+}
+const teePorId = id => CLUB.tees.find(t=>t.id===id);
+
 /* El index del Sistema Mundial va de +5.0 (los que dan ventaja) a 54.0.
    Los "más" se escriben con el signo adelante y por dentro son negativos:
    un +2.3 resta golpes en vez de sumarlos. */
@@ -3545,12 +3673,16 @@ const verHcp = v => v==null ? '—' : (v<0 ? '+'+Math.abs(v) : String(v));
 function traer(){
   if(!S.mat||S.mat.length<4){toast('Cargá tu número de matrícula');return;}
   if(S.fedOk){ S.fedOk=false; render(); return; }          // el botón "Corregir"
+  if(!S.user.cat){ toast('Elegí desde qué salidas jugás'); return; }
   const idx = leerIndex(S.hcpIn);
   if(idx===null){ toast('Poné tu index. Va de +5.0 a 54.0'); return; }
   S.user.hcp = idx; S.indexDias = 0; S.fedOk = true;
-  toast(`Index ${verIndex(idx)} guardado · salís ${verHcp(hcpCancha(idx))} de blancas/azules`);
+  const sal = salidaPorIndex(idx, S.user.cat);
+  S.tee = sal.tee;
+  toast(`Salís de ${teePorId(sal.tee).n.toLowerCase()} con ${verHcp(hcpCancha(idx, teePorId(sal.hcpCon)))} de cancha`);
   render();
 }
+function setCat(c){ S.user.cat = c; if(S.fedOk) S.fedOk=false; render(); }
 /* El estado de la cancha lo carga una persona, no se deduce de nada.
    Queda registrado quién lo cambió y cuándo. */
 function setCancha(abierta){
@@ -3634,6 +3766,7 @@ function render(){
   $('#screen').innerHTML = (VIEWS[S.tab]||vHome)();
   renderNav();
 }
+arrancarGPS();
 applyTheme();
 document.getElementById('appname').textContent = CLUB.app;
 render();
