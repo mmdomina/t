@@ -564,12 +564,20 @@ const PADRON = [
   {dni:'20456789', n:'Socio Sin Mail', socio:'0455', alta:2009, cuenta:null,
    mail:null, tel:null}
 ];
-/* En el prototipo, cualquier DNI válido que no sea uno de los casos de
-   prueba entra como Mauro, para que se pueda seguir probando la app.
-   En la app de verdad esto lo resuelve el padrón real. */
+/* MIENTRAS NO HAYA SERVIDOR.
+   El padrón real tiene 123 socios, pero no puede vivir acá adentro: este archivo
+   es público y estaríamos publicando los datos de todo el club en internet.
+   Así que cualquier DNI válido entra como "socio de prueba" y la persona escribe
+   su propio nombre, para que vea el suyo y no el de otro mientras prueba.
+   Cuando esté el servidor, esta función consulta el padrón de verdad y el código
+   de verificación sale al contacto que el club ya tiene. */
 function buscarEnPadron(d){
   const n = String(d).replace(/\D/g,'');
-  return PADRON.find(x=>x.dni===n) || (n.length>=7 ? PADRON[0] : null);
+  const real = PADRON.find(x=>x.dni===n);
+  if(real) return real;
+  if(n.length < 7) return null;
+  return {dni:n, n:null, socio:'—', alta:'—', cuenta:null,
+          mail:'prueba@trisquelia.com', tel:null, deMentira:true};
 }
 function tapar(m){
   if(!m) return '';
@@ -2772,7 +2780,21 @@ function vOnboard(){
         ¿No te llega? Puede que el club tenga otro mail tuyo.
         <a href="#" onclick="S.padronEstado='sincontacto';render();return false" style="color:var(--acc)">Pedir habilitación</a>.</div>`:''}
 
-      ${est==='verificado'?`
+      ${est==='verificado'? (p.deMentira ? `
+      <div class="sep"></div>
+      <div class="card" style="background:#3a3117;border-color:#5c4a1f;margin:0">
+        <div style="font-weight:700;font-size:13px" class="gold">Modo prueba</div>
+        <div class="dim" style="font-size:12px;margin-top:3px;line-height:1.5">
+          Todavía no está conectado el padrón del club, así que no podemos confirmar
+          quién sos. Escribí tu nombre y seguimos: es sólo para que veas el tuyo
+          mientras probás.</div>
+      </div>
+      <input value="${S.nombrePrueba||''}" placeholder="Nombre y apellido"
+        oninput="S.nombrePrueba=this.value"
+        style="width:100%;margin-top:11px;padding:14px;border-radius:12px;background:var(--nav);
+        border:1px solid var(--line);color:var(--txt);font-family:inherit;font-size:15px">
+      <button class="btn sm" style="margin-top:11px" onclick="usarNombrePrueba()">Continuar</button>`
+      : `
       <div class="sep"></div>
       <div class="row" style="background:var(--tint);border-radius:12px;padding:13px">
         <div class="avatar">${p.n.split(' ').map(x=>x[0]).join('').slice(0,2)}</div>
@@ -2780,7 +2802,7 @@ function vOnboard(){
         <div class="dim" style="font-size:12px">Socio #${p.socio} · alta ${p.alta}</div>
         <div class="acc" style="font-size:11px;font-weight:700">✓ Identidad verificada</div></div>
       </div>
-      <button class="btn sm" style="margin-top:12px" onclick="S.onb=3;render()">Continuar</button>`:''}
+      <button class="btn sm" style="margin-top:12px" onclick="S.onb=3;render()">Continuar</button>`):''}
 
       ${est==='usado'?`
       <div class="sep"></div>
@@ -3607,6 +3629,15 @@ function crearCuenta(){
   // el DNI queda tomado: nadie más puede registrarse con él
   if(S.hallado) S.hallado.cuenta = S.email;
   S.onb=4; render(); toast('Cuenta creada · te mandamos un mail de confirmación');
+}
+/* En modo prueba la persona escribe su nombre, así ve el suyo y no el de otro. */
+function usarNombrePrueba(){
+  const n = (S.nombrePrueba||'').trim();
+  if(n.length < 3){ toast('Escribí tu nombre para seguir'); return; }
+  S.hallado.n = n;
+  S.user.name = n;
+  S.user.ini  = n.split(/\s+/).map(x=>x[0]).join('').slice(0,2).toUpperCase();
+  S.onb=3; render();
 }
 function skipOnb(){S.onboarded=true;S.tab='home';render();}
 function actualizarIndex(){
