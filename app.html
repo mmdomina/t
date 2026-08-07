@@ -3002,6 +3002,16 @@ function vMe(){
         <span></span><span style="display:flex;gap:14px"><span>socio</span><span style="min-width:64px;text-align:right">invitado</span></span></div>
     </div>
 
+    <div class="card" style="border-color:#5c4a1f">
+      <div class="row" style="align-items:flex-start"><div class="ico">🧪</div>
+      <div style="min-width:0">
+        <div style="font-weight:700;font-size:13px">Estás probando la app</div>
+        <div class="dim" style="font-size:12px">Todo lo que cargues se guarda en este teléfono
+        y no sale a ningún lado. Todavía no hay servidor: a Félix no le llega nada.</div></div></div>
+      <button class="btn ghost sm" style="margin-top:11px" onclick="borrarTodoLocal()">
+        Borrar todo y empezar de nuevo</button>
+    </div>
+
     ${esSocio()?`<div class="card modeban">
       <div style="font-weight:700">Panel del club</div>
       <div class="dim" style="font-size:12px">Tenés acceso de administrador.</div>
@@ -3755,7 +3765,75 @@ function book(t){if(FULL().includes(t))return;
 const VIEWS={home:vHome,play:vPlay,stats:vStats,club:vClub,social:vSocial,me:vMe,
              notif:vNotif,summary:vSummary,bag:vBag,handicap:vHandicap,firma:vFirma,arranque:vArranque,tarjeta:vTarjeta,
              dash:vDash,tees:vTees,socios:vSocios,torneo:vTorneo,permisos:vPermisos,cargaaag:vCargaAAG};
+/* ============================================================
+   GUARDADO
+   Todo vive en la memoria del navegador, y una vuelta dura cuatro horas.
+   Si el teléfono bloquea la pantalla, Android puede recargar la pestaña y
+   llevarse la ronda entera. Por eso guardamos en el propio teléfono después
+   de cada cambio, y al abrir la app recuperamos donde estabas.
+   No sale nada del teléfono: esto no es el servidor, es la libreta de bolsillo.
+   ============================================================ */
+/* El navegador que va adentro de WhatsApp o Instagram no da acceso al GPS y
+   no deja instalar la app en la pantalla del teléfono. Si alguien llega por ahí
+   —y va a pasar, porque el link se comparte por WhatsApp— se lo decimos en vez
+   de dejarlo peleando con una app a medias. */
+const EN_OTRA_APP = /FBAN|FBAV|FB_IAB|Instagram|WhatsApp|Line\/|MicroMessenger|; wv\)/i
+                    .test(navigator.userAgent || '');
+
+const LS_KEY = 'trisquelia_v1';
+const GUARDAR = ['user','tee','cat','mat','hcpIn','fedOk','onboarded','tipo','dni','nsocio',
+                 'email','indexDias','hole','vuelta','playing','torneo','marco','meMarca',
+                 'certifico','firmoLaOtra','entregada','presento','booked','soloSeguir'];
+function guardarTodo(){
+  try{
+    const d = {v:1, ts:Date.now(), R:{scores:R.scores,putts:R.putts,fw:R.fw,gir:R.gir,shots:R.shots},
+               bag:BAG.map(b=>({c:b.c,on:b.on,shots:b.shots})), cancha:CANCHA_ESTADO};
+    GUARDAR.forEach(k=> d[k]=S[k]);
+    localStorage.setItem(LS_KEY, JSON.stringify(d));
+  }catch(e){ /* sin espacio o modo incógnito: seguimos igual, sin guardar */ }
+}
+function cargarTodo(){
+  try{
+    const d = JSON.parse(localStorage.getItem(LS_KEY) || 'null');
+    if(!d || d.v !== 1) return false;
+    GUARDAR.forEach(k=>{ if(d[k]!==undefined) S[k]=d[k]; });
+    if(d.R) Object.keys(R).forEach(k=>{ if(d.R[k]) R[k]=d.R[k]; });
+    if(d.bag) d.bag.forEach(x=>{ const b=BAG.find(z=>z.c===x.c);
+      if(b){ b.on=x.on; if(Array.isArray(x.shots)) b.shots=x.shots; } });
+    if(d.cancha) Object.assign(CANCHA_ESTADO, d.cancha);
+    return true;
+  }catch(e){ return false; }
+}
+/* Para volver a empezar de cero durante las pruebas. */
+function borrarTodoLocal(){
+  if(!confirm('Esto borra tu cuenta y la ronda de este teléfono. ¿Seguro?')) return;
+  try{ localStorage.removeItem(LS_KEY); }catch(e){}
+  location.reload();
+}
+
 function render(){
+  guardarTodo();
+  if(EN_OTRA_APP && !S.avisoVisto){
+    $('#screen').innerHTML = `<div class="fade" style="height:100%;display:flex;
+      flex-direction:column;justify-content:center;padding:0 26px;text-align:center">
+      <div style="display:flex;justify-content:center">${crest(64)}</div>
+      <div style="font-size:20px;font-weight:800;margin:20px 0 10px">Abrila en el navegador</div>
+      <p style="font-size:15px;line-height:1.6">Llegaste desde WhatsApp, y ese navegador
+      no deja usar el GPS ni guardar la app en tu teléfono.</p>
+      <div class="card" style="text-align:left">
+        <div style="font-weight:700;font-size:14px;margin-bottom:8px">Son dos toques</div>
+        <div class="dim" style="font-size:13px;line-height:1.7">
+          <b style="color:var(--txt)">1.</b> Tocá los tres puntitos <b style="color:var(--txt)">⋮</b>
+          arriba a la derecha<br>
+          <b style="color:var(--txt)">2.</b> Elegí <b style="color:var(--txt)">"Abrir en Chrome"</b>
+        </div>
+      </div>
+      <button class="btn ghost sm" onclick="S.avisoVisto=true;render()">
+        Seguir igual, sin GPS</button>
+    </div>`;
+    $('#nav').style.display='none';
+    return;
+  }
   if(!S.onboarded){
     $('#screen').innerHTML = vOnboard();
     $('#nav').style.display='none';
@@ -3766,6 +3844,7 @@ function render(){
   $('#screen').innerHTML = (VIEWS[S.tab]||vHome)();
   renderNav();
 }
+cargarTodo();
 arrancarGPS();
 applyTheme();
 document.getElementById('appname').textContent = CLUB.app;
