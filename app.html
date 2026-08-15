@@ -2062,16 +2062,52 @@ function vHandicap(){
     <div class="card" style="background:linear-gradient(135deg,var(--tint),var(--card));border-color:${indexViejo()?'var(--gold)':'var(--acc2)'}">
       <div class="between">
         <div><div class="lbl">Handicap index</div>
-          <div class="big acc">${idx}</div>
-          <div class="dim" style="font-size:12px">Actualizado hace ${diasIndex()} día${diasIndex()===1?'':'s'}</div></div>
+          <div class="big acc">${verIndex(idx)}</div>
+          <div class="dim" style="font-size:12px">${idx==null?'Todavía no lo cargaste'
+            :'Actualizado hace '+diasIndex()+' día'+(diasIndex()===1?'':'s')}</div></div>
         <div style="text-align:right"><div class="lbl">Matrícula</div>
-          <div style="font-weight:700">104738</div></div>
+          <div style="font-weight:700">${S.mat||'—'}</div></div>
       </div>
       ${indexViejo()?`<div style="margin-top:12px;background:#3a3117;border:1px solid #5c4a1f;border-radius:11px;padding:10px 12px">
         <div style="font-size:12px;font-weight:700" class="gold">El handicap cambió el jueves</div>
-        <div class="dim" style="font-size:11px">Entrá a la federación, mirá el tuyo y actualizalo acá.</div></div>`:''}
-      <button class="btn sm" style="margin-top:12px" onclick="actualizarIndex()">Actualizar mi index</button>
+        <div class="dim" style="font-size:11px">Entrá a la federación, mirá el tuyo y actualizalo acá abajo.</div></div>`:''}
+
+      <div class="sep"></div>
+      ${S.editHcp ? `
+      <div class="lbl">Desde qué salidas jugás</div>
+      <div class="grid2" style="margin:7px 0 14px">
+        <button class="chip ${S.user.cat==='cab'?'on':''}" style="padding:13px 6px;font-size:14px"
+          onclick="setCat('cab')">Caballeros</button>
+        <button class="chip ${S.user.cat==='dam'?'on':''}" style="padding:13px 6px;font-size:14px"
+          onclick="setCat('dam')">Damas</button>
+      </div>
+      <div class="lbl">Tu index de hoy</div>
+      <input value="${S.hcpIn ?? (idx!=null?verIndex(idx):'')}" inputmode="decimal"
+        placeholder="Ej. 7.4 · los &quot;más&quot; van así: +2.3" oninput="S.hcpIn=this.value"
+        style="width:100%;margin:7px 0 4px;padding:14px;border-radius:12px;background:var(--nav);
+        border:1px solid var(--line);color:var(--txt);font-family:inherit;font-size:17px;font-weight:800">
+      <div class="dim2" style="font-size:11px;margin-bottom:11px">
+        Va de +5.0 a 54.0. Lo mirás en la federación y lo copiás acá.</div>
+      <div class="grid2">
+        <button class="btn ghost sm" onclick="S.editHcp=false;S.hcpIn=null;render()">Cancelar</button>
+        <button class="btn sm" onclick="guardarIndex()">Guardar</button>
+      </div>`
+      : `<button class="btn sm" onclick="S.editHcp=true;S.hcpIn=null;render()">
+          ${idx==null?'Cargar mi index':'Cambiar mi index'}</button>`}
     </div>
+
+    ${(()=>{ const sal=salidaPorIndex(idx, S.user.cat); if(!sal) return '';
+      const tSal=teePorId(sal.tee), tHcp=teePorId(sal.hcpCon);
+      return `<div class="card">
+        <div class="row" style="align-items:flex-start"><div class="ico">${bolita(tSal)}</div>
+        <div style="min-width:0;flex:1">
+          <div style="font-weight:800;font-size:15px">Te toca salir de ${tSal.n.toLowerCase()}</div>
+          <div class="dim" style="font-size:12px">${sal.por}</div></div>
+        <div style="text-align:right"><div class="lbl">Cancha</div>
+          <div class="big acc" style="font-size:28px">${verHcp(hcpCancha(idx,tHcp))}</div></div>
+        </div>
+        ${sal.aviso?`<div class="dim2" style="font-size:11px;margin-top:9px;line-height:1.5">${sal.aviso}</div>`:''}
+      </div>`;})()}
 
     <h3>Tu handicap de cancha en Trisquelia</h3>
     <div class="card" style="padding:12px">
@@ -3640,10 +3676,22 @@ function usarNombrePrueba(){
   S.onb=3; render();
 }
 function skipOnb(){S.onboarded=true;S.tab='home';render();}
-function actualizarIndex(){
-  S.indexDias=0; S.chequeoRonda=true; render();
-  toast(`Index actualizado · salís ${verHcp(hcpCancha(S.user.hcp))} de ${tee().n.toLowerCase()}`);
+/* Cambiar el index desde adentro de la app. Es lo que hay que hacer cada jueves,
+   así que tiene que estar a mano y no escondido en el registro. */
+function guardarIndex(){
+  if(!S.user.cat){ toast('Elegí desde qué salidas jugás'); return; }
+  const idx = leerIndex(S.hcpIn);
+  if(idx===null){ toast('Poné tu index. Va de +5.0 a 54.0'); return; }
+  const antes = S.user.hcp;
+  S.user.hcp = idx; S.indexDias = 0; S.chequeoRonda = true; S.editHcp = false; S.hcpIn = null;
+  const sal = salidaPorIndex(idx, S.user.cat);
+  S.tee = sal.tee;
+  const hc = verHcp(hcpCancha(idx, teePorId(sal.hcpCon)));
+  toast(antes===idx ? `Index confirmado · seguís con ${hc} de cancha`
+                    : `Index ${verIndex(idx)} · ahora salís de ${teePorId(sal.tee).n.toLowerCase()} con ${hc}`);
+  render();
 }
+function actualizarIndex(){ S.editHcp=true; S.hcpIn=null; render(); }
 function avisar(t){ toast(`📣 "${t}" enviado a los ${CLUB.socios} socios`); }
 function publicarResultados(){
   toast(S.resultadosPublicos
@@ -3682,7 +3730,8 @@ const CORTE_NEGRAS = 10.3;
 function salidaPorIndex(idx, cat){
   if(cat === 'dam') return {tee:'damas', hcpCon:'damas',
     por:'En damas se juega siempre de rojas.'};
-  if(idx == null)   return null;
+  // sin categoría no suponemos nada: la regla arranca distinto para cada una
+  if(cat !== 'cab' || idx == null) return null;
   if(idx <= CORTE_NEGRAS) return {tee:'negras', hcpCon:'mixta',
     por:`Con index hasta ${CORTE_NEGRAS} te corresponden las negras.`,
     aviso:'Las negras todavía no están homologadas, así que tu handicap sale de la '
