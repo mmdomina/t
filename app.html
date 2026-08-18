@@ -155,7 +155,7 @@ const S = {
   meMarca:2,            // quién lleva la mía
   torneo:true,          // en torneo la tarjeta se cruza y se firma
   certifico:false, firmoLaOtra:false, entregada:false, presento:null, padronEstado:null, hallado:null, codigo:'', email:'', clave:0,
-  shotOpen:false, shotClub:null, shotDist:150, shotRes:'fw',
+  shotOpen:false, cerrando:false,
   tee:'mixta', vuelta:18,
   user:{name:'Mauro Domina', ini:'MD', hcp:7.4, socio:'#1047', club:'Trisquelia Golf Club',
         cat:null},   // 'cab' | 'dam' — categoría de juego, define la salida
@@ -649,7 +649,7 @@ function teeDelHoyo(h){
 }
 
 // scores del usuario en la ronda actual (null = sin jugar)
-const R = { scores:{}, putts:{}, fw:{}, gir:{}, shots:{} };
+const R = { scores:{}, putts:{}, fw:{}, gir:{}, shots:{}, bunker:{}, penal:{} };
 /* La ronda arranca vacía: la app se abre como si estuvieras llegando
    al hoyo 1 sin haber pegado todavía. */
 
@@ -995,6 +995,8 @@ function pintarDistancias(){
   set('dFront',g.front); set('dMid',g.mid); set('dBack',g.back);
   const e=document.getElementById('gpsPill');
   if(e) e.textContent = g.real ? `GPS ±${g.acc} m` : (POS_ERR || 'Buscando señal…');
+  const dg=document.getElementById('dGolpe');
+  if(dg){ const v=desdeElGolpe(S.hole); dg.textContent = v ?? '—'; }
 }
 /* qué palo tiene sentido: en la salida de un par 4 o 5, el más largo que
    tengas; en el resto, el que más se acerque a lo que falta. */
@@ -1236,76 +1238,211 @@ function holeSVG(h){
 const RES = [['fw','Fairway','🟢'],['green','Green','⛳'],['rough','Rough','🌾'],
              ['bunker','Bunker','🏖️'],['agua','Agua','💧'],['ob','Fuera','🚫'],['hoyo','Emboqué','🕳️']];
 
+/* ============================================================
+   REGISTRAR UN GOLPE
+   Un solo toque: elegís el palo y la app se guarda dónde estás.
+   Cuando registrás el siguiente, mide entre los dos puntos y te dice
+   cuánto voló el anterior. El jugador nunca escribe una distancia.
+   Registrar es opcional: se puede jugar la vuelta entera sin tocar nada.
+   ============================================================ */
+const FW = [['fw','Fairway','✓'],['izq','Izquierda','←'],['der','Derecha','→'],
+            ['largo','Largo','↑'],['corto','Corto','↓']];
+
+/* el último golpe registrado que todavía no tiene distancia */
+const golpeAbierto = h => (R.shots[h]||[]).find(x=>x.d==null && x.lat!=null);
+
+/* cuánto llevás desde donde pegaste — se actualiza mientras caminás */
+function desdeElGolpe(h){
+  const a = golpeAbierto(h);
+  if(!a || !POS) return null;
+  return aYardas(metros([a.lat,a.lon],[POS.lat,POS.lon]));
+}
+
+function registrarGolpe(h, club){
+  const b = palo(club);
+  R.shots[h] = R.shots[h] || [];
+  // el golpe anterior queda medido con lo que caminaste
+  cerrarGolpeAbierto(h);
+  R.shots[h].push({c:club, lat:POS?POS.lat:null, lon:POS?POS.lon:null, d:null});
+  S.shotOpen = false;
+  toast(POS ? `${etiq(b)} registrado. Cuando llegues a la bola te digo cuánto voló`
+            : `${etiq(b)} registrado, sin GPS no puedo medir la distancia`);
+  render();
+}
+/* Cierra el golpe pendiente midiendo desde donde se pegó hasta donde estás.
+   Sólo cuenta para las estadísticas si es un palo que mide distancia. */
+function cerrarGolpeAbierto(h){
+  const a = golpeAbierto(h);
+  if(!a || !POS) return null;
+  const d = aYardas(metros([a.lat,a.lon],[POS.lat,POS.lon]));
+  if(d < 5) return null;                       // no te moviste: no fue un golpe
+  a.d = d;
+  const b = palo(a.c);
+  if(b && !b.putter) b.shots.push(d);
+  return d;
+}
+function borrarGolpe(h,i){
+  const g = R.shots[h][i], b = palo(g.c);
+  if(b && g.d!=null){ const k=b.shots.lastIndexOf(g.d); if(k>-1) b.shots.splice(k,1); }
+  R.shots[h].splice(i,1);
+  render();
+}
+
 function shotPanel(h){
   const list = R.shots[h] || [];
-  const sel  = S.shotClub ? BAG.find(b=>b.c===S.shotClub) : null;
+  const enCurso = golpeAbierto(h);
+  const llevas = desdeElGolpe(h);
   return `
   <div class="card">
-    <div class="between"><h3 style="margin:0">Golpes del hoyo ${h}</h3>
-      <span class="pill ${list.length?'':'gold'}">${list.length} cargado${list.length===1?'':'s'}</span></div>
+    <div class="between"><h3 style="margin:0">Tus palos en el hoyo ${h}</h3>
+      <span class="pill ${list.length?'':'gold'}">${list.length}</span></div>
+    <div class="dim2" style="font-size:11px;margin-top:2px">Es opcional. Sirve para armar tus distancias reales.</div>
 
-    ${list.length ? `<div style="margin-top:10px">${list.map((s2,i)=>{
-      const r=RES.find(x=>x[0]===s2.r)||RES[0];
-      return `<div class="item" style="padding:9px 0">
+    ${enCurso ? `
+    <div style="background:var(--tint);border-radius:13px;padding:14px;margin-top:11px;text-align:center">
+      <div class="lbl">Pegaste con el ${etiq(palo(enCurso.c))} · llevás caminando</div>
+      <div class="big acc" id="dGolpe" style="font-size:38px;margin:2px 0">${llevas ?? '—'}</div>
+      <div class="dim2" style="font-size:11px">yardas. Cuando llegues a la bola, ese es tu golpe.</div>
+    </div>` : ''}
+
+    ${list.length ? `<div style="margin-top:10px">${list.map((g,i)=>`
+      <div class="item" style="padding:9px 0">
         <div class="ico" style="font-size:13px;font-weight:800">${i+1}</div>
-        <div style="flex:1;min-width:0"><div style="font-weight:700;font-size:14px">${etiq(palo(s2.c))}
-          <span class="dim" style="font-weight:500"> · ${s2.d==null?'sin distancia':s2.d+' yds'}</span></div>
-          <div class="dim" style="font-size:12px">${r[2]} ${r[1]}</div></div>
-        <button class="chip" style="padding:6px 10px" onclick="delShot(${h},${i})">✕</button>
-      </div>`}).join('')}</div>`
-    : `<div class="dim" style="font-size:13px;margin-top:8px">
-        Todavía no cargaste ningún golpe. Cargá palo y distancia y la app va midiendo cuánto pegás de verdad con cada palo.</div>`}
+        <div style="flex:1;min-width:0"><div style="font-weight:700;font-size:14px">${etiq(palo(g.c))}</div>
+          <div class="dim" style="font-size:12px">${g.d!=null ? g.d+' yds' : 'midiendo…'}</div></div>
+        <button class="chip" style="padding:6px 10px" onclick="borrarGolpe(${h},${i})">✕</button>
+      </div>`).join('')}</div>` : ''}
 
     ${S.shotOpen ? `
     <div class="sep"></div>
-    <div class="lbl" style="margin-bottom:8px">1 · ¿Con qué palo pegaste?</div>
+    <div class="lbl" style="margin-bottom:8px">¿Con qué palo pegaste?</div>
     <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px">
       ${BAG.filter(b=>b.on).map(b=>
-        `<button class="chip ${S.shotClub===b.c?'on':''}" style="padding:11px 2px;font-size:12px"
-          onclick="pickClub('${b.c}')">${etiq(b)}</button>`).join('')}
+        `<button class="chip" style="padding:12px 2px;font-size:12px"
+          onclick="registrarGolpe(${h},'${b.c}')">${etiq(b)}</button>`).join('')}
     </div>
-
-    <div class="lbl" style="margin:16px 0 4px">2 · ¿Cuánto pegaste?</div>
-    ${GPS_REAL ? '' : `<div class="aviso-inline" style="background:var(--tint);border-radius:11px;
-      padding:10px 12px;margin-bottom:10px;font-size:12px" class="dim">
-      Esto es a ojo, y a ojo nadie acierta. Cuando la cancha esté medida, la app va a
-      calcular sola cuánto pegaste y este paso desaparece.
-      Si no tenés idea, tocá <b>No sé cuánto pegué</b>: igual queda anotado el palo.</div>`}
-    <div style="text-align:center;margin-bottom:6px">
-      <span id="sd" style="font-size:40px;font-weight:800;letter-spacing:-.03em">${S.shotDist}</span>
-      <span class="dim" style="font-weight:700"> yds</span>
-      ${sel&&!sel.putter
-        ? `<div class="dim2" style="font-size:11px">${sel.shots.length
-            ? `tu media con el ${etiq(sel)}: ${avg(sel)} yds · ${confianza(sel).txt}`
-            : `todavía no cargaste ningún golpe con el ${etiq(sel)}`}</div>`
-        : '<div style="height:15px"></div>'}
-    </div>
-    <input type="range" min="${TIRO_MIN}" max="${TIRO_MAX}" value="${S.shotDist}"
-      oninput="S.shotDist=+this.value;document.getElementById('sd').textContent=this.value"
-      style="width:100%;accent-color:var(--acc);height:28px">
-    <div class="dim2" style="font-size:11px;text-align:center;margin-top:2px">
-      Corré la barra, o ajustá de a poco acá abajo</div>
-    <div class="grid4" style="margin-top:6px">
-      ${[-10,-1,1,10].map(d=>`<button class="chip" onclick="nudge(${d})">${d>0?'+':'−'}${Math.abs(d)} yds</button>`).join('')}
-    </div>
-
-    <div class="lbl" style="margin:16px 0 8px">3 · ¿Dónde quedó?</div>
-    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px">
-      ${RES.map(([k,l,i])=>`<button class="chip ${S.shotRes===k?'on':''}" style="padding:9px 2px;font-size:11px"
-        onclick="S.shotRes='${k}';render()"><div style="font-size:15px">${i}</div>${l}</button>`).join('')}
-    </div>
-
-    <button class="btn ghost sm" style="margin-top:14px" onclick="saveShot(${h},true)">
-      No sé cuánto pegué</button>
-    <div class="grid2" style="margin-top:8px">
-      <button class="btn ghost sm" onclick="S.shotOpen=false;render()">Cancelar</button>
-      <button class="btn sm" onclick="saveShot(${h})">Guardar golpe</button>
-    </div>`
-    : `<button class="btn sm" style="margin-top:12px" onclick="openShot(${h})">+ Cargar golpe</button>`}
+    <button class="btn ghost sm" style="margin-top:10px" onclick="S.shotOpen=false;render()">Cancelar</button>`
+    : `<button class="btn sm" style="margin-top:12px" onclick="S.shotOpen=true;render()">
+        ${list.length?'+ Otro palo':'+ Registrar el palo'}</button>`}
   </div>`;
 }
 
+/* ============================================================
+   CERRAR EL HOYO
+   Todo junto y al final, como en la tarjeta de papel: golpes, putts,
+   bunker, penalidades, dónde quedó la salida, y el score del compañero
+   al que le llevás la tarjeta.
+   El score NO sale de contar los palos registrados: registrar palos es
+   opcional y sirve para otra cosa.
+   ============================================================ */
+function abrirCierre(h){
+  cerrarGolpeAbierto(h);          // el último palo queda medido hasta acá
+  S.cerrando = true; S.shotOpen = false;
+  render(); $('#screen').scrollTop = 0;
+}
+function fijar(campo, v){
+  const h = S.hole;
+  if(campo==='sc'){ R.scores[h]=v; S.playing=true;
+    if(R.putts[h]!=null && R.putts[h]>v) R.putts[h]=v; }
+  else if(campo==='putts'){ R.putts[h]=v; }
+  else if(campo==='bunker'){ R.bunker[h]=v; }
+  else if(campo==='penal'){ R.penal[h]=v; }
+  else if(campo==='fw'){ R.fw[h] = R.fw[h]===v ? null : v; }
+  else if(campo==='gir'){ R.gir[h] = !R.gir[h]; }
+  else if(campo==='otro'){ OTRO[h]=v; }
+  render();
+}
+function cerrarHoyo(){
+  const h = S.hole;
+  if(R.scores[h]===undefined){ toast('Poné cuántos golpes hiciste'); return; }
+  S.cerrando = false;
+  if(h < S.vuelta){ S.hole = h+1; toast(`Hoyo ${h} cerrado · vamos al ${h+1}`); }
+  else toast('Vuelta terminada');
+  render(); $('#screen').scrollTop = 0;
+}
+
+function panelCierre(){
+  const h = S.hole, p = par(h), sc = R.scores[h];
+  const nums = n => Array.from({length:n}, (_,i)=>i+1);
+  const chip = (campo,v,txt,act) => `<button class="chip ${act?'on':''}"
+    style="padding:12px 2px;font-size:14px;font-weight:800" onclick="fijar('${campo}',${v})">${txt}</button>`;
+  return `<div class="fade">
+  <div class="hdr"><div class="row"><button class="arrow" onclick="S.cerrando=false;render()">‹</button>
+    <div><div class="lbl">Hoyo ${h} · par ${p} · ${yards(h) ?? '—'} yds</div>
+      <h1 style="font-size:22px">Cerrar el hoyo</h1></div></div></div>
+  <div class="pad">
+
+    <div class="card">
+      <div class="lbl" style="margin-bottom:8px">¿Cuántos golpes hiciste?</div>
+      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:7px">
+        ${nums(10).map(v=>chip('sc',v,v,sc===v)).join('')}
+      </div>
+      ${sc!==undefined?`<div class="dim" style="font-size:12px;margin-top:9px">
+        ${sc-p===0?'Par.':sc-p===-1?'Birdie.':sc-p<=-2?'Eagle.':sc-p===1?'Bogey.':'+'+(sc-p)+' al par.'}
+        ${(R.shots[h]||[]).length?`Registraste ${(R.shots[h]||[]).length} palo${(R.shots[h]||[]).length===1?'':'s'} en este hoyo.`:''}</div>`:''}
+    </div>
+
+    <div class="card">
+      <div class="lbl" style="margin-bottom:8px">¿Cuántos putts?</div>
+      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:7px">
+        ${[0,1,2,3,4].map(v=>chip('putts',v,v===4?'4+':v,R.putts[h]===v)).join('')}
+      </div>
+    </div>
+
+    <div class="grid2">
+      <div class="card" style="margin:0">
+        <div class="lbl" style="margin-bottom:8px">Bunker</div>
+        <div class="grid4">${[0,1,2,3].map(v=>chip('bunker',v,v===3?'3+':v,(R.bunker[h]||0)===v)).join('')}</div>
+      </div>
+      <div class="card" style="margin:0">
+        <div class="lbl" style="margin-bottom:8px">Penalidades</div>
+        <div class="grid4">${[0,1,2,3].map(v=>chip('penal',v,v===3?'3+':v,(R.penal[h]||0)===v)).join('')}</div>
+      </div>
+    </div>
+
+    ${p>3?`
+    <div class="card">
+      <div class="lbl" style="margin-bottom:8px">¿Dónde quedó tu salida?</div>
+      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:7px">
+        ${FW.map(([k,l,f])=>`<button class="chip ${R.fw[h]===k?'on':''}"
+          style="padding:10px 2px" onclick="fijar('fw','${k}')">
+          <div style="font-size:19px;line-height:1.1">${f}</div>
+          <div style="font-size:10px">${l}</div></button>`).join('')}
+      </div>
+    </div>`:''}
+
+    <div class="card">
+      <div class="between">
+        <div style="min-width:0"><div style="font-weight:700;font-size:14px">
+          ${p===3?'¿Pegaste el green de salida?':'¿Green en regulación?'}</div>
+          <div class="dim2" style="font-size:11px">Llegaste al green con ${p-2} golpe${p-2===1?'':'s'} o menos</div></div>
+        <button class="chip ${R.gir[h]?'on':''}" style="padding:12px 20px;flex:0 0 auto"
+          onclick="fijar('gir',1)">${R.gir[h]?'Sí ✓':'No'}</button>
+      </div>
+    </div>
+
+    ${S.torneo?`
+    <div class="card" style="border-color:var(--acc2);background:var(--tint)">
+      <div class="row" style="align-items:flex-start;margin-bottom:11px">
+        <div class="avatar">${GROUP()[S.marco].i}</div>
+        <div style="min-width:0"><div style="font-weight:800;font-size:15px">La tarjeta de ${GROUP()[S.marco].n}</div>
+          <div class="dim" style="font-size:12px">Sos su marcador: anotá lo que hizo <b>él</b> en el hoyo ${h}.</div></div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:7px">
+        ${nums(10).map(v=>`<button class="chip ${OTRO[h]===v?'on':''}"
+          style="padding:12px 2px;font-size:14px;font-weight:800" onclick="fijar('otro',${v})">${v}</button>`).join('')}
+      </div>
+    </div>`:''}
+
+    <button class="btn" style="margin-bottom:10px" onclick="cerrarHoyo()">
+      ${S.hole < S.vuelta ? 'Guardar y pasar al hoyo '+(S.hole+1) : 'Guardar y terminar la vuelta'}</button>
+    <button class="btn ghost sm" style="margin-bottom:24px" onclick="S.cerrando=false;render()">
+      Volver al hoyo sin guardar</button>
+  </div></div>`;
+}
+
 function vPlay(){
+  if(S.cerrando) return panelCierre();
   const h=S.hole, p=par(h), g=gps(h), rec=clubFor(g.mid), sc=R.scores[h];
   const pts=[-2,-1,0,1,2,3].map(d=>p+d).filter(v=>v>0);
   return `<div class="fade">
@@ -1414,74 +1551,19 @@ function vPlay(){
 
     ${shotPanel(h)}
 
-    ${S.torneo?`
-    <div class="card">
-      <div class="between" style="margin-bottom:9px">
-        <div><div class="lbl">TU score en el hoyo ${h}</div>
-          <div class="dim" style="font-size:12px">Lo anota ${GROUP()[S.meMarca].n}, tu marcador</div></div>
+    <div class="card" style="border-color:var(--acc2)">
+      <div class="between" style="margin-bottom:10px">
+        <div><div class="lbl">Tu score en el hoyo ${h}</div>
+          <div class="big ${sc!==undefined?'acc':''}" style="font-size:32px">${sc ?? '–'}</div></div>
         <div style="text-align:right">
-          <div class="big ${MARCA[h]!==undefined&&sc!==undefined&&MARCA[h]!==sc?'red':'acc'}">${MARCA[h]??'–'}</div></div>
+          <div class="lbl">Putts</div>
+          <div style="font-weight:800;font-size:19px">${R.putts[h] ?? '–'}</div></div>
       </div>
-      ${(MARCA[h]!==undefined && sc!==undefined && MARCA[h]!==sc)?`
-      <div style="background:#3d1e1e;border:1px solid #7a3a3a;border-radius:11px;padding:10px 12px">
-        <div style="font-size:12px;font-weight:700" class="red">No coincide con tus golpes</div>
-        <div class="dim" style="font-size:11px">Vos cargaste ${sc} y ${GROUP()[S.meMarca].i} anotó ${MARCA[h]}.
-        Hablalo ahora, en el hoyo.</div>
-      </div>`:`<div class="dim2" style="font-size:11px">Coincide con los golpes que cargaste.</div>`}
+      <button class="btn" onclick="abrirCierre(${h})">
+        ${sc!==undefined ? 'Corregir el hoyo' : 'Terminar el hoyo'}</button>
+      <div class="dim2" style="font-size:11px;text-align:center;margin-top:7px">
+        Al terminar cargás golpes, putts, bunker, penalidades y dónde quedó tu salida.</div>
     </div>
-
-    <div class="grid2" style="margin-top:12px">
-      <div class="card" style="margin:0;padding:12px">
-        <div class="lbl" style="margin-bottom:7px">Tus putts</div>
-        <div class="grid4">${[0,1,2,3].map(v=>
-          `<button class="chip ${R.putts[h]===v?'on':''}" onclick="setPutt(${v})">${v===3?'3+':v}</button>`).join('')}</div>
-      </div>
-      <div class="card" style="margin:0;padding:12px">
-        <div class="lbl" style="margin-bottom:7px">${p===3?'Pegaste el green':'Tu fairway y green'}</div>
-        <div class="grid2">
-          <button class="chip ${R.fw[h]?'on':''}" onclick="tg('fw')">${p===3?'GIR ✓':'FW ✓'}</button>
-          <button class="chip ${R.gir[h]?'on':''}" onclick="tg('gir')">GIR ✓</button>
-        </div>
-      </div>
-    </div>
-    <div class="dim2" style="font-size:11px;margin-top:7px">
-      Estos son tuyos y van a tus estadísticas. No entran en ninguna tarjeta.</div>
-
-    <div style="height:18px"></div>
-    <div class="card" style="border-color:var(--acc2);background:var(--tint)">
-      <div class="row" style="align-items:flex-start;margin-bottom:11px">
-        <div class="avatar">${GROUP()[S.marco].i}</div>
-        <div style="min-width:0"><div style="font-weight:800;font-size:15px">La tarjeta de ${GROUP()[S.marco].n}</div>
-          <div class="dim" style="font-size:12px">Sos su marcador: acá anotás lo que hizo <b>él</b> en el hoyo ${h}.</div></div>
-      </div>
-      <div class="grid" style="display:grid;grid-template-columns:repeat(6,1fr);gap:8px">
-        ${pts.map(v=>`<button class="scorebtn ${OTRO[h]===v?'on':''}" onclick="setOtro(${v})">${v}</button>`).join('')}
-      </div>
-      <div class="between" style="margin-top:9px">
-        <span class="dim2" style="font-size:11px">Él lleva la tuya y lo ve en vivo en su celular.</span>
-        <button class="chip" style="padding:5px 10px;font-size:11px" onclick="go('arranque')">Cambiar</button>
-      </div>
-    </div>`
-    :`
-    <h3>Tu score</h3>
-    <div class="grid" style="display:grid;grid-template-columns:repeat(6,1fr);gap:8px">
-      ${pts.map(v=>`<button class="scorebtn ${sc===v?'on':''}" onclick="setScore(${v})">${v}</button>`).join('')}
-    </div>
-
-    <div class="grid2" style="margin-top:12px">
-      <div class="card" style="margin:0;padding:12px">
-        <div class="lbl" style="margin-bottom:7px">Tus putts</div>
-        <div class="grid4">${[0,1,2,3].map(v=>
-          `<button class="chip ${R.putts[h]===v?'on':''}" onclick="setPutt(${v})">${v===3?'3+':v}</button>`).join('')}</div>
-      </div>
-      <div class="card" style="margin:0;padding:12px">
-        <div class="lbl" style="margin-bottom:7px">${p===3?'Pegaste el green':'Tu fairway y green'}</div>
-        <div class="grid2">
-          <button class="chip ${R.fw[h]?'on':''}" onclick="tg('fw')">${p===3?'GIR ✓':'FW ✓'}</button>
-          <button class="chip ${R.gir[h]?'on':''}" onclick="tg('gir')">GIR ✓</button>
-        </div>
-      </div>
-    </div>`}
 
     <h2>Tarjeta del grupo</h2>
     <div class="card" style="padding:12px">
@@ -2663,7 +2745,7 @@ function vSummary(){
   const pars=p.filter(h=>R.scores[h]===par(h)).length;
   const bog=p.filter(h=>R.scores[h]>par(h)).length;
   const putts=p.reduce((a,h)=>a+(R.putts[h]||0),0);
-  const fw=p.filter(h=>R.fw[h]&&par(h)>3).length;
+  const fw=p.filter(h=>R.fw[h]==='fw'&&par(h)>3).length;
   return `<div class="fade">
   <div class="pad" style="padding-top:20px">
     <div class="card" style="background:linear-gradient(135deg,var(--tint),var(--card));border-color:var(--acc2);text-align:center;padding:24px">
@@ -3549,7 +3631,14 @@ function vTorneo(){return `<div class="fade">
    ACCIONES
    ============================================================ */
 const totalYds = () => COURSE.holes.slice(0,S.vuelta).reduce((a,h)=>a+yards(h.n),0);
-function mv(d){const n=S.hole+d;if(n>=1&&n<=S.vuelta){S.hole=n;render();$('#screen').scrollTop=0;}}
+function mv(d){
+  // Ir al hoyo siguiente sin haber cargado el score abre la pantalla de cierre.
+  if(d>0 && R.scores[S.hole]===undefined && (S.playing || (R.shots[S.hole]||[]).length)){
+    abrirCierre(S.hole); return;
+  }
+  const n=S.hole+d;
+  if(n>=1&&n<=S.vuelta){S.hole=n;render();$('#screen').scrollTop=0;}
+}
 function setTee(id){S.tee=id;render();
   toast(tee().sinMedir
     ? `Negras · ${totalYds()} yds (estimado, sin medición oficial)`
@@ -3563,7 +3652,7 @@ function setScore(v){R.scores[S.hole]=v;S.playing=true;
 function setPutt(v){R.putts[S.hole]=v;render();}
 function setOtro(v){ OTRO[S.hole]=v; render();
   toast(`${GROUP()[S.marco].n}: ${v} en el hoyo ${S.hole}`); }
-function tg(k){R[k][S.hole]=!R[k][S.hole];render();}
+function tg(k){R[k][S.hole]=!R[k][S.hole];render();}   // sólo lo usa el GIR
 function yaCargada(i){ PARA_AAG[i].cargada=!PARA_AAG[i].cargada; render();
   toast(PARA_AAG[i].cargada?`${PARA_AAG[i].n} marcada como cargada`:`${PARA_AAG[i].n} vuelve a pendientes`); }
 function empezarRonda(){
@@ -3792,49 +3881,6 @@ function togBag(i){
   if(!BAG[i].on && on>=14){toast('Ya llevás 14. Sacá uno para poder poner otro');return;}
   BAG[i].on=!BAG[i].on;render();
 }
-function openShot(h){
-  S.shotOpen=true;
-  const g=gps(h), rec=clubFor(g.mid);
-  S.shotClub = S.shotClub || (rec ? rec.c : null);
-  const b=BAG.find(x=>x.c===S.shotClub);
-  S.shotDist = b && !b.putter ? media(b) : 8;
-  S.shotRes=S.shotRes||'fw';
-  render();
-}
-function pickClub(c){
-  S.shotClub=c;
-  const b=BAG.find(x=>x.c===c);
-  S.shotDist = b.putter ? 8 : (avg(b)||b.base);
-  render();
-}
-function nudge(d){S.shotDist=Math.max(TIRO_MIN,Math.min(TIRO_MAX,S.shotDist+d));render();}
-/* sinDist = el jugador no sabe cuánto pegó. Se anota el palo y el golpe cuenta
-   para la tarjeta, pero NO entra en la media: un número inventado la arruina. */
-function saveShot(h, sinDist){
-  if(!S.shotClub){toast('Elegí un palo');return;}
-  const b=palo(S.shotClub);
-  R.shots[h]=R.shots[h]||[];
-  R.shots[h].push({c:S.shotClub, d: sinDist ? null : S.shotDist, r:S.shotRes||'fw'});
-  R.scores[h]=R.shots[h].length; S.playing=true;
-  S.shotOpen=false;
-  if(sinDist || b.putter){
-    toast(b.putter ? `Putt cargado · ${R.shots[h].length} golpes en el hoyo`
-                   : `Golpe con el ${etiq(b)} anotado, sin distancia`);
-  } else {
-    const antes=avg(b);
-    b.shots.push(S.shotDist);
-    toast(`El ${etiq(b)}: tu media pasó de ${antes} a ${avg(b)} yds (${b.shots.length} golpes)`);
-  }
-  render();
-}
-function delShot(h,i){
-  const s=R.shots[h][i];
-  const b=palo(s.c);
-  if(b && s.d!=null){ const k=b.shots.lastIndexOf(s.d); if(k>-1) b.shots.splice(k,1); }
-  R.shots[h].splice(i,1);
-  if(R.shots[h].length)R.scores[h]=R.shots[h].length; else delete R.scores[h];
-  render();
-}
 function book(t){if(FULL().includes(t))return;
   S.booked[t]=!S.booked[t];
   toast(S.booked[t]?`⛳ Anotado al torneo · salida ${t}`:'Te bajaste de la salida');render();}
@@ -3866,7 +3912,7 @@ const GUARDAR = ['user','tee','cat','mat','hcpIn','fedOk','onboarded','tipo','dn
                  'certifico','firmoLaOtra','entregada','presento','booked','soloSeguir'];
 function guardarTodo(){
   try{
-    const d = {v:1, ts:Date.now(), R:{scores:R.scores,putts:R.putts,fw:R.fw,gir:R.gir,shots:R.shots},
+    const d = {v:1, ts:Date.now(), R:{scores:R.scores,putts:R.putts,fw:R.fw,gir:R.gir,shots:R.shots,bunker:R.bunker,penal:R.penal},
                bag:BAG.map(b=>({c:b.c,on:b.on,shots:b.shots})), cancha:CANCHA_ESTADO};
     GUARDAR.forEach(k=> d[k]=S[k]);
     localStorage.setItem(LS_KEY, JSON.stringify(d));
