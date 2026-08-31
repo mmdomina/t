@@ -1,0 +1,35 @@
+{
+  "name": "Trisquelia Golf Club",
+  "short_name": "Trisquelia",
+  "description": "La app del Trisquelia Golf Club: tu tarjeta, tus distancias, los torneos y los resultados.",
+  "lang": "es-AR",
+  "dir": "ltr",
+  "start_url": "./",
+  "scope": "./",
+  "id": "./",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui", "browser"],
+  "orientation": "portrait",
+  "background_color": "#070e18",
+  "theme_color": "#070e18",
+  "categories": ["sports", "lifestyle"],
+  "icons": [
+    { "src": "./icon-192.png",     "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "./icon-512.png",     "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "./maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    {
+      "name": "Empezar una ronda",
+      "short_name": "Jugar",
+      "url": "./?ir=arranque",
+      "icons": [{ "src": "./icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "Medir la cancha",
+      "short_name": "Medir",
+      "url": "./medir.html",
+      "icons": [{ "src": "./icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    }
+  ]
+}
