@@ -6,7 +6,7 @@
 --    createdb t && psql -d t -c 'create role anon' -c 'create role authenticated'
 --    psql -d t -f esquema.sql
 --    psql -d t -f esquema.sql          -- otra vez: tiene que ser idempotente
---    psql -d t -f pruebas/esquema-test.sql
+--    psql -d t -f pruebas/esquematest.sql
 --
 --  Da una línea por comprobación y un resumen al final. Cualquier ✗ es un bug.
 --

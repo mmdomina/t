@@ -1,4 +1,4 @@
-/* Para correrlo:  node pruebas/copia-test.js
+/* Para correrlo:  node pruebas/copiatest.js
    Hace falta un servidor sirviendo la app en http://localhost:8000
    (por ejemplo: python3 -m http.server 8000 dentro de la carpeta del repo).
    Si Playwright no encuentra Chromium solo, pasále la ruta en CHROME_PATH. */
