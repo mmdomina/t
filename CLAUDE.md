@@ -64,11 +64,29 @@ queda publicada igual, pero no la carga nadie).
 No es opcional: es lo que le avisa a los teléfonos que ya tienen la app que hay algo nuevo.
 Si no se toca, pueden seguir abriendo la versión vieja para siempre.
 
-Va en `trisquelia-vN`. Al día de hoy: **v8**.
+Va en `trisquelia-vN`. Al día de hoy: **v9**.
 
 ---
 
 ## 4. Convenciones
+
+**Esto es un producto, no una maqueta.** El plan es que se venda a otros clubes después de
+Trisquelia, así que cada pantalla se juzga como se juzga una app que alguien paga: **intuitiva,
+linda a la vista, cómoda de jugar, y simple para la comisión**. La vara del lado del jugador es
+**Hole19** — si una pantalla nuestra es más confusa que la equivalente de Hole19, está mal, por
+más que funcione. Del lado de la comisión la vara es otra: que una persona sin paciencia técnica
+haga lo que vino a hacer sin que nadie le explique nada.
+
+**Antes de cada tarea, decidí si hacen falta subagentes — y si hacen falta, usalos.** Este
+archivo tiene 5.600 líneas y el esquema otras 400: barrerlos entero para responder una pregunta
+es caro y sale peor. La regla es simple: si para empezar hay que *relevar* algo —dónde vive cada
+cosa, qué se rompe si toco esto, qué hace hoy tal flujo— eso va a un subagente de exploración, en
+paralelo, con un pedido concreto y la orden de devolver hechos y no recomendaciones. Si además el
+cambio toca seguridad o datos, mandá uno **adversario**: que ataque lo que hay hoy y liste el daño
+posible, sin proponer arreglos. Los dos hallazgos más graves del proyecto —el XSS almacenado por
+el nombre del jugador y la suplantación por `on conflict (id)`— salieron de ahí, no de leer el
+código de corrido. Decidilo siempre, aunque la respuesta sea que no hacen falta, y decí cuál fue
+la decisión.
 
 **El código está en castellano rioplatense** — nombres de función, variables y comentarios.
 `homologada`, `teeDelHcp`, `encolar`, `latir`, `cruceHoyo`. Seguí así.
@@ -87,6 +105,22 @@ un club puede confiar en esto. No la pierdas por rellenar un hueco.
 ---
 
 ## 5. Las trampas
+
+**El código de la ronda NO es una credencial.** Son seis letras que se dictan en voz alta en el
+tee y se mandan por WhatsApp: es una dirección, sirve para entrar y nada más. Lo que prueba quién
+sos es la **llave** que el servidor le da a cada teléfono al entrar (`jugadores.llave`), que
+viaja en cada escritura y **nunca sale en `ronda_estado`** — por eso esa función arma el JSON
+campo por campo en vez de usar `row_to_json`. Si agregás una columna a `jugadores`, fijate si
+tiene que salir o no.
+
+**Todo lo que viene del servidor pasa por `esc()` antes de un `innerHTML`.** Los nombres de los
+jugadores los escribe cualquiera que tenga el código. Sin esto, un tercero entraba con el nombre
+`<img src=x onerror=...>` y ejecutaba código en el teléfono de TODOS los del grupo, con acceso a
+la tarjeta y a todo lo guardado. Comprobado con `nube-test`, no teórico.
+
+**Un 200 con `{error:...}` no es un éxito.** `vaciarCola()` lo trataba como bueno: descartaba la
+anotación, decía "al día", y el jugador creía que había anotado cuando en el servidor no había
+nada. Si agregás una llamada, chequeá `res.error`.
 
 **Datos personales: el repo es público.** Ya pasó una vez: había un DNI, un mail y un teléfono
 reales en `PADRON`. En este repo no va ni un dato de nadie. Ni de prueba con números que
@@ -111,8 +145,56 @@ suya y la de su marcador (`de` y `por`). Por eso dos teléfonos nunca escriben l
 no hay conflictos que resolver. Si alguna vez te tienta "unificar" eso en una sola fila,
 estarías rompiendo lo mejor del diseño.
 
+**Nada se borra con `delete`.** Las tres tablas tienen `borrado_en`: borrar es ponerle fecha.
+Una tarjeta es la prueba de una vuelta y tiene que poder volver (`restaurar_ronda`). El único
+`delete` vive en `purgar_borradas()`, que hay que correr a mano y por omisión sólo toca lo que
+se borró hace más de 90 días. Si agregás una tabla, va con `borrado_en` y sin `delete`.
+
+**El borrado tiene que VIAJAR.** Una anotación borrada se manda igual en "lo que cambió desde
+X", con su `borrado_en`, y el teléfono la saca. Si sólo dejás de mandarla, el otro teléfono la
+muestra para siempre. Por eso borrar toca `actualizado`.
+
+**Toda función nueva del servidor nace abierta.** Postgres le da `execute` a `public` en cada
+`create function`. Si la función no es para la app, hay que sacárselo a mano:
+`revoke execute on function x() from public, anon, authenticated`. Ya pasó una vez con
+`limpiar_rondas_viejas()`, que borraba rondas y cualquiera con la clave pública podía llamarla.
+
+**Y el mock tiene que mentir igual que el servidor.** `pruebas/mock-supabase.js` imita
+`esquema.sql`: si cambiás una función allá, cambiala acá, o `nube-test` va a estar probando un
+servidor que no existe. Lo que `anon` no puede llamar tampoco vive en `FN` del mock — va en el
+panel `/__test`.
+
+**Una posición vieja no es tu posición.** `POS` vence a los 30 segundos (`gpsVivo()`), y todo lo
+que dependa del GPS pregunta por esa función, nunca por `POS` a secas. Antes, cuando el GPS
+fallaba, `POS` se quedaba con la última lectura y la app seguía diciendo "GPS ±4 m" midiendo
+contra una coordenada congelada. **Dar una distancia falsa con cara de real es lo peor que puede
+hacer esta app.**
+
+**Sin ubicación no se sale a jugar, pero la tarjeta nunca se bloquea.** `empezarRonda()` exige
+`gpsVivo()`; `empezarRonda(true)` es la puerta explícita para anotar sin distancias. Está abajo y
+en secundario a propósito. La tarjeta es el documento de la vuelta: si a alguien se le apaga el
+GPS en el hoyo 12 de un torneo, no puede quedarse sin dónde anotar.
+
+**El socio no anota en el green: anota en el tee siguiente, antes de salir**, para no frenar la
+cancha. Eso le da a `panelCierre` un presupuesto de veinte segundos, una mano y un guante, y de ahí
+salen sus tres reglas: **entra entero sin scrollear** (medido en `cierre-test`, de 360×640 para
+arriba), el botón de guardar va pegado abajo (`.guardar`, `position:sticky`) y **el nav se esconde**
+porque son 67px y seis blancos para salirse sin querer. Si agregás algo a esa pantalla, corré
+`cierre-test` y fijate qué sacás a cambio.
+
+**El green en regulación no se pregunta: se calcula.** `girDe(h)` = `(golpes − putts) ≤ (par − 2)`.
+Antes era un botón que decía "No" sin que nadie lo tocara, indistinguible de un No de verdad. Sin
+putts devuelve `null` y no se guarda nada: la app no inventa.
+
 **Guardar después de cada cambio.** Una vuelta dura cuatro horas y Android recarga la pestaña
-si el teléfono se bloquea. `guardarTodo()` corre en cada `render()`.
+si el teléfono se bloquea. `guardarTodo()` corre en cada `render()`. Si el `setItem` falla —sin
+espacio, modo incógnito— la app avisa **una sola vez** (`SIN_LUGAR`): antes se lo tragaba en
+silencio y la vuelta entera se perdía sin que nadie se enterara.
+
+**La copia de seguridad no se lleva `trisquelia_dispositivo`.** Ese identificador es quién es
+ESTE teléfono adentro de una ronda compartida, y `absorber()` lo usa para no pisar lo propio. Si
+dos teléfonos tuvieran el mismo, los dos se declararían dueños de la misma tarjeta. Si agregás
+una clave nueva a `localStorage`, decidí a conciencia si va en `COPIA_CLAVES` o no.
 
 ---
 
@@ -127,8 +209,22 @@ node pruebas/bugs.js                   # barre TODAS las pantallas buscando null
 node pruebas/test-pwa.js               # instalación y offline          (18 ✓)
 node pruebas/play-test.js              # la pantalla de jugar           (22 ✓)
 node pruebas/prueba-test.js            # el modo prueba                 (28 ✓)
-node pruebas/nube-test.js              # dos teléfonos a la vez         (22 ✓)
+node pruebas/nube-test.js              # dos teléfonos a la vez         (38 ✓)
 node pruebas/exportar-test.js          # sacar los datos del teléfono   (11 ✓)
+node pruebas/copia-test.js             # copia de seguridad             (26 ✓)
+node pruebas/ubicacion-test.js         # el portón del GPS              (23 ✓)
+node pruebas/cierre-test.js            # cerrar el hoyo                 (43 ✓)
+```
+
+El esquema del servidor se prueba aparte, contra un Postgres de verdad — no
+alcanza con el mock, porque los permisos y la migración sólo existen en
+Postgres:
+
+```bash
+createdb t && psql -d t -c 'create role anon' -c 'create role authenticated'
+psql -d t -f esquema.sql
+psql -d t -f esquema.sql                    # otra vez: tiene que ser idempotente
+psql -d t -f pruebas/esquema-test.sql       # borrado, identidad, permisos (61 ✓)
 ```
 
 `bugs.js` es el más barato y el que más encuentra: renderiza cada pantalla en una matriz de
@@ -137,8 +233,9 @@ hoyo, el modo club con las cuatro personas, los siete pasos del alta) y busca `n
 `undefined`, `Infinity` y `[object Object]` en el texto visible. **Corrélo después de cualquier
 cambio.** Tiene que dar cero hallazgos.
 
-Entre las cinco suites son **101 comprobaciones**. Si alguna se pone en rojo después de un
-cambio tuyo, es un bug tuyo: estaban todas en verde el 26/8/2026.
+Entre las ocho suites son **209 comprobaciones**, más las **61** del esquema: 270 en total. Si
+alguna se pone en rojo después de un cambio tuyo, es un bug tuyo: estaban todas en verde el
+31/8/2026.
 
 Si Playwright no encuentra Chromium solo, pásale la ruta en `CHROME_PATH`.
 
@@ -172,9 +269,10 @@ Mientras estén vacíos, la app funciona igual que siempre, todo local. Instrucc
 1. **Jugar 18 hoyos con el modo prueba prendido.** Es el paso que sigue pendiente desde el
    principio y el que más va a enseñar. Nada de lo construido vio una cancha todavía.
 2. Firma y entrega: que la tarjeta firmada le llegue de verdad al club.
-3. Cuentas de verdad: padrón real y verificación por DNI. Hoy cualquiera con el código de una
-   ronda entra y escribe el nombre que quiera — sirve para probar entre amigos, no para un
-   torneo oficial.
+3. Cuentas de verdad: padrón real y verificación por DNI. Con la llave por teléfono ya nadie
+   puede anotar en la tarjeta de otro ni suplantarlo, pero cualquiera con el código sigue
+   pudiendo **sumarse** a la ronda con el nombre que quiera. Para un torneo oficial hace falta
+   que el que entra sea un socio verificado.
 4. El panel de la comisión, funcionando contra el servidor.
 5. Rating y slope oficiales de las tres salidas (depende de la federación).
 

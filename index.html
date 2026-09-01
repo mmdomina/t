@@ -31,13 +31,22 @@
 html,body{margin:0;padding:0;background:#07100b;color:var(--txt);
   font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",sans-serif;
   font-size:15px;line-height:1.4;-webkit-font-smoothing:antialiased}
-body{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:0}
+body{display:flex;align-items:center;justify-content:center;min-height:100vh;min-height:100dvh;padding:0}
 
 /* ---------- phone frame ---------- */
-#frame{width:100%;max-width:412px;height:100vh;max-height:900px;background:var(--bg);
+/* La app es para el telefono: el marco llena la pantalla, la mida lo que mida.
+   `100dvh` y no `100vh`: en el navegador del celular `100vh` es el alto CON la
+   barra de direcciones escondida, asi que la barra de abajo quedaba tapada.
+   `100vh` queda primero como respaldo para navegadores viejos. */
+#frame{width:100%;height:100vh;height:100dvh;background:var(--bg);
   position:relative;overflow:hidden;display:flex;flex-direction:column;
   box-shadow:0 30px 80px rgba(0,0,0,.6)}
-@media(min-width:520px){#frame{border-radius:38px;height:844px;border:1px solid #1d3529}}
+/* El marco con bordes redondeados es solo para mirarla en una computadora, asi
+   que pide pantalla ancha Y ALTA. Antes pedia solo ancho, y un telefono
+   apaisado mide mas de 520px: le clavaba 844px de alto en una ventana de 390 y
+   la barra de navegacion quedaba entera fuera de pantalla. */
+@media(min-width:520px) and (min-height:900px){
+  #frame{max-width:412px;height:844px;border-radius:38px;border:1px solid #1d3529}}
 
 #status{height:30px;display:flex;align-items:center;justify-content:center;
   padding:0 22px;font-size:12px;font-weight:700;letter-spacing:.06em;
@@ -49,7 +58,7 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh;pad
 #nav{flex:0 0 auto;display:flex;background:var(--nav);border-top:1px solid var(--line);
   padding:8px 4px calc(10px + env(safe-area-inset-bottom))}
 #nav button{flex:1;min-width:0;background:none;border:0;color:var(--dim2);font-size:9.5px;font-weight:600;
-  display:flex;flex-direction:column;align-items:center;gap:4px;padding:4px 0;cursor:pointer;
+  display:flex;flex-direction:column;align-items:center;gap:4px;padding:6px 0;cursor:pointer;
   font-family:inherit;letter-spacing:.02em;transition:color .15s}
 #nav button svg{width:21px;height:21px;stroke:currentColor;fill:none;stroke-width:1.8;
   stroke-linecap:round;stroke-linejoin:round}
@@ -83,7 +92,8 @@ p{margin:0 0 8px;color:var(--dim)}
   transition:transform .1s,filter .15s}
 .btn:active{transform:scale(.98)}
 .btn.ghost{background:transparent;border:1px solid var(--line);color:var(--txt)}
-.btn.sm{padding:10px;font-size:13px;border-radius:11px}
+.btn.sm{padding:10px 12px;font-size:13px;border-radius:11px;
+  min-height:44px;display:flex;align-items:center;justify-content:center}
 .sep{height:1px;background:var(--line);margin:14px 0}
 .avatar{width:38px;height:38px;border-radius:50%;background:linear-gradient(135deg,var(--acc2),var(--acc));
   display:flex;align-items:center;justify-content:center;font-weight:800;color:var(--ink);font-size:14px;flex:0 0 auto}
@@ -96,18 +106,19 @@ p{margin:0 0 8px;color:var(--dim)}
 /* ---------- play / hole ---------- */
 .holehdr{display:flex;align-items:center;justify-content:space-between;padding:10px 18px;
   background:var(--nav);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5}
-.arrow{width:40px;height:40px;border-radius:12px;background:var(--card);border:1px solid var(--line);
+.arrow{width:44px;height:44px;border-radius:12px;background:var(--card);border:1px solid var(--line);
   color:var(--txt);font-size:18px;cursor:pointer;font-family:inherit}
 .arrow:disabled{opacity:.3}
 .dist{text-align:center}
 .dist .n{font-size:26px;font-weight:800;letter-spacing:-.02em;line-height:1}
 .dist .n.mid{font-size:44px;color:var(--acc)}
-.scorebtn{aspect-ratio:1;border-radius:14px;border:1px solid var(--line);background:var(--card);
-  color:var(--txt);font-size:17px;font-weight:800;cursor:pointer;font-family:inherit;
-  display:flex;align-items:center;justify-content:center;transition:.12s}
-.scorebtn.on{background:var(--acc);color:var(--ink);border-color:var(--acc);transform:scale(1.05)}
+/* 44px de mínimo en los dos ejes. Apple pide 44, Android 48, y esta app se
+   usa caminando, con guante y con sol de frente. El `min-height` gana sobre el
+   padding que cada sitio pone en su `style=`, así que alcanza con escribirlo
+   acá y no hay que tocar los ochenta y pico de lugares donde se usa. */
 .chip{padding:9px 6px;border-radius:11px;border:1px solid var(--line);background:var(--card);
-  color:var(--dim);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;text-align:center}
+  color:var(--dim);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;text-align:center;
+  min-height:44px;min-width:44px}
 .chip.on{background:var(--tint);border-color:var(--acc2);color:var(--acc)}
 
 /* ---------- table ---------- */
@@ -125,7 +136,8 @@ td.name{text-align:left;font-weight:600;font-size:13px}
 
 /* ---------- misc ---------- */
 .slot{padding:11px 8px;border-radius:11px;border:1px solid var(--line);background:var(--card);
-  text-align:center;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;color:var(--txt)}
+  text-align:center;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;color:var(--txt);
+  min-height:44px;display:flex;align-items:center;justify-content:center}
 .slot.full{opacity:.35;cursor:not-allowed;text-decoration:line-through}
 .slot.mine{background:var(--acc2);color:var(--ink);border-color:var(--acc2)}
 .bar{height:7px;border-radius:99px;background:var(--tint);overflow:hidden}
@@ -141,9 +153,27 @@ td.name{text-align:left;font-weight:600;font-size:13px}
 .tabs{display:flex;gap:6px;padding:0 18px 4px;overflow-x:auto}
 .tabs::-webkit-scrollbar{display:none}
 .tab{padding:8px 14px;border-radius:99px;border:1px solid var(--line);background:transparent;
-  color:var(--dim);font-size:13px;font-weight:700;white-space:nowrap;cursor:pointer;font-family:inherit}
+  color:var(--dim);font-size:13px;font-weight:700;white-space:nowrap;cursor:pointer;font-family:inherit;
+  min-height:44px}
 .tab.on{background:var(--txt);color:var(--ink);border-color:var(--txt)}
 .modeban{background:linear-gradient(135deg,#3a3117,#241d0d);border:1px solid #5c4a1f}
+/* ---------- cerrar el hoyo ----------
+   El socio no anota en el green: anota parado en el tee siguiente, para no
+   frenar la cancha. O sea que esta pantalla tiene un presupuesto de veinte
+   segundos, una mano y un guante puesto. Por eso los bloques van sin la
+   tarjeta que los envolvía —16px de padding arriba y abajo por bloque, siete
+   bloques— y el botón de guardar queda pegado abajo, siempre alcanzable. */
+.bloque{margin:0 0 12px}
+.bloque > .lbl{margin-bottom:6px}
+.guardar{position:sticky;bottom:0;padding:10px 0 calc(10px + env(safe-area-inset-bottom));
+  background:linear-gradient(to bottom, transparent, var(--bg) 22%)}
+/* En un teléfono viejo y corto (un SE de 568px) no hay forma de que entre
+   todo sin bajar de 44px, que no se negocia. Se aprietan los aires, y lo que
+   queda de scroll no toca el botón de guardar: por eso está pegado abajo. */
+@media (max-height:660px){
+  .bloque{margin:0 0 8px}
+  .guardar{padding:6px 0 calc(6px + env(safe-area-inset-bottom))}
+}
 
 /* ---------- LA RONDA COMPARTIDA ---------- */
 .codigo{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:34px;font-weight:800;
@@ -240,7 +270,7 @@ td.name{text-align:left;font-weight:600;font-size:13px}
 #hoja .cab{display:flex;align-items:center;gap:10px;padding:14px 18px 10px;flex:0 0 auto}
 #hoja .cab h3{margin:0;flex:1;font-size:17px}
 #hoja .cab button{background:transparent;border:0;color:var(--dim);font-size:22px;
-  font-family:inherit;cursor:pointer;padding:0 4px}
+  font-family:inherit;cursor:pointer;padding:0 4px;min-width:44px;min-height:44px}
 #hoja .cuerpo{overflow-y:auto;padding:0 18px calc(20px + env(safe-area-inset-bottom))}
 #hoja .tirador{width:38px;height:4px;border-radius:99px;background:var(--line);
   margin:9px auto 0;flex:0 0 auto}
@@ -263,9 +293,9 @@ td.name{text-align:left;font-weight:600;font-size:13px}
 .instalar .txt b{display:block;font-size:14px;font-weight:800}
 .instalar .txt span{display:block;font-size:12px;color:var(--dim);line-height:1.45;margin-top:2px}
 .instalar button{flex:0 0 auto;padding:11px 15px;border-radius:11px;border:0;cursor:pointer;
-  font-family:inherit;font-size:13px;font-weight:800;background:var(--acc2);color:var(--ink)}
+  font-family:inherit;font-size:13px;font-weight:800;background:var(--acc2);color:var(--ink);min-height:44px}
 .instalar .x{background:transparent;color:var(--dim2);border:0;padding:8px 4px;font-size:17px;
-  cursor:pointer;font-family:inherit}
+  cursor:pointer;font-family:inherit;min-width:44px;min-height:44px}
 </style>
 </head>
 <body>
@@ -294,7 +324,7 @@ const S = {
   certifico:false, firmoLaOtra:false, entregada:false, presento:null, padronEstado:null, hallado:null, codigo:'', email:'', clave:0,
   shotOpen:false, cerrando:false,
   tee:'mixta', vuelta:18,
-  user:{name:'Mauro Domina', ini:'MD', hcp:7.4, socio:'#1047', club:'Trisquelia Golf Club',
+  user:{name:'Mauro Domina', ini:'MD', hcp:7.4, socio:'—', club:'Trisquelia Golf Club',
         cat:null},   // 'cab' | 'dam' — categoría de juego, define la salida
   hoja:null,             // hoja abierta en la pantalla de jugar
   verDatos:null,         // cuadro de texto con los datos de la prueba
@@ -966,7 +996,7 @@ const RESULTADOS = [];
 /* Tarjetas que llegaron y todavía hay que pasar a la federación.
    El diferencial lo calcula la app: (113/slope) × (gross − rating). */
 let PARA_AAG = [
-  {n:'Mauro Domina', i:'MD', mat:'104738', fecha:'31/07', gross:84, tee:'mixta', cargada:false},
+  {n:'Mauro Domina', i:'MD', mat:'104905', fecha:'31/07', gross:84, tee:'mixta', cargada:false},
   {n:'Socio Uno',    i:'S1', mat:'104211', fecha:'31/07', gross:79, tee:'negras', cargada:false},
   {n:'Socio Tres',   i:'S3', mat:'110902', fecha:'31/07', gross:88, tee:'mixta', cargada:false},
   {n:'Socia Dos',    i:'S2', mat:'098554', fecha:'31/07', gross:95, tee:'damas', cargada:false},
@@ -1076,6 +1106,17 @@ const ydsDe = t => t.y ? t.y.reduce((a,b)=>a+b,0)
 const diasIndex = () => S.indexDias;
 const indexViejo = () => S.indexDias >= 7;
 
+/* Todo lo que venga del servidor pasa por acá antes de entrar a un innerHTML.
+   Los nombres de los jugadores los escribe cualquiera que tenga el código de
+   seis letras de la ronda, y ese código se dicta en voz alta y se manda por
+   WhatsApp: sin esto, un tercero se sumaba con el nombre
+   `<img src=x onerror=...>` y ejecutaba código en el teléfono de TODOS los
+   del grupo, con acceso a la tarjeta y a todo lo guardado. Comprobado, no
+   teórico. Escapa también comillas porque parte de esto va adentro de un
+   atributo `onclick`. */
+const esc = v => String(v ?? '').replace(/[&<>"']/g,
+  c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
 function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('on');
   clearTimeout(t._x);t._x=setTimeout(()=>t.classList.remove('on'),1900);}
 
@@ -1125,18 +1166,51 @@ const PROF_GREEN = 12;          // sólo se usa si no hay GPS ni coordenadas
 
 /* ---------- dónde está el jugador ---------- */
 let POS = null;                 // {lat, lon, acc} o null si todavía no enganchó
+let POS_T = 0;                  // cuándo llegó esa posición
 let POS_ERR = null;
+
+/* Una posición de hace un minuto no es dónde estás parado. Antes, cuando el
+   GPS fallaba, `POS` se quedaba con la última lectura y la app seguía
+   diciendo "GPS ±4 m" y midiendo contra una coordenada congelada: el error
+   nunca se veía. Dar una distancia falsa con cara de real es lo peor que
+   puede hacer esta app. Después de 30 segundos sin lectura nueva, no hay
+   posición. */
+const POS_VENCE = 30000;
+const gpsVivo = () => !!POS && (Date.now() - POS_T) < POS_VENCE;
+
 function arrancarGPS(){
-  if(!navigator.geolocation){ POS_ERR='Este teléfono no tiene GPS.'; return; }
+  if(!navigator.geolocation){ POS_ERR='Este teléfono no tiene GPS.'; refrescarGPS(); return; }
   navigator.geolocation.watchPosition(
     p => { POS = {lat:p.coords.latitude, lon:p.coords.longitude, acc:p.coords.accuracy};
-           POS_ERR = null;
-           if(S.tab==='play' && S.onboarded) pintarDistancias(); },
-    e => { POS_ERR = e.code===1 ? 'No diste permiso de ubicación.'
+           POS_T = Date.now(); POS_ERR = null; refrescarGPS(); },
+    e => { /* Permiso negado: no hay posición, y la vieja tampoco vale. */
+           if(e.code===1){ POS = null; POS_T = 0; }
+           POS_ERR = e.code===1 ? 'No diste permiso de ubicación.'
                    : e.code===2 ? 'Sin señal. Salí a cielo abierto.'
                    : 'El GPS tardó demasiado.';
-           if(S.tab==='play' && S.onboarded) pintarDistancias(); },
+           refrescarGPS(); },
     {enableHighAccuracy:true, maximumAge:2000, timeout:15000});
+  /* Si el navegador no llama a NINGUNO de los dos callbacks —pasa cuando el
+     permiso quedó en "preguntar" y nadie contestó— la app diría "Buscando
+     señal" para siempre. A los 12 segundos lo decimos. `medir.html` ya tenía
+     esta red; acá faltaba. */
+  setTimeout(() => {
+    if(!POS && !POS_ERR){
+      POS_ERR = 'No se pudo tomar la ubicación. Fijate que esté prendida.';
+      refrescarGPS();
+    }
+  }, 12000);
+}
+
+function refrescarGPS(){
+  if(!S.onboarded) return;
+  if(S.tab === 'play') return pintarDistancias();
+  if(S.tab !== 'arranque') return;      /* en el resto de la app no cambia nada */
+  /* Nunca redibujar mientras alguien escribe: en esta pantalla se tipea el
+     código de la ronda del grupo y `render()` se lo borraría. */
+  const a = document.activeElement;
+  if(a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA')) return;
+  render();
 }
 /* metros entre dos coordenadas */
 function metros(a,b){
@@ -1153,7 +1227,7 @@ const greenDe = h => CLUB.geo && CLUB.geo.greens[CLUB.fisico[h-1]];
    Sin GPS: se estima con el largo del hoyo menos lo que llevás pegado. */
 function gps(h){
   const g = greenDe(h);
-  if(GPS_REAL && POS && g){
+  if(GPS_REAL && gpsVivo() && g){
     const p=[POS.lat,POS.lon];
     return {front:aYardas(metros(p,g.f)), mid:aYardas(metros(p,g.c)),
             back:aYardas(metros(p,g.b)), real:true, acc:Math.round(POS.acc),
@@ -1169,7 +1243,7 @@ function gps(h){
   const centro = Math.max(0, largo - dados);
   const prof = par(h)===3 ? 9 : PROF_GREEN;
   return {front: Math.max(0,centro-prof), mid: centro, back: centro+prof,
-          desdeTee: dados===0, dados, esperandoGPS: GPS_REAL && !POS};
+          desdeTee: dados===0, dados, esperandoGPS: GPS_REAL && !gpsVivo()};
 }
 /* Refresca sólo los tres números, sin redibujar la pantalla entera:
    el GPS avisa una vez por segundo y no queremos que parpadee todo. */
@@ -1216,6 +1290,10 @@ const NAVS = {
   ]
 };
 function renderNav(){
+  /* Cerrando el hoyo, el nav estorba: son 67px que le hacen falta al panel y
+     seis blancos para salirse sin querer de una tarea de veinte segundos. Se
+     sale con la flecha de arriba o guardando. */
+  $('#nav').style.display = S.cerrando ? 'none' : '';
   const items = NAVS[S.mode].filter(x=> S.mode!=='club' || !x[3] || puede(x[3]));
   $('#nav').innerHTML = items.map(([id,l,d])=>
     `<button class="${S.tab===id?'on':''}" onclick="go('${id}')">
@@ -1235,10 +1313,11 @@ function vHome(){
     <div class="row" style="gap:11px">${crest(38)}
       <div><div class="lbl">Viernes 31 de julio</div><h1 style="font-size:23px">Hola, Mauro</h1></div></div>
     <div class="row" style="gap:8px">
-      <button class="arrow" style="width:38px;height:38px;font-size:16px;position:relative"
+      <button class="arrow" style="font-size:16px;position:relative"
         onclick="go('notif')">🔔<span style="position:absolute;top:5px;right:6px;width:8px;height:8px;
         border-radius:50%;background:var(--red)"></span></button>
-      <div class="avatar" style="cursor:pointer" onclick="go('me')">MD</div>
+      <div class="avatar" style="cursor:pointer;width:44px;height:44px;font-size:15px"
+           onclick="go('me')">${S.user.ini}</div>
     </div>
   </div>
   <div class="pad">
@@ -1262,7 +1341,7 @@ function vHome(){
         <div><div class="lbl">Golpes</div><div class="big">${total()}</div></div>
         <div><div class="lbl">Al par</div><div class="big ${toPar()<=0?'acc':''}">${fmtPar(toPar())}</div></div>
         <div style="flex:1"></div>
-        <button class="btn" style="width:auto;padding:12px 20px" onclick="go('play')">Continuar</button>
+        <button class="btn" style="width:auto;padding:12px 20px;min-height:44px" onclick="go('play')">Continuar</button>
       </div>
     </div>`:''}
 
@@ -1441,7 +1520,7 @@ const golpeAbierto = h => (R.shots[h]||[]).find(x=>x.d==null && x.lat!=null);
 /* cuánto llevás desde donde pegaste — se actualiza mientras caminás */
 function desdeElGolpe(h){
   const a = golpeAbierto(h);
-  if(!a || !POS) return null;
+  if(!a || !gpsVivo()) return null;
   return aYardas(metros([a.lat,a.lon],[POS.lat,POS.lon]));
 }
 
@@ -1450,9 +1529,9 @@ function registrarGolpe(h, club){
   R.shots[h] = R.shots[h] || [];
   // el golpe anterior queda medido con lo que caminaste
   cerrarGolpeAbierto(h);
-  R.shots[h].push({c:club, lat:POS?POS.lat:null, lon:POS?POS.lon:null, d:null});
+  R.shots[h].push({c:club, lat:gpsVivo()?POS.lat:null, lon:gpsVivo()?POS.lon:null, d:null});
   S.shotOpen = false;
-  toast(POS ? `${etiq(b)} registrado. Cuando llegues a la bola te digo cuánto voló`
+  toast(gpsVivo() ? `${etiq(b)} registrado. Cuando llegues a la bola te digo cuánto voló`
             : `${etiq(b)} registrado, sin GPS no puedo medir la distancia`);
   render();
 }
@@ -1460,7 +1539,7 @@ function registrarGolpe(h, club){
    Sólo cuenta para las estadísticas si es un palo que mide distancia. */
 function cerrarGolpeAbierto(h){
   const a = golpeAbierto(h);
-  if(!a || !POS) return null;
+  if(!a || !gpsVivo()) return null;
   const d = aYardas(metros([a.lat,a.lon],[POS.lat,POS.lon]));
   if(d < 5) return null;                       // no te moviste: no fue un golpe
   a.d = d;
@@ -1524,7 +1603,7 @@ function shotPanel(h){
    ============================================================ */
 function abrirCierre(h){
   cerrarGolpeAbierto(h);          // el último palo queda medido hasta acá
-  S.cerrando = true; S.shotOpen = false;
+  S.cerrando = true; S.shotOpen = false; S.cierrePaso = 1;
   render(); $('#screen').scrollTop = 0;
 }
 function fijar(campo, v){
@@ -1535,97 +1614,136 @@ function fijar(campo, v){
   else if(campo==='bunker'){ R.bunker[h]=v; }
   else if(campo==='penal'){ R.penal[h]=v; }
   else if(campo==='fw'){ R.fw[h] = R.fw[h]===v ? null : v; }
-  else if(campo==='gir'){ R.gir[h] = !R.gir[h]; }
   else if(campo==='otro'){ OTRO[h]=v; }
   render();
+}
+/* El green en regulación NO se pregunta: se calcula. Llegar en regulación es
+   alcanzar el green en par−2 golpes, y los golpes hasta el green son los
+   totales menos los putts. Como el socio carga putts siempre, sale solo — y
+   de paso se va el bug de que el botón decía "No" sin que nadie lo tocara,
+   indistinguible de un No de verdad. Sin putts no se calcula y no se guarda:
+   la app no inventa. */
+function girDe(h){
+  const s = R.scores[h], pu = R.putts[h];
+  if(s === undefined || pu === undefined || pu === null) return null;
+  return (s - pu) <= (par(h) - 2);
+}
+function pasoMarcador(){
+  if(R.scores[S.hole]===undefined){ toast('Poné cuántos golpes hiciste'); return; }
+  S.cierrePaso = 2; render(); $('#screen').scrollTop = 0;
 }
 function cerrarHoyo(){
   const h = S.hole;
   if(R.scores[h]===undefined){ toast('Poné cuántos golpes hiciste'); return; }
+  const g = girDe(h);
+  if(g === null) delete R.gir[h]; else R.gir[h] = g;
   anotarEnLaNube(h);          // si estás jugando con el grupo, se manda solo
-  S.cerrando = false;
+  S.cerrando = false; S.cierrePaso = 1;
   if(h < S.vuelta){ S.hole = h+1; toast(`Hoyo ${h} cerrado · vamos al ${h+1}`); }
   else toast('Vuelta terminada');
   render(); $('#screen').scrollTop = 0;
 }
 
+/* ============================================================
+   CERRAR EL HOYO
+   El socio no anota en el green: camina al tee siguiente y anota ahí, antes
+   de salir, para no frenar la cancha. Eso manda todo el diseño de esta
+   pantalla: entra entera sin scrollear en un teléfono de 360×640, el botón
+   de guardar queda siempre a la vista, y la tarjeta del que marcás es un
+   segundo paso — meterla acá abajo obligaba a scrollear dos pantallas.
+   ============================================================ */
 function panelCierre(){
-  const h = S.hole, p = par(h), sc = R.scores[h];
+  if(S.cierrePaso === 2 && S.torneo) return panelMarcador();
+  const h = S.hole, p = par(h), sc = R.scores[h], gir = girDe(h);
   const nums = n => Array.from({length:n}, (_,i)=>i+1);
   const chip = (campo,v,txt,act) => `<button class="chip ${act?'on':''}"
     style="padding:12px 2px;font-size:14px;font-weight:800" onclick="fijar('${campo}',${v})">${txt}</button>`;
+  const fila = n => `display:grid;grid-template-columns:repeat(${n},1fr);gap:7px`;
   return `<div class="fade">
-  <div class="hdr"><div class="row"><button class="arrow" onclick="S.cerrando=false;render()">‹</button>
-    <div><div class="lbl">Hoyo ${h} · par ${p} · ${yards(h) ?? '—'} yds</div>
-      <h1 style="font-size:22px">Cerrar el hoyo</h1></div></div></div>
-  <div class="pad">
-
-    <div class="card">
-      <div class="lbl" style="margin-bottom:8px">¿Cuántos golpes hiciste?</div>
-      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:7px">
-        ${nums(10).map(v=>chip('sc',v,v,sc===v)).join('')}
-      </div>
-      ${sc!==undefined?`<div class="dim" style="font-size:12px;margin-top:9px">
-        ${sc-p===0?'Par.':sc-p===-1?'Birdie.':sc-p<=-2?'Eagle.':sc-p===1?'Bogey.':'+'+(sc-p)+' al par.'}
-        ${(R.shots[h]||[]).length?`Registraste ${(R.shots[h]||[]).length} palo${(R.shots[h]||[]).length===1?'':'s'} en este hoyo.`:''}</div>`:''}
+  <div class="pad" style="padding-top:10px">
+    <div class="row" style="margin-bottom:12px">
+      <button class="arrow" onclick="S.cerrando=false;render()">‹</button>
+      <div style="min-width:0"><div style="font-weight:800;font-size:17px">Hoyo ${h} · par ${p}</div>
+        <div class="dim" style="font-size:12px">${yards(h) ?? '—'} yds · ${tee().n.toLowerCase()}</div></div>
     </div>
 
-    <div class="card">
-      <div class="lbl" style="margin-bottom:8px">¿Cuántos putts?</div>
-      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:7px">
-        ${[0,1,2,3,4].map(v=>chip('putts',v,v===4?'4+':v,R.putts[h]===v)).join('')}
+    <div class="bloque">
+      <div class="lbl" style="display:flex;justify-content:space-between;gap:8px">
+        <span>¿Cuántos golpes?</span>
+        ${sc!==undefined?`<span class="acc" style="text-transform:none;letter-spacing:0">${
+          sc-p===0?'Par':sc-p===-1?'Birdie':sc-p<=-2?'Eagle':sc-p===1?'Bogey':'+'+(sc-p)+' al par'}</span>`:''}
       </div>
+      <div style="${fila(5)}">${nums(10).map(v=>chip('sc',v,v,sc===v)).join('')}</div>
     </div>
 
-    <div class="grid2">
-      <div class="card" style="margin:0">
-        <div class="lbl" style="margin-bottom:8px">Bunker</div>
-        <div class="grid4">${[0,1,2,3].map(v=>chip('bunker',v,v===3?'3+':v,(R.bunker[h]||0)===v)).join('')}</div>
+    <div class="bloque">
+      <div class="lbl" style="display:flex;justify-content:space-between;gap:8px">
+        <span>Putts</span>
+        ${gir===null?'':`<span style="text-transform:none;letter-spacing:0;color:${
+          gir?'var(--acc)':'var(--dim2)'}">${gir?'en regulación':'fuera de regulación'}</span>`}
       </div>
-      <div class="card" style="margin:0">
-        <div class="lbl" style="margin-bottom:8px">Penalidades</div>
-        <div class="grid4">${[0,1,2,3].map(v=>chip('penal',v,v===3?'3+':v,(R.penal[h]||0)===v)).join('')}</div>
-      </div>
+      <div style="${fila(5)}">${[0,1,2,3,4].map(v=>chip('putts',v,v===4?'4+':v,R.putts[h]===v)).join('')}</div>
+    </div>
+
+    <div class="bloque">
+      <div class="lbl">Bunker</div>
+      <div class="grid4">${[0,1,2,3].map(v=>chip('bunker',v,v===3?'3+':v,R.bunker[h]===v)).join('')}</div>
+    </div>
+
+    <div class="bloque">
+      <div class="lbl">Penalidades</div>
+      <div class="grid4">${[0,1,2,3].map(v=>chip('penal',v,v===3?'3+':v,R.penal[h]===v)).join('')}</div>
     </div>
 
     ${p>3?`
-    <div class="card">
-      <div class="lbl" style="margin-bottom:8px">¿Dónde quedó tu salida?</div>
-      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:7px">
+    <div class="bloque">
+      <div class="lbl">¿Dónde quedó tu salida?</div>
+      <div style="${fila(5)}">
         ${FW.map(([k,l,f])=>`<button class="chip ${R.fw[h]===k?'on':''}"
-          style="padding:10px 2px" onclick="fijar('fw','${k}')">
-          <div style="font-size:19px;line-height:1.1">${f}</div>
+          style="padding:8px 2px" onclick="fijar('fw','${k}')">
+          <div style="font-size:18px;line-height:1.1">${f}</div>
           <div style="font-size:10px">${l}</div></button>`).join('')}
       </div>
     </div>`:''}
 
-    <div class="card">
-      <div class="between">
-        <div style="min-width:0"><div style="font-weight:700;font-size:14px">
-          ${p===3?'¿Pegaste el green de salida?':'¿Green en regulación?'}</div>
-          <div class="dim2" style="font-size:11px">Llegaste al green con ${p-2} golpe${p-2===1?'':'s'} o menos</div></div>
-        <button class="chip ${R.gir[h]?'on':''}" style="padding:12px 20px;flex:0 0 auto"
-          onclick="fijar('gir',1)">${R.gir[h]?'Sí ✓':'No'}</button>
-      </div>
+    <div class="guardar">
+      <button class="btn" onclick="${S.torneo?'pasoMarcador()':'cerrarHoyo()'}">
+        ${S.torneo ? 'Seguir · la tarjeta de '+GROUP()[S.marco].n
+          : S.hole < S.vuelta ? 'Guardar y pasar al hoyo '+(S.hole+1) : 'Guardar y terminar la vuelta'}</button>
+    </div>
+  </div></div>`;
+}
+
+/* El segundo paso: la tarjeta del que marcás. Va aparte y no abajo del
+   primero porque es otro acto mental —dejás de ser jugador y pasás a ser
+   marcador— y porque juntos no entraban en una pantalla. */
+function panelMarcador(){
+  const h = S.hole, otro = GROUP()[S.marco];
+  const nums = n => Array.from({length:n}, (_,i)=>i+1);
+  return `<div class="fade">
+  <div class="pad" style="padding-top:10px">
+    <div class="row" style="margin-bottom:12px">
+      <button class="arrow" onclick="S.cierrePaso=1;render()">‹</button>
+      <div style="min-width:0"><div style="font-weight:800;font-size:17px">Hoyo ${h} · par ${par(h)}</div>
+        <div class="dim" style="font-size:12px">Tu hoyo quedó en ${R.scores[h]}</div></div>
     </div>
 
-    ${S.torneo?`
     <div class="card" style="border-color:var(--acc2);background:var(--tint)">
       <div class="row" style="align-items:flex-start;margin-bottom:11px">
-        <div class="avatar">${GROUP()[S.marco].i}</div>
-        <div style="min-width:0"><div style="font-weight:800;font-size:15px">La tarjeta de ${GROUP()[S.marco].n}</div>
+        <div class="avatar">${esc(otro.i)}</div>
+        <div style="min-width:0"><div style="font-weight:800;font-size:15px">La tarjeta de ${esc(otro.n)}</div>
           <div class="dim" style="font-size:12px">Sos su marcador: anotá lo que hizo <b>él</b> en el hoyo ${h}.</div></div>
       </div>
       <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:7px">
         ${nums(10).map(v=>`<button class="chip ${OTRO[h]===v?'on':''}"
           style="padding:12px 2px;font-size:14px;font-weight:800" onclick="fijar('otro',${v})">${v}</button>`).join('')}
       </div>
-    </div>`:''}
+    </div>
 
-    <button class="btn" style="margin-bottom:10px" onclick="cerrarHoyo()">
-      ${S.hole < S.vuelta ? 'Guardar y pasar al hoyo '+(S.hole+1) : 'Guardar y terminar la vuelta'}</button>
-    <button class="btn ghost sm" style="margin-bottom:24px" onclick="S.cerrando=false;render()">
-      Volver al hoyo sin guardar</button>
+    <div class="guardar">
+      <button class="btn" onclick="cerrarHoyo()">
+        ${S.hole < S.vuelta ? 'Guardar y pasar al hoyo '+(S.hole+1) : 'Guardar y terminar la vuelta'}</button>
+    </div>
   </div></div>`;
 }
 
@@ -1659,10 +1777,15 @@ function vPlay(){
         <div class="d"><div class="k">Fondo</div><div class="v" id="dBack">${g.back ?? '—'}</div></div>
       </div>
       <div class="u">yardas ${g.real ? 'desde donde estás parado' : 'estimadas'}</div>
-      ${g.esperandoGPS?`<div class="dim" style="background:var(--tint);border-radius:11px;
+      ${g.esperandoGPS && !POS_ERR?`<div class="dim" style="background:var(--tint);border-radius:11px;
         padding:9px 12px;margin-top:8px;font-size:12px">
         Buscando el GPS. Mientras tanto es una estimación con el largo del hoyo;
         en cuanto enganche pasan a ser tu distancia real.</div>`:''}
+      ${!g.real && POS_ERR?`<div style="background:#3a3117;border:1px solid #5c4a1f;border-radius:11px;
+        padding:10px 12px;margin-top:8px;font-size:12px">
+        <b class="gold">Se perdió la ubicación</b>
+        <div class="dim" style="margin-top:3px;line-height:1.5">${POS_ERR}
+        Las distancias de arriba son estimadas. Tu tarjeta se sigue anotando igual.</div></div>`:''}
       ${g.sinMedir?`<div class="dim" style="background:var(--tint);border-radius:11px;
         padding:9px 12px;margin-top:8px;font-size:12px">
         Sin distancias en este hoyo: falta la medición y el GPS todavía no enganchó.</div>`:''}
@@ -2017,7 +2140,7 @@ function vClub(){
               shop:clubShop,cancha:clubCancha}[S.clubTab] || clubTee)();
   return `<div class="fade">
   <div class="hdr"><div class="row" style="gap:11px">${crest(40)}
-    <div><div class="lbl">Socio ${S.user.socio}</div><h1 style="font-size:23px">${CLUB.corto}</h1></div></div></div>
+    <div><div class="lbl">Socio ${S.nsocio||S.user.socio}</div><h1 style="font-size:23px">${CLUB.corto}</h1></div></div></div>
   <div class="tabs">${t.map(([k,l])=>
     `<button class="tab ${S.clubTab===k?'on':''}" onclick="S.clubTab='${k}';render()">${l}</button>`).join('')}</div>
   <div class="pad" style="padding-top:10px">${body}</div></div>`;
@@ -2851,7 +2974,7 @@ function vArranque(){
           onclick="setTee('${t.id}')">${bolita(t)}${t.n}</button>`).join('')}</div>
     </div>
     ${tarjetaGrupo()}
-    <button class="btn" onclick="empezarRonda()">Salir a jugar</button>
+    ${bloqueSalir('Salir a jugar')}
     <div class="dim2" style="font-size:11px;text-align:center;margin:10px 0 24px">
       Si después querés que esta tarjeta cuente para el handicap, va a necesitar un marcador.</div>`
     :`
@@ -2896,7 +3019,7 @@ function vArranque(){
 
     ${tarjetaGrupo()}
 
-    <button class="btn" onclick="empezarRonda()">Empezar el torneo</button>
+    ${bloqueSalir('Empezar el torneo')}
     <div class="dim2" style="font-size:11px;text-align:center;margin:10px 0 24px">
       Al terminar, las tarjetas firmadas le llegan solas a ${CLUB.pro.n}.</div>`}
   </div></div>`;
@@ -3170,7 +3293,8 @@ function vOnboard(){
       </div>
       <div class="dim2" style="font-size:11px;margin-top:10px">
         ¿No te llega? Puede que el club tenga otro mail tuyo.
-        <a href="#" onclick="S.padronEstado='sincontacto';render();return false" style="color:var(--acc)">Pedir habilitación</a>.</div>`:''}
+        <a href="#" onclick="S.padronEstado='sincontacto';render();return false"
+           style="color:var(--acc);display:inline-block;padding:12px 2px;font-size:13px;font-weight:700">Pedir habilitación</a></div>`:''}
 
       ${est==='verificado'? (p.deMentira ? `
       <div class="sep"></div>
@@ -3294,7 +3418,7 @@ function vOnboard(){
           onclick="setCat('dam')">Damas</button>
       </div>
       <div class="lbl">Número de matrícula</div>
-      <input value="${S.mat||''}" placeholder="Ej. 104738" inputmode="numeric" oninput="S.mat=this.value"
+      <input value="${S.mat||''}" placeholder="Ej. 123456" inputmode="numeric" oninput="S.mat=this.value"
         style="width:100%;margin-top:7px;padding:14px;border-radius:12px;background:var(--nav);
         border:1px solid var(--line);color:var(--txt);font-family:inherit;font-size:16px;font-weight:700;letter-spacing:.06em">
       <div class="lbl" style="margin-top:14px">Tu handicap index</div>
@@ -3382,7 +3506,7 @@ function vMe(){
     <div class="card"><div class="row">
       <div class="avatar" style="width:56px;height:56px;font-size:20px">MD</div>
       <div style="flex:1;min-width:0"><div style="font-weight:800;font-size:17px">${S.user.name}</div>
-        <div class="dim" style="font-size:13px">Socio ${S.user.socio} · ${S.user.club}</div>
+        <div class="dim" style="font-size:13px">Socio ${S.nsocio||S.user.socio} · ${S.user.club}</div>
         <div style="margin-top:5px"><span class="pill">Index ${S.user.hcp}</span>
           <span class="pill" style="margin-left:5px">Cancha ${verHcp(hcpCancha(S.user.hcp))}</span></div></div>
       ${crest(46)}
@@ -3452,6 +3576,7 @@ function vMe(){
          ['🔔','Notificaciones','Torneos y tee times',"go('notif')"],
          ['🧪','Modo prueba', (PRUEBA && PRUEBA.abierta) ? 'Grabando ahora'
             : PRUEBA ? 'Hay una prueba guardada' : 'Medir GPS y batería en la cancha', "go('prueba')"],
+         ['💾','Copia de seguridad','Guardar todo en un archivo o traerlo de otro teléfono',"go('copia')"],
          ...(esSocio()?[['💳','Cuota y pagos',`${pesos(cuotaSocio().v)} · del 1 al ${CLUB.cuotas.vence}, ${pesos(cuotaSocio().b)}`,"toast('Cuota al día')"],
          ['👥','Invitados','2 pases disponibles',"toast('Pase de invitado enviado')"]]:[])].map(([i,t,s,f])=>
         `<div class="item" style="cursor:pointer" onclick="${f}"><div class="ico">${i}</div>
@@ -3931,10 +4056,53 @@ function setOtro(v){ OTRO[S.hole]=v; render();
 function tg(k){R[k][S.hole]=!R[k][S.hole];render();}   // sólo lo usa el GIR
 function yaCargada(i){ PARA_AAG[i].cargada=!PARA_AAG[i].cargada; render();
   toast(PARA_AAG[i].cargada?`${PARA_AAG[i].n} marcada como cargada`:`${PARA_AAG[i].n} vuelve a pendientes`); }
-function empezarRonda(){
+function textoEstadoGps(){
+  if(gpsVivo()) return `<b style="color:var(--acc)">Lista</b> · precisión de ±${Math.round(POS.acc)} m`;
+  return `<b class="gold">${POS_ERR || 'Buscándola…'}</b>`;
+}
+
+/* Sin ubicación no se sale a jugar. Las distancias medidas a pie en esta
+   cancha son el producto, y una app que las da flojas sin avisar es peor que
+   una que no las da.
+
+   Pero la tarjeta NO se bloquea nunca: es el documento de la vuelta, y si a
+   alguien se le apaga el GPS en el hoyo 12 en un torneo no puede quedarse sin
+   dónde anotar. Por eso hay una puerta explícita, chica y abajo, para anotar
+   sin distancias. Es a propósito que cueste más tocarla que la de arriba. */
+function bloqueSalir(texto){
+  const listo = gpsVivo();
+  return `
+    <div class="card" style="${listo?'':'border-color:#5c4a1f'}">
+      <div class="between"><div style="min-width:0">
+        <div style="font-weight:700;font-size:13px">Ubicación</div>
+        <div class="dim" style="font-size:12px" id="estadoGps">${textoEstadoGps()}</div>
+      </div>
+      ${listo?'':`<button class="chip" style="flex:0 0 auto;padding:11px 13px"
+        onclick="arrancarGPS();toast('Buscando la ubicación…')">Reintentar</button>`}</div>
+      ${listo?'':`<div class="dim2" style="font-size:11.5px;margin-top:9px;line-height:1.55">
+        Prendé la ubicación del teléfono y dale permiso a la app. Sin eso no hay
+        distancias, y las distancias son el motivo de esta app.</div>`}
+    </div>
+    <button class="btn" id="btnSalir"${listo?'':' disabled style="opacity:.45"'}
+      onclick="empezarRonda()">${texto}</button>
+    ${listo?'':`<button class="btn ghost sm" style="margin-top:9px;width:100%"
+      onclick="empezarRonda(true)">Anotar sin distancias</button>
+      <div class="dim2" style="font-size:11px;text-align:center;margin-top:7px;line-height:1.5">
+        Tu tarjeta nunca se bloquea. Sin GPS anotás igual; lo que no vas a ver son
+        las distancias medidas.</div>`}`;
+}
+
+function empezarRonda(sinGps){
   if(S.torneo && S.marco===S.meMarca){toast('Elegí distinto para marcar y ser marcado');return;}
+  if(!gpsVivo() && !sinGps){
+    arrancarGPS();
+    toast(POS_ERR || 'Buscando la ubicación…');
+    render(); return;
+  }
+  const aCiegas = !gpsVivo();
   S.hole=1; S.playing=true; go('play');
-  toast(S.torneo?`Arrancó · llevás la tarjeta de ${GROUP()[S.marco].n}`:'Arrancó la ronda');
+  toast(aCiegas ? 'Arrancó sin GPS · vas a anotar sin distancias'
+      : S.torneo?`Arrancó · llevás la tarjeta de ${GROUP()[S.marco].n}`:'Arrancó la ronda');
 }
 function finish(){
   if(!S.torneo){ S.entregada=false; go('summary');
@@ -4339,8 +4507,8 @@ function latirPrueba(){
    Si no hay posición lo anotamos igual — un hueco es información. */
 async function muestraPrueba(){
   if(!PRUEBA || !PRUEBA.abierta) return;
-  const m = { t: Date.now(), hoyo: S.hole, hay: !!POS };
-  if(POS){
+  const m = { t: Date.now(), hoyo: S.hole, hay: gpsVivo() };
+  if(gpsVivo()){
     m.acc = Math.round(POS.acc);
     m.lat = +POS.lat.toFixed(6);
     m.lon = +POS.lon.toFixed(6);
@@ -4365,7 +4533,7 @@ function marcarEstaca(yds){
   const g = gps(S.hole);
   PRUEBA.estacas.push({ t:Date.now(), hoyo:S.hole, estaca:yds,
     centro:g.mid ?? null, frente:g.front ?? null, fondo:g.back ?? null,
-    acc: POS ? Math.round(POS.acc) : null, gpsReal: !!g.real });
+    acc: gpsVivo() ? Math.round(POS.acc) : null, gpsReal: !!g.real });
   guardarPrueba(); render();
   const d = g.mid != null ? g.mid - yds : null;
   toast(d == null ? 'Anotado, pero sin distancia'
@@ -4587,7 +4755,7 @@ function vPrueba(){
           <div class="big" style="font-size:30px">${r ? r.horas.toFixed(1) : '0.0'}<span
             style="font-size:15px;font-weight:600" class="dim"> h</span></div>
           <div class="dim2" style="font-size:12px">${r ? r.muestras : 0} mediciones</div></div>
-        <button class="btn ${grabando ? '' : 'ghost'}" style="width:auto;padding:13px 18px"
+        <button class="btn ${grabando ? '' : 'ghost'}" style="width:auto;padding:13px 18px;min-height:44px"
           onclick="${grabando ? 'pararPrueba()' : 'arrancarPrueba()'}">
           ${grabando ? 'Terminar' : 'Empezar de nuevo'}</button>
       </div>
@@ -4678,7 +4846,7 @@ function vPrueba(){
         margin-top:11px;background:var(--nav);border:1px solid var(--line);border-radius:12px;
         color:var(--txt);font-family:ui-monospace,monospace;font-size:11px;padding:11px">${
         (S.verDatos === 'resumen' ? resumenTexto() : JSON.stringify(datosPrueba(), null, 1))
-          .replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]))
+          .replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]))  /* idem esc() */
       }</textarea>` : ''}
 
       <button class="btn ghost sm" style="margin-top:13px" onclick="tirarPrueba()">Borrar la prueba</button>
@@ -4733,6 +4901,7 @@ const LATIDO    = 6000;          // cada cuánto preguntamos
 
 let RONDA = null;                // {codigo, yo, jugadores, anot, desde, ...}
 let _latido = null;
+let _ultimoRechazo = null;      // para no repetir el mismo aviso en cada latido
 let NUBE_ESTADO = { conectado:false, ultimo:null, error:null, mandando:0 };
 
 /* Un identificador del teléfono, estable. No es una cuenta ni identifica
@@ -4747,6 +4916,9 @@ function dispositivo(){
   return d;
 }
 const miId = () => RONDA ? RONDA.yo : null;
+/* Si ya estábamos en esta ronda (recarga, o volvimos a entrar), reusamos la
+   llave que teníamos: el servidor no le da el puesto a nadie más. */
+const llaveDe = codigo => (RONDA && RONDA.codigo === codigo && RONDA.llave) || null;
 
 /* Seis letras, sin las que se confunden al dictarlas: nada de I, O, 0, 1. */
 const LETRAS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -4792,7 +4964,7 @@ async function crearRonda(){
     p_vuelta:S.vuelta, p_torneo:!!S.torneo,
     p_jugador: dispositivo()+'-'+codigo, p_nombre:S.user.name,
     p_iniciales:S.user.ini, p_index:S.user.hcp,
-    p_hcp:hcpCancha(S.user.hcp), p_salida:S.tee
+    p_hcp:hcpCancha(S.user.hcp), p_salida:S.tee, p_llave:llaveDe(codigo)
   }, codigo);
 }
 async function unirseRonda(){
@@ -4802,7 +4974,7 @@ async function unirseRonda(){
   await entrar('ronda_unirse', {
     p_codigo:codigo, p_jugador: dispositivo()+'-'+codigo, p_nombre:S.user.name,
     p_iniciales:S.user.ini, p_index:S.user.hcp,
-    p_hcp:hcpCancha(S.user.hcp), p_salida:S.tee
+    p_hcp:hcpCancha(S.user.hcp), p_salida:S.tee, p_llave:llaveDe(codigo)
   }, codigo);
 }
 async function entrar(fn, args, codigo){
@@ -4810,8 +4982,12 @@ async function entrar(fn, args, codigo){
   try{
     const res = await rpc(fn, args);
     if(res && res.error){ toast(res.error); S.uniendo = false; render(); return; }
-    RONDA = { codigo, yo: dispositivo()+'-'+codigo, jugadores:[], anot:{},
-              cola:[], desde:null, marcoA:null };
+    /* La llave que devuelve el servidor es de ESTE teléfono y no sale de acá:
+       es lo que prueba que somos quien decimos. El código de seis letras es
+       una dirección, no una credencial — se dicta en voz alta en el tee. */
+    RONDA = { codigo, yo: dispositivo()+'-'+codigo,
+              llave: (res && res.llave) || llaveDe(codigo),
+              jugadores:[], anot:{}, cola:[], desde:null, marcoA:null };
     absorber(res);
     guardarRonda(); arrancarLatido();
     S.uniendo = false; S.codigoIn = '';
@@ -4838,6 +5014,10 @@ function absorber(res){
     /* Lo mío no se pisa: de mis anotaciones el dueño soy yo, y lo que
        tengo en el teléfono es más nuevo que lo que pueda volver. */
     if(a.por === RONDA.yo) return;
+    /* Borrado lógico: el servidor manda la anotación borrada con su
+       `borrado_en` para que la saquemos. Si sólo dejara de mandarla,
+       este teléfono la seguiría mostrando para siempre. */
+    if(a.borrado_en){ delete RONDA.anot[a.de + '|' + a.por + '|' + a.hoyo]; return; }
     RONDA.anot[a.de + '|' + a.por + '|' + a.hoyo] = a;
   });
   if(res.ahora) RONDA.desde = res.ahora;
@@ -4868,9 +5048,20 @@ async function vaciarCola(){
        hoyo, así que reintentar nunca duplica nada. */
     while(RONDA.cola.length){
       const op = RONDA.cola[0];
-      await rpc(op.fn, op.args);
+      const res = await rpc(op.fn, op.args);
+      /* Un 200 con `{error:...}` NO es un éxito. Antes se descartaba igual y
+         la app decía "al día": el jugador creía que había anotado y en el
+         servidor no había nada. Un rechazo no se arregla reintentando —la
+         ronda se cerró, o la llave no es la nuestra— así que lo sacamos de
+         la cola y lo DECIMOS, una vez por motivo. */
       RONDA.cola.shift();
       guardarRonda();
+      if(res && res.error){
+        NUBE_ESTADO.error = res.error;
+        if(_ultimoRechazo !== res.error){ _ultimoRechazo = res.error; toast('No se pudo guardar en el grupo · ' + res.error); }
+        continue;
+      }
+      _ultimoRechazo = null;
     }
     NUBE_ESTADO.conectado = true; NUBE_ESTADO.error = null;
   }catch(e){
@@ -4887,6 +5078,17 @@ async function latir(){
   await vaciarCola();
   try{
     const res = await rpc('ronda_estado', { p_codigo:RONDA.codigo, p_desde:RONDA.desde });
+    /* La ronda se borró del servidor. Se lo decimos y salimos: mostrar la
+       tarjeta del grupo vacía, sin explicar por qué, sería inventar. Lo que
+       este teléfono anotó no se toca — vive en su propia tarjeta. */
+    if(res && res.borrada){
+      const cod = RONDA.codigo;
+      RONDA = null; guardarRonda();
+      clearInterval(_latido); _latido = null;
+      NUBE_ESTADO = { conectado:false, ultimo:null, error:null, mandando:0 };
+      render(); toast(`La ronda ${cod} ya no está · tu tarjeta se conserva`);
+      return;
+    }
     const antes = JSON.stringify(RONDA.anot).length + (RONDA.jugadores||[]).length;
     absorber(res);
     guardarRonda();
@@ -4912,14 +5114,14 @@ function anotarEnLaNube(h){
   if(!RONDA) return;
   const yo = RONDA.yo;
   if(R.scores[h] !== undefined){
-    encolar('anotar', { p_codigo:RONDA.codigo, p_por:yo, p_de:yo, p_hoyo:h,
+    encolar('anotar', { p_codigo:RONDA.codigo, p_llave:RONDA.llave, p_por:yo, p_de:yo, p_hoyo:h,
       p_golpes:R.scores[h], p_putts:R.putts[h] ?? null,
       p_bunker:R.bunker[h] ?? null, p_penal:R.penal[h] ?? null,
       p_salida_fw:R.fw[h] ?? null }, `${yo}|${yo}|${h}`);
   }
   const aQuien = RONDA.marcoA;
   if(aQuien && OTRO[h] != null){
-    encolar('anotar', { p_codigo:RONDA.codigo, p_por:yo, p_de:aQuien, p_hoyo:h,
+    encolar('anotar', { p_codigo:RONDA.codigo, p_llave:RONDA.llave, p_por:yo, p_de:aQuien, p_hoyo:h,
       p_golpes:OTRO[h], p_putts:null, p_bunker:null, p_penal:null,
       p_salida_fw:null }, `${aQuien}|${yo}|${h}`);
   }
@@ -4927,7 +5129,8 @@ function anotarEnLaNube(h){
 function elegirAQuienMarco(id){
   if(!RONDA) return;
   RONDA.marcoA = id; guardarRonda();
-  encolar('marcar_a', { p_codigo:RONDA.codigo, p_jugador:RONDA.yo, p_a:id }, 'marca');
+  encolar('marcar_a', { p_codigo:RONDA.codigo, p_llave:RONDA.llave,
+                        p_jugador:RONDA.yo, p_a:id }, 'marca');
   render();
   const j = (RONDA.jugadores||[]).find(x => x.id === id);
   toast(j ? `Llevás la tarjeta de ${j.nombre}` : 'Listo');
@@ -5033,14 +5236,14 @@ function tarjetaGrupo(){
         Dictáselo a los demás. Son seis letras, sin ceros ni oes.</div>
 
       ${js.map(j => `<div class="item" style="padding:9px 0">
-        <div class="avatar">${j.iniciales || (j.nombre||'?')[0]}</div>
+        <div class="avatar">${esc(j.iniciales || (j.nombre||'?')[0])}</div>
         <div style="flex:1;min-width:0">
-          <div style="font-weight:700;font-size:14px">${j.nombre}${
+          <div style="font-weight:700;font-size:14px">${esc(j.nombre)}${
             j.id === RONDA.yo ? ' <span class="dim2" style="font-weight:500">· vos</span>' : ''}</div>
           <div class="dim" style="font-size:12px">Hcp ${verHcp(j.hcp_cancha)}${
             j.marca_a === RONDA.yo ? ' · te marca' : ''}</div></div>
         ${j.id !== RONDA.yo ? `<button class="chip ${RONDA.marcoA === j.id ? 'on' : ''}"
-          style="padding:8px 11px;font-size:11px" onclick="elegirAQuienMarco('${j.id}')">
+          style="padding:8px 11px;font-size:11px" onclick="elegirAQuienMarco('${esc(j.id)}')">
           ${RONDA.marcoA === j.id ? 'lo marcás' : 'marcarlo'}</button>` : ''}
       </div>`).join('')}
 
@@ -5085,7 +5288,7 @@ function grupoEnVivo(){
       <th>Golpes</th><th>Neto</th><th>Stbl</th></tr></thead><tbody>
     ${filas.map(({j,hoyos,golpes,parr,stb,ajeno}) => `<tr>
       <td class="name"><span class="avatar" style="width:22px;height:22px;font-size:9px;
-        display:inline-flex;vertical-align:-6px;margin-right:7px">${j.iniciales||'?'}</span>${j.nombre}${
+        display:inline-flex;vertical-align:-6px;margin-right:7px">${esc(j.iniciales||'?')}</span>${esc(j.nombre)}${
         j.id===RONDA.yo?' <span class="dim2">· vos</span>':''}</td>
       <td class="dim">${hoyos.length}</td>
       <td style="font-weight:800">${golpes||'–'}</td>
@@ -5111,9 +5314,90 @@ function grupoEnVivo(){
 /* ============================================================
    RENDER
    ============================================================ */
+function vCopia(){
+  const r = resumenCopia(datosCopia());
+  const nada = !r.cuenta && !r.hoyos && !r.golpes && !r.ronda && !r.prueba;
+  return `<div class="fade"><div class="hdr">
+    <div class="row"><button class="arrow" onclick="go('me')">‹</button>
+    <div><div class="lbl">Ajustes</div><h1 style="font-size:22px">Copia de seguridad</h1></div></div></div>
+  <div class="pad">
+
+    ${SIN_LUGAR ? aviso('⚠️','Este teléfono no está guardando',
+        'Se quedó sin lugar o está en modo incógnito. Bajá una copia ahora mismo: lo que cargues no se está guardando.') : ''}
+
+    <div class="card">
+      <h3>Qué hay en este teléfono</h3>
+      <div class="dim" style="font-size:12.5px;margin-bottom:10px">Todo esto vive acá adentro y en
+      ningún otro lado. Si cambiás de teléfono o el navegador limpia el sitio, se va con él.</div>
+      ${[['👤','Cuenta', r.cuenta || 'sin cargar'],
+         ['🎒','Bolsa', `${r.palos} palos · ${r.golpes} golpes cargados`],
+         ['⛳','Ronda en curso', r.hoyos ? `${r.hoyos} hoyo${r.hoyos===1?'':'s'} anotados` : 'ninguna'],
+         ['📡','Ronda del grupo', r.ronda || 'ninguna'],
+         ['🧪','Modo prueba', r.prueba ? `${r.prueba} mediciones` : 'sin datos']].map(([i,t,v])=>
+        `<div class="item"><div class="ico">${i}</div><div style="flex:1;min-width:0">
+          <div style="font-weight:600">${t}</div></div>
+          <div class="dim" style="font-size:12.5px;text-align:right">${v}</div></div>`).join('')}
+    </div>
+
+    <div class="card">
+      <h3>Guardar una copia</h3>
+      <button class="btn" onclick="compartirCopia()"${nada?' disabled style="opacity:.4"':''}>Compartir la copia</button>
+      <div class="dim2" style="font-size:11.5px;margin-top:8px;line-height:1.55">
+        Abre la hoja para compartir del teléfono: mandátela por mail o guardala en tu nube.
+        Es la forma que anda siempre desde el celular.</div>
+      <div class="sep"></div>
+      <div class="grid2">
+        <button class="chip" onclick="bajarCopia()">Bajar el archivo</button>
+        <button class="chip" onclick="copiarCopia()">Copiar el texto</button>
+      </div>
+      <button class="chip" style="width:100%;margin-top:8px" onclick="verCopiaTexto()">
+        ${S.verCopia?'Ocultar el texto':'Ver el texto'}</button>
+      <div class="dim2" style="font-size:11.5px;margin-top:9px;line-height:1.55">
+        Si nada de arriba funciona, tocá <b>Ver</b> y copiá el texto a mano: eso anda
+        en cualquier teléfono.</div>
+      ${S.verCopia ? `<textarea id="salidaCopia" readonly style="width:100%;height:170px;
+        margin-top:11px;background:var(--nav);border:1px solid var(--line);border-radius:12px;
+        color:var(--txt);font-family:ui-monospace,monospace;font-size:11px;padding:11px">${
+        copiaEnTexto().replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]))
+      }</textarea>` : ''}
+    </div>
+
+    <div class="card">
+      <h3>Traer una copia</h3>
+      <div class="dim" style="font-size:12.5px;margin-bottom:11px">Reemplaza lo que hay en este
+      teléfono por lo que traiga el archivo. Antes de pisar nada se guarda lo actual, así podés volver.</div>
+      <input type="file" id="archivoCopia" accept="application/json,.json"
+             style="display:none" onchange="leerArchivoCopia(this)">
+      <button class="btn ghost" onclick="elegirArchivoCopia()">Elegir el archivo</button>
+      <div class="sep"></div>
+      <div class="lbl">O pegá el texto de la copia</div>
+      <textarea id="pegarCopia" placeholder="Pegá acá el texto que copiaste"
+        oninput="S.copiaPega=this.value" style="width:100%;height:90px;margin-top:7px;
+        background:var(--nav);border:1px solid var(--line);border-radius:12px;color:var(--txt);
+        font-family:ui-monospace,monospace;font-size:11px;padding:11px">${
+        (S.copiaPega||'').replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]))}</textarea>
+      <button class="chip" style="width:100%;margin-top:8px"
+        onclick="aplicarCopia(S.copiaPega||'')">Traer lo pegado</button>
+      <div class="dim2" style="font-size:11.5px;margin-top:11px;line-height:1.55">
+        <b>Ojo con la ronda del grupo:</b> si el teléfono viejo sigue adentro de la misma ronda,
+        sacalo antes. Dos teléfonos no pueden llevar la misma tarjeta.</div>
+    </div>
+
+    ${hayDeshacer() ? `<div class="card" style="border-color:#5c4a1f;margin-bottom:24px">
+      <div class="row" style="align-items:flex-start"><div class="ico">↩️</div>
+      <div style="min-width:0"><div style="font-weight:700;font-size:13px">Se importó una copia</div>
+      <div class="dim" style="font-size:12px">Guardamos cómo estaba este teléfono antes.
+      Podés volver a eso mientras no borres los datos.</div></div></div>
+      <button class="btn ghost sm" style="margin-top:11px" onclick="deshacerCopia()">
+        Volver a como estaba</button>
+    </div>` : '<div style="height:24px"></div>'}
+  </div>`;
+}
+
 const VIEWS={home:vHome,play:vPlay,stats:vStats,club:vClub,social:vSocial,me:vMe,
              notif:vNotif,summary:vSummary,bag:vBag,handicap:vHandicap,firma:vFirma,arranque:vArranque,tarjeta:vTarjeta,prueba:vPrueba,
-             dash:vDash,tees:vTees,socios:vSocios,torneo:vTorneo,permisos:vPermisos,cargaaag:vCargaAAG};
+             dash:vDash,tees:vTees,socios:vSocios,torneo:vTorneo,permisos:vPermisos,cargaaag:vCargaAAG,
+             copia:vCopia};
 /* ============================================================
    GUARDADO
    Todo vive en la memoria del navegador, y una vuelta dura cuatro horas.
@@ -5140,7 +5424,17 @@ function guardarTodo(){
                bag:BAG.map(b=>({c:b.c,on:b.on,shots:b.shots})), cancha:CANCHA_ESTADO};
     GUARDAR.forEach(k=> d[k]=S[k]);
     localStorage.setItem(LS_KEY, JSON.stringify(d));
-  }catch(e){ /* sin espacio o modo incógnito: seguimos igual, sin guardar */ }
+    SIN_LUGAR = false;
+  }catch(e){
+    /* Sin espacio, o modo incógnito. Esto se tragaba en silencio: la app seguía
+       andando y la vuelta entera se perdía sin que nadie se enterara hasta que
+       el teléfono se recargaba. Como `guardarTodo` corre en cada `render()`,
+       avisamos UNA vez y no más, para no tapar la pantalla de mensajes. */
+    if(!SIN_LUGAR){
+      SIN_LUGAR = true;
+      toast('No se puede guardar en este teléfono · bajá una copia');
+    }
+  }
 }
 function cargarTodo(){
   try{
@@ -5154,6 +5448,172 @@ function cargarTodo(){
     return true;
   }catch(e){ return false; }
 }
+/* ============================================================
+   COPIA DE SEGURIDAD
+   Todo lo del socio vive en la memoria de un solo teléfono. Si lo cambia,
+   lo pierde o el navegador limpia el sitio, se va la bolsa con todos los
+   golpes cargados, las estadísticas y la vuelta en curso. Esto lo saca a
+   un archivo y lo vuelve a meter en otro teléfono.
+
+   Sigue los mismos cuatro caminos que el modo prueba, del más cómodo al
+   más rústico, porque en un celular `<a download>` se traba sin avisar:
+   compartir · bajar · copiar al portapapeles · verlo y copiarlo a mano.
+   ============================================================ */
+const COPIA_MARCA  = 'trisquelia-copia';
+const COPIA_V      = 1;
+const DESHACER_KEY = 'trisquelia_antes_de_importar';
+let   SIN_LUGAR    = false;      // ya avisamos que no se puede guardar
+
+/* Las tres claves que son del socio. `trisquelia_dispositivo` queda AFUERA a
+   propósito: es la identidad de ESTE teléfono dentro de una ronda compartida,
+   y `absorber()` la usa para saber cuáles anotaciones son propias y no
+   pisarlas. Si dos teléfonos tuvieran el mismo identificador, los dos se
+   declararían dueños de la misma tarjeta. El teléfono que importa se queda
+   siempre con el suyo. */
+const COPIA_CLAVES = [LS_KEY, PRUEBA_KEY, RONDA_KEY];
+
+function datosCopia(){
+  const datos = {};
+  COPIA_CLAVES.forEach(k => {
+    try{
+      const v = localStorage.getItem(k);
+      if(v !== null) datos[k] = JSON.parse(v);
+    }catch(e){}      /* una clave rota no se lleva puesta la copia entera */
+  });
+  return { que:COPIA_MARCA, v:COPIA_V, fecha:new Date().toISOString(),
+           club:CLUB.id, telefono:navigator.userAgent, datos };
+}
+
+/* Qué hay adentro de una copia, para poder mostrarlo ANTES de pisar nada. */
+function resumenCopia(c){
+  const d  = (c && c.datos) || {};
+  const pr = d[LS_KEY] || {}, pb = d[PRUEBA_KEY], ro = d[RONDA_KEY];
+  const scores = (pr.R && pr.R.scores) || {};
+  return {
+    cuenta : pr.user && pr.user.name ? pr.user.name : null,
+    hoyos  : Object.keys(scores).length,
+    golpes : Array.isArray(pr.bag) ? pr.bag.reduce((a,b)=>a+((b.shots||[]).length),0) : 0,
+    palos  : Array.isArray(pr.bag) ? pr.bag.filter(b=>b.on).length : 0,
+    ronda  : ro && ro.codigo ? ro.codigo : null,
+    prueba : pb && Array.isArray(pb.muestras) ? pb.muestras.length : 0,
+    fecha  : c && c.fecha ? c.fecha : null
+  };
+}
+const copiaEnTexto = () => JSON.stringify(datosCopia(), null, 1);
+
+/* ---------- sacarla del teléfono ---------- */
+async function compartirCopia(){
+  const texto = copiaEnTexto();
+  try{
+    const archivo = new File([texto], nombreCopia(), {type:'application/json'});
+    if(navigator.canShare && navigator.canShare({files:[archivo]})){
+      await navigator.share({files:[archivo], title:'Copia de seguridad · Trisquelia'});
+      return;
+    }
+  }catch(e){
+    if(e && e.name === 'AbortError') return;      /* lo canceló, no es un error */
+  }
+  toast('Este teléfono no deja compartir archivos. Probá bajarla');
+  bajarCopia();
+}
+/* Con fecha, al revés de la del modo prueba: de estas puede haber muchas y
+   conviene distinguirlas de un vistazo en la carpeta de descargas. */
+function nombreCopia(){
+  const d = new Date(), z = n => String(n).padStart(2,'0');
+  return `trisquelia-copia-${d.getFullYear()}-${z(d.getMonth()+1)}-${z(d.getDate())}.json`;
+}
+function bajarCopia(){
+  const b = new Blob([copiaEnTexto()], {type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(b);
+  a.download = nombreCopia();
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+}
+async function copiarCopia(){
+  try{
+    await navigator.clipboard.writeText(copiaEnTexto());
+    toast('Copia al portapapeles. Pegala donde la guardes');
+  }catch(e){
+    S.verCopia = true; render();
+    toast('Copiala a mano del cuadro de abajo');
+  }
+}
+function verCopiaTexto(){
+  S.verCopia = !S.verCopia; render();
+  if(S.verCopia){ const t = $('#salidaCopia'); if(t){ t.focus(); t.select(); } }
+}
+
+/* ---------- meterla en el teléfono ---------- */
+function elegirArchivoCopia(){ const i = $('#archivoCopia'); if(i) i.click(); }
+function leerArchivoCopia(input){
+  const f = input && input.files && input.files[0];
+  if(!f) return;
+  const fr = new FileReader();
+  fr.onerror = () => toast('No se pudo leer el archivo');
+  fr.onload  = () => aplicarCopia(String(fr.result || ''));
+  fr.readAsText(f);
+}
+
+/* Importar PISA lo que hay. Antes de pisar nada guardamos el estado actual,
+   así se puede volver: es la misma idea que el borrado lógico del servidor. */
+function aplicarCopia(texto){
+  let c = null;
+  try{ c = JSON.parse(texto); }
+  catch(e){ toast('Ese archivo no se entiende'); return false; }
+
+  if(!c || c.que !== COPIA_MARCA){ toast('Ese archivo no es una copia de Trisquelia'); return false; }
+  if(!(typeof c.v === 'number' && c.v <= COPIA_V)){
+    toast('Esa copia es de una versión más nueva de la app'); return false; }
+  if(!c.datos || typeof c.datos !== 'object'){ toast('La copia no trae datos'); return false; }
+  if(!Object.keys(c.datos).some(k => COPIA_CLAVES.indexOf(k) >= 0)){
+    toast('La copia no trae nada que se pueda restaurar'); return false; }
+
+  const r = resumenCopia(c);
+  const de = r.fecha ? new Date(r.fecha).toLocaleDateString('es-AR') : 'fecha desconocida';
+  if(!confirm(`Traer la copia del ${de}\n\n`
+    + `${r.cuenta || 'sin nombre'} · ${r.palos} palos · ${r.golpes} golpes cargados\n`
+    + `${r.hoyos} hoyo${r.hoyos===1?'':'s'} anotados`
+    + (r.ronda ? ` · ronda ${r.ronda}` : '')
+    + `\n\nEsto reemplaza lo que hay en ESTE teléfono. Vas a poder deshacerlo.`)) return false;
+
+  /* Si no entra el respaldo, no importamos: quedarse sin poder volver atrás es
+     peor que no importar. */
+  try{ localStorage.setItem(DESHACER_KEY, copiaEnTexto()); }
+  catch(e){
+    toast('No hay lugar para guardar lo actual · no se importó nada');
+    return false;
+  }
+  try{
+    COPIA_CLAVES.forEach(k => {
+      if(c.datos[k] === undefined) localStorage.removeItem(k);
+      else localStorage.setItem(k, JSON.stringify(c.datos[k]));
+    });
+  }catch(e){
+    toast('No hay lugar para la copia · se deshizo el cambio');
+    deshacerCopia(true);
+    return false;
+  }
+  location.reload();
+  return true;
+}
+const hayDeshacer = () => { try{ return !!localStorage.getItem(DESHACER_KEY); }catch(e){ return false; } };
+function deshacerCopia(callado){
+  let a = null;
+  try{ a = JSON.parse(localStorage.getItem(DESHACER_KEY) || 'null'); }catch(e){}
+  if(!a || !a.datos){ if(!callado) toast('No hay nada para deshacer'); return false; }
+  if(!callado && !confirm('Volver a como estaba este teléfono antes de importar. ¿Seguro?')) return false;
+  try{
+    COPIA_CLAVES.forEach(k => {
+      if(a.datos[k] === undefined) localStorage.removeItem(k);
+      else localStorage.setItem(k, JSON.stringify(a.datos[k]));
+    });
+    localStorage.removeItem(DESHACER_KEY);
+  }catch(e){}
+  location.reload();
+  return true;
+}
+
 /* Para volver a empezar de cero durante las pruebas. */
 function borrarTodoLocal(){
   if(!confirm('Esto borra tu cuenta y la ronda de este teléfono. ¿Seguro?')) return;
