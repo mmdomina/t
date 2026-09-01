@@ -1212,6 +1212,98 @@ function refrescarGPS(){
   if(a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA')) return;
   render();
 }
+/* ---------- ¿en qué tee estás parado? ----------
+   Las 65 coordenadas medidas a pie dan algo que ninguna app global puede
+   tener en esta cancha: saber en qué hoyo está el socio. Y sirve para el
+   momento exacto en que quiere anotar, porque no anota en el green — camina
+   al tee siguiente y anota ahí, para no frenar la cancha.
+
+   Los números de la cancha, medidos sobre esas coordenadas:
+     · entre tees de hoyos DISTINTOS, el par más cercano está a 80 m;
+     · el aprieto real es el green anterior: el tee del 2 está a 25 m del
+       fondo del green 1.
+
+   Por eso el radio de 30 m es holgado para no confundir un hoyo con otro
+   (haría falta bajar de 40), y la confusión con el green se resuelve sin
+   radio: se pide estar MÁS CERCA del tee que de cualquier green. El que está
+   puteando en el 1 está más cerca del green; el que caminó al tee del 2 está
+   más cerca del tee. La misma regla separa los dos casos.
+
+   Nunca cambia de hoyo sola. Garmin lo hace y hay gente que subió tarjetas
+   incompletas sin enterarse: acá se sugiere y decide el socio. */
+const TEE_CERCA = 30;               // metros
+
+function hoyoDelTee(){
+  const g = CLUB.geo;
+  if(!gpsVivo() || !g || !g.tees) return null;
+  const p = [POS.lat, POS.lon];
+
+  let cerca = null;                 // el tee más cercano, sea de la marca que sea
+  for(const fis of Object.keys(g.tees))
+    for(const c of Object.values(g.tees[fis])){
+      const d = metros(p, c);
+      if(!cerca || d < cerca.d) cerca = { fis:+fis, d };
+    }
+  if(!cerca || cerca.d > TEE_CERCA) return null;
+
+  let green = Infinity;             // el green más cercano, el que sea
+  for(const k of Object.keys(g.greens)){
+    const gr = g.greens[k];
+    for(const c of [gr.f, gr.c, gr.b]) green = Math.min(green, metros(p, c));
+  }
+  if(green <= cerca.d) return null; // estás en el green, no en el tee
+
+  /* Un hoyo físico es dos hoyos de la tarjeta (ida y vuelta). Elegimos el que
+     tenga sentido según dónde venía el socio. */
+  const cand = CLUB.fisico.map((f,i) => f === cerca.fis ? i+1 : null).filter(Boolean)
+                          .filter(h => h <= S.vuelta);
+  if(!cand.length) return null;
+  const meta = S.hole + 1;
+  return cand.reduce((a,b) => Math.abs(b-meta) < Math.abs(a-meta) ? b : a);
+}
+
+/* Qué proponerle, o null si no hay nada que proponer. */
+function sugerenciaTee(){
+  if(!S.playing || S.cerrando || S.hoja) return null;
+  const h = hoyoDelTee();
+  if(h === null || h === S.hole) return null;
+  if(S.teeVisto === h) return null;              // ya dijo que no
+  return { hoyo:h, cerrar: R.scores[S.hole] === undefined };
+}
+function irAlTeeSugerido(){
+  const s = sugerenciaTee();
+  if(!s) return;
+  if(s.cerrar) return abrirCierre(S.hole);       // primero se cierra el que venía
+  S.hole = s.hoyo; S.teeVisto = null;
+  render(); $('#screen').scrollTop = 0;
+  toast(`Vamos al hoyo ${s.hoyo}`);
+}
+function descartarTee(){
+  const s = sugerenciaTee();
+  if(s) S.teeVisto = s.hoyo;
+  pintarAvisoTee();
+}
+function avisoTeeHTML(){
+  const s = sugerenciaTee();
+  if(!s) return '';
+  return `<div style="background:var(--tint);border:1px solid var(--acc2);border-radius:var(--r);
+    padding:12px 14px;margin:12px 18px">
+    <div style="font-weight:800;font-size:14px">Llegaste al tee del ${s.hoyo}</div>
+    <div class="dim" style="font-size:12.5px;margin-top:2px">${s.cerrar
+      ? `El hoyo ${S.hole} todavía no está anotado.`
+      : `Tu hoyo ${S.hole} ya está cerrado.`}</div>
+    <div class="grid2" style="margin-top:10px">
+      <button class="btn sm" onclick="irAlTeeSugerido()">${s.cerrar
+        ? 'Cerrar el '+S.hole : 'Ir al '+s.hoyo}</button>
+      <button class="btn ghost sm" onclick="descartarTee()">Ahora no</button>
+    </div>
+  </div>`;
+}
+function pintarAvisoTee(){
+  const e = document.getElementById('avisoTee');
+  if(e) e.innerHTML = avisoTeeHTML();
+}
+
 /* metros entre dos coordenadas */
 function metros(a,b){
   const R_=6371000, f1=a[0]*Math.PI/180, f2=b[0]*Math.PI/180;
@@ -1255,6 +1347,7 @@ function pintarDistancias(){
   if(e) e.textContent = g.real ? `GPS ±${g.acc} m` : (POS_ERR || 'Buscando señal…');
   const dg=document.getElementById('dGolpe');
   if(dg){ const v=desdeElGolpe(S.hole); dg.textContent = v ?? '—'; }
+  pintarAvisoTee();
 }
 /* qué palo tiene sentido: en la salida de un par 4 o 5, el más largo que
    tengas; en el resto, el que más se acerque a lo que falta. */
@@ -1638,7 +1731,7 @@ function cerrarHoyo(){
   const g = girDe(h);
   if(g === null) delete R.gir[h]; else R.gir[h] = g;
   anotarEnLaNube(h);          // si estás jugando con el grupo, se manda solo
-  S.cerrando = false; S.cierrePaso = 1;
+  S.cerrando = false; S.cierrePaso = 1; S.teeVisto = null;
   if(h < S.vuelta){ S.hole = h+1; toast(`Hoyo ${h} cerrado · vamos al ${h+1}`); }
   else toast('Vuelta terminada');
   render(); $('#screen').scrollTop = 0;
@@ -1761,6 +1854,8 @@ function vPlay(){
   const conf = rec ? confianza(rec) : null;
 
   return `<div class="fade">
+
+  <div id="avisoTee">${avisoTeeHTML()}</div>
 
   <div class="mapa">
     ${holeSVG(h)}

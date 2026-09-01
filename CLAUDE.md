@@ -116,7 +116,7 @@ tiene que salir o no.
 **Todo lo que viene del servidor pasa por `esc()` antes de un `innerHTML`.** Los nombres de los
 jugadores los escribe cualquiera que tenga el código. Sin esto, un tercero entraba con el nombre
 `<img src=x onerror=...>` y ejecutaba código en el teléfono de TODOS los del grupo, con acceso a
-la tarjeta y a todo lo guardado. Comprobado con `nube-test`, no teórico.
+la tarjeta y a todo lo guardado. Comprobado con `nubetest`, no teórico.
 
 **Un 200 con `{error:...}` no es un éxito.** `vaciarCola()` lo trataba como bueno: descartaba la
 anotación, decía "al día", y el jugador creía que había anotado cuando en el servidor no había
@@ -159,8 +159,8 @@ muestra para siempre. Por eso borrar toca `actualizado`.
 `revoke execute on function x() from public, anon, authenticated`. Ya pasó una vez con
 `limpiar_rondas_viejas()`, que borraba rondas y cualquiera con la clave pública podía llamarla.
 
-**Y el mock tiene que mentir igual que el servidor.** `pruebas/mock-supabase.js` imita
-`esquema.sql`: si cambiás una función allá, cambiala acá, o `nube-test` va a estar probando un
+**Y el mock tiene que mentir igual que el servidor.** `pruebas/mocksupabase.js` imita
+`esquema.sql`: si cambiás una función allá, cambiala acá, o `nubetest` va a estar probando un
 servidor que no existe. Lo que `anon` no puede llamar tampoco vive en `FN` del mock — va en el
 panel `/__test`.
 
@@ -175,12 +175,26 @@ hacer esta app.**
 en secundario a propósito. La tarjeta es el documento de la vuelta: si a alguien se le apaga el
 GPS en el hoyo 12 de un torneo, no puede quedarse sin dónde anotar.
 
+**Los nombres de `pruebas/` van sin guiones** (`nubetest.js`, no `nube-test.js`). No es capricho:
+al bajar los archivos y arrastrarlos a GitHub se les caen los guiones, y la primera vez eso hizo
+que subieran AL LADO de los viejos en vez de pisarlos — dos versiones desactualizadas quedaron
+publicadas sin que nadie lo notara. Se usa el nombre que sobrevive al viaje.
+
+**La app sugiere el hoyo, no lo cambia.** `hoyoDelTee()` usa las 65 coordenadas medidas a pie
+para saber en qué tee está parado el socio, y `sugerenciaTee()` le propone cerrar el hoyo que
+venía. **Nunca avanza sola:** Garmin lo hace y hay gente que subió tarjetas incompletas sin
+enterarse. Dos números de la cancha sostienen el diseño: entre tees de hoyos distintos el par más
+cercano está a **80 m** (por eso `TEE_CERCA = 30` es holgado), y el aprieto real es el green
+anterior —el tee del 2 está a **25 m** del fondo del green 1—, que no se resuelve con radio sino
+exigiendo estar **más cerca del tee que de cualquier green**. `teetest` corre con las coordenadas
+reales: si alguien mueve una medición, la suite se entera.
+
 **El socio no anota en el green: anota en el tee siguiente, antes de salir**, para no frenar la
 cancha. Eso le da a `panelCierre` un presupuesto de veinte segundos, una mano y un guante, y de ahí
-salen sus tres reglas: **entra entero sin scrollear** (medido en `cierre-test`, de 360×640 para
+salen sus tres reglas: **entra entero sin scrollear** (medido en `cierretest`, de 360×640 para
 arriba), el botón de guardar va pegado abajo (`.guardar`, `position:sticky`) y **el nav se esconde**
 porque son 67px y seis blancos para salirse sin querer. Si agregás algo a esa pantalla, corré
-`cierre-test` y fijate qué sacás a cambio.
+`cierretest` y fijate qué sacás a cambio.
 
 **El green en regulación no se pregunta: se calcula.** `girDe(h)` = `(golpes − putts) ≤ (par − 2)`.
 Antes era un botón que decía "No" sin que nadie lo tocara, indistinguible de un No de verdad. Sin
@@ -204,16 +218,17 @@ En `pruebas/`. Necesitan Node, Playwright y la app servida en `http://localhost:
 
 ```bash
 python3 -m http.server 8000 &          # desde la carpeta del repo
-node pruebas/mock-supabase.js &        # servidor falso, sólo para nube-test
+node pruebas/mocksupabase.js &        # servidor falso, sólo para nubetest
 node pruebas/bugs.js                   # barre TODAS las pantallas buscando null/NaN/undefined
 node pruebas/test-pwa.js               # instalación y offline          (18 ✓)
-node pruebas/play-test.js              # la pantalla de jugar           (22 ✓)
-node pruebas/prueba-test.js            # el modo prueba                 (28 ✓)
-node pruebas/nube-test.js              # dos teléfonos a la vez         (38 ✓)
+node pruebas/playtest.js              # la pantalla de jugar           (22 ✓)
+node pruebas/pruebatest.js            # el modo prueba                 (28 ✓)
+node pruebas/nubetest.js              # dos teléfonos a la vez         (38 ✓)
 node pruebas/exportar-test.js          # sacar los datos del teléfono   (11 ✓)
-node pruebas/copia-test.js             # copia de seguridad             (26 ✓)
-node pruebas/ubicacion-test.js         # el portón del GPS              (23 ✓)
-node pruebas/cierre-test.js            # cerrar el hoyo                 (43 ✓)
+node pruebas/copiatest.js             # copia de seguridad             (26 ✓)
+node pruebas/ubicaciontest.js         # el portón del GPS              (23 ✓)
+node pruebas/cierretest.js            # cerrar el hoyo                 (43 ✓)
+node pruebas/teetest.js                # el aviso al llegar al tee      (21 ✓)
 ```
 
 El esquema del servidor se prueba aparte, contra un Postgres de verdad — no
@@ -224,7 +239,7 @@ Postgres:
 createdb t && psql -d t -c 'create role anon' -c 'create role authenticated'
 psql -d t -f esquema.sql
 psql -d t -f esquema.sql                    # otra vez: tiene que ser idempotente
-psql -d t -f pruebas/esquema-test.sql       # borrado, identidad, permisos (61 ✓)
+psql -d t -f pruebas/esquematest.sql       # borrado, identidad, permisos (61 ✓)
 ```
 
 `bugs.js` es el más barato y el que más encuentra: renderiza cada pantalla en una matriz de
@@ -233,7 +248,7 @@ hoyo, el modo club con las cuatro personas, los siete pasos del alta) y busca `n
 `undefined`, `Infinity` y `[object Object]` en el texto visible. **Corrélo después de cualquier
 cambio.** Tiene que dar cero hallazgos.
 
-Entre las ocho suites son **209 comprobaciones**, más las **61** del esquema: 270 en total. Si
+Entre las nueve suites son **230 comprobaciones**, más las **61** del esquema: 291 en total. Si
 alguna se pone en rojo después de un cambio tuyo, es un bug tuyo: estaban todas en verde el
 31/8/2026.
 
