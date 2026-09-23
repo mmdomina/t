@@ -156,9 +156,10 @@ y el 2 la recta da 30 a 47 yardas menos, en las cuatro salidas por igual. Para l
 la federación; para las DISTANCIAS en cancha manda la medición. No son el mismo número y no hay
 que "arreglar" ninguno.
 
-**El corte de negras sigue en 10.3 y es una pregunta abierta.** Era el último index que jugaba
-con 10 de cancha en la tabla vieja; con la nueva ese lugar lo ocupa el 11.2. Hasta que el club
-diga si la regla es por index o por handicap de cancha, no se toca (`CORTE_NEGRAS`).
+**El corte de negras es por INDEX, hasta 10.3.** Confirmado por el club el 22/9/2026. Venía de
+ser el último index que jugaba con 10 de cancha en la tabla vieja —con la nueva ese lugar lo
+ocupa el 11.2—, pero la regla del club es por index, así que `CORTE_NEGRAS` no se recalcula
+cuando la federación revalúa la cancha. No lo "arregles" a 11.2.
 
 **El cruce son dos filas, no una.** Por cada jugador y hoyo puede haber dos anotaciones: la
 suya y la de su marcador (`de` y `por`). Por eso dos teléfonos nunca escriben la misma fila y
@@ -315,9 +316,10 @@ Mientras estén vacíos, la app funciona igual que siempre, todo local. Instrucc
    pudiendo **sumarse** a la ronda con el nombre que quiera. Para un torneo oficial hace falta
    que el que entra sea un socio verificado.
 4. El panel de la comisión, funcionando contra el servidor.
-5. ~~Rating y slope oficiales de las tres salidas.~~ **Resueltos en la v10.** Lo que queda,
-   y depende del club: si ya imprimieron la tarjeta de papel con la valuación nueva, y si el
-   corte para salir de negras es por index o por handicap de cancha. Las dos están en el acta.
+5. ~~Rating y slope oficiales de las tres salidas.~~ **Resueltos en la v10**, y el club cerró
+   las dos preguntas que quedaban el 22/9/2026: la tarjeta de papel nueva **ya está impresa**
+   (el papel y la app coinciden) y el corte para salir de negras es **por index, hasta 10.3**.
+   De la cancha no queda nada abierto con el club.
 6. Medir el tee de damas del 18 con `medir.html`: es el único punto de la cancha sin medir.
 
 **Personas:** Mauro Domina (admin), Félix Córdoba (pro y oficial de reglas; salidas y

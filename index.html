@@ -359,13 +359,15 @@ const S = {
    [x] VALUACIÓN NUEVA, y es UNA SOLA para las tres salidas, damas incluida.
        La vieja tenía incoherencias: el hoyo 5 llevaba 18 en la ida y 11 en la
        vuelta. Ahora el 9 es el más difícil (1 y 2) y el 8 el más fácil (17 y 18).
-   [ ] ► ¿YA IMPRIMIERON LA TARJETA DE PAPEL NUEVA? Si la que reparte Félix
-       sigue con la valuación vieja, en un torneo la app y el papel no coinciden
-       en qué hoyos se recibe golpe. En match play eso define partidos.
-   [ ] ► EL CORTE PARA SALIR DE NEGRAS: ¿es por index o por handicap de cancha?
-       La app manda a negras hasta index 10.3, que era el último que jugaba con
-       10 de cancha en la tabla vieja. Con la nueva ese lugar lo ocupa el 11.2.
-       Hasta que contesten queda en 10.3.
+   [x] LA TARJETA DE PAPEL NUEVA YA ESTÁ IMPRESA (el club, 22/9/2026). El papel y
+       la app dicen lo mismo: misma valuación y mismas yardas. Era el riesgo más
+       concreto que dejaba la recategorización — con dos valuaciones distintas,
+       en match play no coincide en qué hoyos se recibe golpe, y eso define
+       partidos.
+   [x] EL CORTE PARA SALIR DE NEGRAS ES POR INDEX, HASTA 10.3 (el club,
+       22/9/2026). No es por handicap de cancha: si lo fuera, con la tabla nueva
+       el corte se habría corrido al index 11.2. `CORTE_NEGRAS` se queda en 10.3,
+       que es lo que la app ya venía haciendo.
    ═════════════════════════════════════════════════════════════════
    [x] Son ~120 socios. Sin handicap vigente NO se juega: son socios
        colaboradores o gente grande que no juega. Para ellos hay una entrada
@@ -4403,12 +4405,13 @@ function limpiarCambio(){ CLUB.torneo.cambio=null; render(); }
    Damas: rojas siempre, sin mirar el index.
    Caballeros: hasta 10.3 de index van de negras; de 10.4 en adelante, blancas/azules.
 
-   DE DÓNDE SALE EL 10.3, y por qué sigue igual después de la recategorización: era el
-   último index que jugaba con 10 de handicap de cancha en la tabla VIEJA. Con la tabla
-   nueva de blancas/azules (69.6/120) ese lugar lo ocupa el 11.2. O sea que el corte es
-   uno u otro según qué haya querido decir el club: "hasta 10 de cancha" o "hasta 10.3
-   de index". Preguntado y sin respuesta todavía; hasta que contesten queda en 10.3,
-   que es lo que la app venía haciendo. Está en el acta.
+   DE DÓNDE SALE EL 10.3, y por qué no se movió con la recategorización: era el último
+   index que jugaba con 10 de handicap de cancha en la tabla VIEJA, y con la tabla nueva
+   de blancas/azules (69.6/120) ese lugar lo ocupa el 11.2. O sea que había dos lecturas
+   posibles: "hasta 10 de cancha" o "hasta 10.3 de index". **El club confirmó el
+   22/9/2026 que la regla es POR INDEX, hasta 10.3**, así que el número se queda quieto
+   y no hay que recalcularlo cada vez que la federación revalúe la cancha. Está en el
+   acta.
 
    Desde la recategorización las negras SÍ tienen rating y slope propios (72.5/128), así
    que el que sale de negras ya recibe el handicap de negras y no el de blancas/azules.
