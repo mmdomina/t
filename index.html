@@ -5037,18 +5037,33 @@ function vPrueba(){
    nada, y cuando vuelve se pone al día solo.
    ============================================================ */
 
-/* ⚠️ ACÁ VAN LOS DOS DATOS DE TU SERVIDOR.
-   Mientras estén vacíos la app funciona exactamente como hasta ahora,
-   todo en el teléfono y sin compartir nada. Cuando los pegues, aparece
-   sola la opción de jugar con el grupo.
-   Se sacan de Supabase → tu proyecto → Settings → API:
-     url   = "Project URL"
-     llave = "anon public"  (es pública, va en el código sin problema) */
+/* ⚠️ ACÁ VA LA DIRECCIÓN DEL SERVIDOR. Es un solo dato.
+   Mientras esté vacía la app funciona exactamente como hasta ahora, todo en
+   el teléfono y sin compartir nada. Con la dirección puesta aparece sola la
+   opción de jugar con el grupo.
+
+   Es la URL de la Data API de Neon, tal como la muestra la consola del
+   proyecto. Antes acá iban DOS datos, porque Supabase pedía además una clave
+   pública; la Data API de Neon atiende sin ninguna clave a las peticiones que
+   llegan sin `Authorization`, y las resuelve con el rol `anonymous`, que sólo
+   puede llamar a las seis funciones de la ronda. Una clave menos dando vueltas
+   en un repositorio público.
+
+   Que esta dirección sea pública es parte del diseño, igual que el código de
+   seis letras: lo que protege la tarjeta es la llave propia de cada teléfono y
+   que las tablas estén cerradas. Está todo en `esquema.sql`. */
 const NUBE = {
-  url  : '',
-  llave: ''
+  url : 'https://ep-withered-sky-b604798p.apirest.c-2.sa-east-1.aws.neon.tech/neondb/rest/v1'
 };
-const hayNube = () => !!(NUBE.url && NUBE.llave);
+const hayNube = () => !!NUBE.url;
+/* La URL de Neon ya termina en /rest/v1. Aceptamos las dos formas —con esa
+   cola y sin ella— porque es lo que más fácil se pega mal al copiar, y un
+   error ahí no se ve hasta que alguien intenta abrir una ronda en la cancha. */
+function nubeBase(){
+  let u = String(NUBE.url || '').trim().replace(/\/+$/, '');
+  if(!/\/rest\/v1$/.test(u)) u += '/rest/v1';
+  return u;
+}
 
 const RONDA_KEY = 'trisquelia_ronda';
 const DISPO_KEY = 'trisquelia_dispositivo';
@@ -5087,12 +5102,15 @@ function codigoNuevo(){
 }
 
 /* ---------- hablar con el servidor ---------- */
+/* SIN NINGÚN HEADER DE AUTENTICACIÓN, y es a propósito: mandar `Authorization`
+   haría que la Data API tratara la petición como de un usuario con sesión, y
+   ahí no hay ninguno. Sin ese header entra como `anonymous`, que es el rol al
+   que el esquema le dio permiso para llamar exactamente seis funciones. */
 async function rpc(fn, args){
   if(!hayNube()) throw new Error('sin servidor');
-  const r = await fetch(`${NUBE.url}/rest/v1/rpc/${fn}`, {
+  const r = await fetch(`${nubeBase()}/rpc/${fn}`, {
     method:'POST',
-    headers:{ 'Content-Type':'application/json',
-              'apikey':NUBE.llave, 'Authorization':'Bearer '+NUBE.llave },
+    headers:{ 'Content-Type':'application/json', 'Accept':'application/json' },
     body: JSON.stringify(args)
   });
   if(!r.ok) throw new Error('servidor ' + r.status);

@@ -21,7 +21,7 @@ icon-512.png
 maskable-512.png
 apple-touch-icon.png
 favicon-32.png
-esquema.sql             El servidor: tablas y funciones para pegar en Supabase.
+esquema.sql             El servidor: tablas y funciones para pegar en el SQL Editor de Neon.
 .nojekyll               Le dice a GitHub Pages que publique los archivos tal cual.
 pruebas/                Las suites de Playwright. No son parte de la app.
 ```
