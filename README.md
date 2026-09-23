@@ -45,7 +45,7 @@ Ese es el link que se comparte con los socios.
 ## Publicar una versión nueva
 
 1. Subir los archivos que cambiaron.
-2. **Subir el número de `VERSION` en `sw.js`** (hoy `trisquelia-v8` → `trisquelia-v9`).
+2. **Subir el número de `VERSION` en `sw.js`** (hoy `trisquelia-v9` → `trisquelia-v10`).
 
 El paso 2 no es opcional: es lo que le avisa a los teléfonos que ya tienen la app que hay algo
 nuevo para bajar. Si no se toca, pueden seguir abriendo la versión vieja.

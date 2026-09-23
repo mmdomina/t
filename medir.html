@@ -70,17 +70,26 @@ textarea{width:100%;height:130px;background:#0a1727;border:1px solid var(--line)
 <div id="app"></div>
 
 <script>
-/* ---------- la tarjeta, para controlar cada punto ---------- */
+/* ---------- la tarjeta, para controlar cada punto ----------
+   Yardas de la recategorización de la AAG (septiembre de 2026), por hoyo físico:
+   `blancas` es la ida y `azules` la vuelta; `negras2` y `damas2` son la vuelta
+   de los hoyos que cambian de tee.
+
+   OJO CON LA COMPARACIÓN: la federación mide siguiendo la LÍNEA DE JUEGO desde
+   una marca fija, y acá se mide en línea recta hasta el centro del green. En los
+   hoyos con curva eso da menos: en el 1 y en el 2, entre 30 y 47 yardas menos en
+   las cuatro salidas por igual. Que el número no coincida no quiere decir que la
+   medición esté mal — por eso el control muestra las dos cifras y no un veredicto. */
 const CARD = {
-  1:{par:4, blancas:335, azules:338, damas:316},
-  2:{par:4, blancas:366, azules:395, damas:354},
-  3:{par:5, blancas:525, azules:520, damas:459},
-  4:{par:3, blancas:175, azules:156, damas:120},
-  5:{par:4, blancas:320, azules:330, damas:290},
-  6:{par:4, blancas:415, azules:395, damas:383},
-  7:{par:4, blancas:405, azules:435, damas:385},
-  8:{par:3, blancas:131, azules:121, damas:110},
-  9:{par:5, blancas:506, azules:406, damas:450}
+  1:{par:4, negras:371, blancas:330, azules:348, damas:310},
+  2:{par:4, negras:450, blancas:400, azules:430, damas:385},
+  3:{par:5, negras:530, blancas:515, azules:507, damas:465},
+  4:{par:3, negras:190, negras2:170, blancas:175, azules:155, damas:122},
+  5:{par:4, negras:370, blancas:310, azules:335, damas:250},
+  6:{par:4, negras:432, blancas:422, azules:400, damas:360},
+  7:{par:4, negras:445, blancas:400, azules:425, damas:380},
+  8:{par:3, negras:140, blancas:120, azules:110, damas:95},
+  9:{par:5, negras:541, negras2:420, blancas:503, azules:399, damas:463, damas2:349}
 };
 const PUNTOS_BASE = [
   {id:'centro', n:'Centro del green', c:'#22c55e', d:'Parate en el medio del green', clave:true},
@@ -88,16 +97,27 @@ const PUNTOS_BASE = [
   {id:'fondo',  n:'Fondo del green',  c:'#15803d', d:'Borde de atrás, sobre la línea de juego'},
   {id:'blancas',n:'Tee blancas',      c:'#f5f5f5', d:'Entre las dos marcas, en la ida'},
   {id:'azules', n:'Tee azules',       c:'#3b82f6', d:'Entre las dos marcas, en la vuelta'},
-  {id:'negras', n:'Tee negras',       c:'#1a1a1a', d:'Aunque todavía no esté medido'},
+  {id:'negras', n:'Tee negras',       c:'#1a1a1a', d:'Entre las dos marcas'},
   {id:'damas',  n:'Tee damas',        c:'#ef4444', d:'Entre las dos marcas'}
 ];
 
-/* En negras casi todos los hoyos se juegan del mismo tee las dos vueltas.
-   Las excepciones son el 4/13 y el 9/18: ahi hay dos tees negras distintos,
-   asi que en esos hoyos pedimos dos marcas en vez de una. */
+/* Casi todos los hoyos se juegan del mismo tee las dos vueltas. Las excepciones son
+   el 4/13 y el 9/18 en negras, y el 9/18 en damas: ahi hay dos tees distintos, asi
+   que en esos hoyos pedimos dos marcas en vez de una.
+   EL TEE DE DAMAS DEL 18 ES EL UNICO PUNTO DE LA CANCHA QUE FALTA MEDIR: se juega
+   114 yardas adelante del de la ida (349 contra 463) y nunca se tomo. */
 const NEGRAS_DOBLE = [4, 9];
+const DAMAS_DOBLE  = [9];
 function puntosDe(h){
   const p = PUNTOS_BASE.slice();
+  if(DAMAS_DOBLE.indexOf(h) >= 0){
+    const i = p.findIndex(x=>x.id==='damas');
+    p.splice(i, 1,
+      {id:'damas',  n:'Tee damas — ida',    c:'#ef4444',
+       d:`El que se usa en el hoyo ${h}, el de atrás`},
+      {id:'damas2', n:'Tee damas — vuelta', c:'#fca5a5',
+       d:`FALTA ESTE: el del hoyo ${h+9}, unas 114 yardas adelante`});
+  }
   if(NEGRAS_DOBLE.indexOf(h) >= 0){
     const i = p.findIndex(x=>x.id==='negras');
     p.splice(i, 1,
@@ -259,7 +279,9 @@ function pintar(){
   </div>
 
   <div class="card">
-    <div class="lbl" style="margin-bottom:4px">Los ${PUNTOS.length} puntos de este hoyo${PUNTOS.length>7?' \u00b7 ac\u00e1 las negras son dos':''}</div>
+    <div class="lbl" style="margin-bottom:4px">Los ${PUNTOS.length} puntos de este hoyo${
+      hoyo===9?' \u00b7 ac\u00e1 negras y damas son dos'
+      : NEGRAS_DOBLE.indexOf(hoyo)>=0?' \u00b7 ac\u00e1 las negras son dos':''}</div>
     ${PUNTOS.map(x=>{
       const g = D[k(hoyo,x.id)], ct = control(hoyo,x.id);
       return `<div class="pt">
@@ -311,7 +333,7 @@ function armar(){
   for(let h=1;h<=9;h++){
     const o = {par:CARD[h].par, green:{}, tees:{}, largo:{}};
     ['frente','centro','fondo'].forEach(g=>{const x=D[k(h,g)]; if(x) o.green[g]=[x.lat,x.lon,x.acc];});
-    ['blancas','azules','negras','negras2','damas'].forEach(t=>{
+    ['blancas','azules','negras','negras2','damas','damas2'].forEach(t=>{
       const x=D[k(h,t)]; if(x){ o.tees[t]=[x.lat,x.lon,x.acc];
         const c=D[k(h,'centro')]; if(c) o.largo[t]=yardas(metros(x,c)); }});
     out.hoyos[h]=o;

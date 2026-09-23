@@ -35,7 +35,8 @@ Son ~5.220 líneas. Los números se corren al editar; buscá el texto, no la lí
 | `const PADRON` (~731) | Padrón de prueba, **inventado**. El real vive en el servidor |
 | `const BAG` (~853) | Los 31 palos y la media ponderada |
 | `MEDIDA Y HOMOLOGACIÓN` (~1029) | `homologada()`, `teeDelHcp()`, `ratingTxt()` |
-| `function hcpCancha` (~1062) | Handicap de cancha, fórmula del WHS |
+| `function ratingDe` (~1090) | Con qué rating y slope se calcula: 18 hoyos o ese nueve |
+| `function hcpCancha` (~1062) | Handicap de cancha, fórmula del WHS y regla 6.1b |
 | `function gps(` (~1154) | Distancia al frente, centro y fondo del green |
 | `function holeSVG` (~1339) | El dibujo del hoyo |
 | `function panelCierre` (~1552) | Cerrar el hoyo |
@@ -64,7 +65,7 @@ queda publicada igual, pero no la carga nadie).
 No es opcional: es lo que le avisa a los teléfonos que ya tienen la app que hay algo nuevo.
 Si no se toca, pueden seguir abriendo la versión vieja para siempre.
 
-Va en `trisquelia-vN`. Al día de hoy: **v9**.
+Va en `trisquelia-vN`. Al día de hoy: **v10**.
 
 ---
 
@@ -132,13 +133,32 @@ le borra lo que venía tecleando. Está comentado en el código; tocá sólo lo 
 **El navegador de WhatsApp no da GPS ni deja instalar nada.** El link se comparte por ahí, así
 que la app lo detecta (`EN_OTRA_APP`) y explica cómo salir a Chrome. No lo saques.
 
-**Las negras están medidas pero NO homologadas.** Tienen yardas por GPS, no tienen rating ni
-slope. Su handicap sale de la tabla de blancas/azules, que es lo que el club hace en el papel.
-Usá `homologada(t)` y `teeDelHcp(t)`. **No existe `t.sinMedir`** — era un bug: la función se
-llamaba `sinMedida` y cinco avisos nunca aparecieron.
+**Las tres salidas están homologadas desde la v10** (recategorización de la AAG, septiembre de
+2026): yardas, rating y slope oficiales, de 18 hoyos y de cada nueve. Las negras dejaron de
+tomar prestada la tabla de blancas/azules. `homologada(t)` y `teeDelHcp(t)` se quedan igual —
+son las que evitan que la app invente un número si aparece una salida sin medir, acá o en otro
+club. **No existe `t.sinMedir`** — era un bug: la función se llamaba `sinMedida` y cinco avisos
+nunca aparecieron.
 
-**Las negras: 540 contra 273.** La tarjeta da 273 yardas más que blancas/azules; el club habla
-de 540. Hasta que se aclare, no tocar el yardaje.
+**En 9 hoyos no se divide por dos.** La regla 6.1b pide el rating y el slope DE ESE NUEVE
+(`t.nueve.ida`, que no es la mitad del de 18) y la mitad del index redondeada a la décima antes
+de calcular. Con index 18.0 en negras la cuenta vieja daba un golpe menos. Está en `ratingDe()`
+y probado en `canchatest`.
+
+**La tarjeta vive en dos lados a propósito.** Los números de `CLUBS_DB.trisquelia.cancha` y de
+`tees` están copiados en `pruebas/canchatest.js`. Si tocás uno, tocá el otro: es el único
+control que hay contra publicar una tarjeta mal cargada, y con la tabla anterior el handicap de
+cancha daba hasta 4 golpes de más en la salida que usa la mayoría de los socios.
+
+**Las yardas de la federación no coinciden con las medidas por GPS, y está bien.** La AAG mide
+por la línea de juego desde una marca fija; el GPS del 5/8/2026 se tomó en línea recta. En el 1
+y el 2 la recta da 30 a 47 yardas menos, en las cuatro salidas por igual. Para la TARJETA manda
+la federación; para las DISTANCIAS en cancha manda la medición. No son el mismo número y no hay
+que "arreglar" ninguno.
+
+**El corte de negras sigue en 10.3 y es una pregunta abierta.** Era el último index que jugaba
+con 10 de cancha en la tabla vieja; con la nueva ese lugar lo ocupa el 11.2. Hasta que el club
+diga si la regla es por index o por handicap de cancha, no se toca (`CORTE_NEGRAS`).
 
 **El cruce son dos filas, no una.** Por cada jugador y hoyo puede haber dos anotaciones: la
 suya y la de su marcador (`de` y `por`). Por eso dos teléfonos nunca escriben la misma fila y
@@ -229,6 +249,7 @@ node pruebas/copiatest.js             # copia de seguridad             (26 ✓)
 node pruebas/ubicaciontest.js         # el portón del GPS              (23 ✓)
 node pruebas/cierretest.js            # cerrar el hoyo                 (43 ✓)
 node pruebas/teetest.js                # el aviso al llegar al tee      (21 ✓)
+node pruebas/canchatest.js             # la tarjeta y el handicap       (78 ✓)
 ```
 
 El esquema del servidor se prueba aparte, contra un Postgres de verdad — no
@@ -248,9 +269,13 @@ hoyo, el modo club con las cuatro personas, los siete pasos del alta) y busca `n
 `undefined`, `Infinity` y `[object Object]` en el texto visible. **Corrélo después de cualquier
 cambio.** Tiene que dar cero hallazgos.
 
-Entre las nueve suites son **230 comprobaciones**, más las **61** del esquema: 291 en total. Si
+`canchatest` es el control cruzado de la tarjeta: tiene la tabla oficial copiada a mano y
+recalcula el handicap de cancha por su cuenta, en 18 y en 9 hoyos, en las tres salidas. Si
+alguien cambia un número en `index.html` y no ahí, se enciende.
+
+Entre las diez suites son **308 comprobaciones**, más las **61** del esquema: 369 en total. Si
 alguna se pone en rojo después de un cambio tuyo, es un bug tuyo: estaban todas en verde el
-31/8/2026.
+22/9/2026 (las 61 del esquema, el 31/8/2026 — la v10 no lo tocó).
 
 Si Playwright no encuentra Chromium solo, pásale la ruta en `CHROME_PATH`.
 
@@ -270,10 +295,11 @@ Si Playwright no encuentra Chromium solo, pásale la ruta en `CHROME_PATH`.
 
 ## 8. Estado y qué sigue
 
-**Anda de verdad:** la cancha cargada de la tarjeta oficial y verificada, las distancias por GPS
-con coordenadas medidas a pie, el handicap de cancha, la bolsa que se autocorrige, el registro
-de golpes, la app instalable que funciona sin señal, el modo prueba, y la ronda compartida entre
-teléfonos con el cruce de tarjetas.
+**Anda de verdad:** la cancha de la recategorización oficial de la AAG (septiembre de 2026)
+cargada y verificada —las tres salidas con yardas, rating y slope, y la valuación nueva—, las
+distancias por GPS con coordenadas medidas a pie, el handicap de cancha en 18 y en 9 hoyos, la
+bolsa que se autocorrige, el registro de golpes, la app instalable que funciona sin señal, el
+modo prueba, y la ronda compartida entre teléfonos con el cruce de tarjetas.
 
 **Falta que Mauro cree el proyecto de Supabase** y pegue los dos valores en `const NUBE`.
 Mientras estén vacíos, la app funciona igual que siempre, todo local. Instrucciones en
@@ -289,7 +315,10 @@ Mientras estén vacíos, la app funciona igual que siempre, todo local. Instrucc
    pudiendo **sumarse** a la ronda con el nombre que quiera. Para un torneo oficial hace falta
    que el que entra sea un socio verificado.
 4. El panel de la comisión, funcionando contra el servidor.
-5. Rating y slope oficiales de las tres salidas (depende de la federación).
+5. ~~Rating y slope oficiales de las tres salidas.~~ **Resueltos en la v10.** Lo que queda,
+   y depende del club: si ya imprimieron la tarjeta de papel con la valuación nueva, y si el
+   corte para salir de negras es por index o por handicap de cancha. Las dos están en el acta.
+6. Medir el tee de damas del 18 con `medir.html`: es el único punto de la cancha sin medir.
 
 **Personas:** Mauro Domina (admin), Félix Córdoba (pro y oficial de reglas; salidas y
 resultados), Chelo Caballero (avisos, cancha, padrón, cuotas), Daniel Rodríguez (torneos).

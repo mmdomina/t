@@ -343,17 +343,30 @@ const S = {
    PENDIENTE DE CONFIRMAR CON EL CLUB
    (cada punto se arregla cambiando un valor de este mismo bloque)
 
-   [ ] Negras: yardas hoyo por hoyo. Hoy la app reparte las +540 sobre
-       las blancas (par 5 +40, par 4 +31, par 3 +20). Cuando llegue la
-       medición: borrar "extra/desde" y poner las 18 yardas reales.
-   [ ] BLANCAS/AZULES: puse 69.8 / 122 despejándolo de dos datos reales
-       (7.4 juega 7 y 6.9 juega 6). Cualquier par entre slope 105-140 y
-       rating 68.4-71.0 cumple esos dos; elegí el centro del rango.
-       Para cerrarlo del todo alcanza con UN dato más de un handicap alto:
-       ¿con cuánto juega alguien de index 20 o 25? O los números oficiales.
-   [ ] ► RATING Y SLOPE oficiales de las tres salidas. Es lo ÚNICO que falta
-       de la tarjeta: los números que usa la app hoy son estimados y de ahí
-       sale el handicap de cancha de cada socio.
+   ══ RECATEGORIZACIÓN DE LA AAG · CARGADA EL 22/9/2026 (v10) ══════
+   Las capturas de "Matriculados → Configuración de Cancha" que pasó Mauro el
+   21/9/2026 se transcribieron dos veces por separado y se compararon: cero
+   diferencias. La tarjeta quedó copiada también en pruebas/canchatest.js, así
+   que si alguien toca un número de un lado y no del otro, la prueba se enciende.
+   [x] Negras: yardas hoyo por hoyo, oficiales. 6797 en total, +513 sobre
+       blancas/azules. Antes la app repartía las +540 a ojo, y después usó las
+       medidas con GPS.
+   [x] BLANCAS/AZULES: oficiales 69.6 / 120. Antes había 70.0 / 126 despejados
+       de dos datos sueltos, y con eso el handicap de cancha daba hasta 4
+       golpes DE MÁS — en la salida que usa la mayoría de los socios.
+   [x] RATING Y SLOPE oficiales de las tres salidas, de 18 hoyos y de cada
+       nueve: negras 72.5/128, blancas/azules 69.6/120, damas 71.7/124.
+   [x] VALUACIÓN NUEVA, y es UNA SOLA para las tres salidas, damas incluida.
+       La vieja tenía incoherencias: el hoyo 5 llevaba 18 en la ida y 11 en la
+       vuelta. Ahora el 9 es el más difícil (1 y 2) y el 8 el más fácil (17 y 18).
+   [ ] ► ¿YA IMPRIMIERON LA TARJETA DE PAPEL NUEVA? Si la que reparte Félix
+       sigue con la valuación vieja, en un torneo la app y el papel no coinciden
+       en qué hoyos se recibe golpe. En match play eso define partidos.
+   [ ] ► EL CORTE PARA SALIR DE NEGRAS: ¿es por index o por handicap de cancha?
+       La app manda a negras hasta index 10.3, que era el último que jugaba con
+       10 de cancha en la tabla vieja. Con la nueva ese lugar lo ocupa el 11.2.
+       Hasta que contesten queda en 10.3.
+   ═════════════════════════════════════════════════════════════════
    [x] Son ~120 socios. Sin handicap vigente NO se juega: son socios
        colaboradores o gente grande que no juega. Para ellos hay una entrada
        aparte, solo para seguir torneos y novedades.
@@ -371,15 +384,20 @@ const S = {
        Práctica: llevás tu propia tarjeta, cargás palos y distancias, suma
        a tus estadísticas y NO le llega nada a Félix.
    [x] Index de Mauro: 7.4.
-   [x] Control cruzado con la tarjeta de Hole19: par y valuación coinciden
-       los 18 hoyos. Yardas: total 6284 vs 6274 del club, casi igual. Solo
-       se despegan la cancha 2 (hoyos 2 y 11), ~35 yardas. Vale la del club.
+   [x] Control cruzado con la tarjeta de Hole19: par coincide los 18 hoyos, y
+       las yardas que ellos tenían (6284) son exactamente las que confirmó la
+       recategorización. Los dos hoyos que se despegaban, la cancha 2 (hoyos 2 y
+       11, ~35 yardas), se despegaban porque el club tenía el número viejo.
+       La valuación de Hole19 es la vieja: la nueva la tiene la app.
    [x] Confirmado: suman las mejores CINCO tarjetas.
    [x] Campeón del Club 2025: Juanse Gobbini.
-   [ ] ► MAURO: pasar la TABLA DE ÍNDICES y su HANDICAP DE CANCHA por salida.
-       Hoy la app lo calcula con la fórmula del WHS
-       (index × slope/113 + (rating − par)). Hay que comparar contra la
-       tabla oficial del club y ajustar si no coincide.
+   [x] TABLA DE ÍNDICES verificada contra el "Hándicap de Juego" que publica la
+       AAG para Trisquelia: la fórmula de la app (index × slope/113 + (rating −
+       par)) da exactamente lo mismo en las tres salidas, y también el redondeo
+       al 100 %, al 85 % y a 3/8. En 9 hoyos se sigue la regla 6.1b: rating y
+       slope de ese nueve, y la mitad del index redondeada a la décima antes de
+       calcular. El index con el que se hizo la comprobación NO va en este repo,
+       que es público: quedó en el documento del proyecto.
 
    [ ] Espera en el hoyo 1: hoy los números son de ejemplo. Se calculan solos
        cuando haya socios jugando con la app abierta.
@@ -405,26 +423,21 @@ const S = {
        se ven secos hoy son LAGUNAS (por ejemplo los dos de la cancha 4).
        Sirve para ubicar greens, tees y fairways, NO para los obstáculos.
    ── SOBRE LAS NEGRAS ─────────────────────────────────────────────
-   ACLARADO: no hay negras nuevas. Las negras son las que ya están en
-   la cancha y las que figuran en la tarjeta (6547 yds). Lo que trae la
-   recategorización es la MEDICIÓN OFICIAL de esas salidas — su rating
-   y su slope — para poder usarlas en competencia.
+   ACLARADO: no hay negras nuevas. Las negras son las que ya están en la
+   cancha. Lo que trajo la recategorización es la MEDICIÓN OFICIAL de esas
+   salidas —yardas, rating y slope— para poder usarlas en competencia.
 
-   Mauro estimó a ojo dónde está cada tee negro y coincide con la
-   tarjeta: error promedio de 8 yardas, con un solo caso feo (cancha 5,
-   40 yardas). Eso confirma que la tarjeta cargada está bien.
-
-   [ ] ► PENDIENTE: las negras dan +273 sobre blancas/azules según la
-       tarjeta (6547 vs 6274), no las 540 que se mencionaron. Preguntar
-       de dónde sale ese número — puede ser de otra medición o de otra
-       comparación. NO tocar la tarjeta hasta saberlo.
+   [x] RESUELTO el 22/9/2026: las negras dan +513 sobre blancas/azules
+       (6797 contra 6284). Las 540 de las que hablaba el club andaban cerca;
+       el 6547 que imprimía la tarjeta vieja estaba mal, y con él la
+       diferencia parecía de 273.
    ─────────────────────────────────────────────────────────────────
 
-   [ ] ► MEDIR LA CANCHA. Las distancias de frente/centro/fondo que muestra
-       hoy la app son INVENTADAS. Hay que cargar, por cada uno de los 9 hoyos:
-       3 coordenadas del green (frente, centro, fondo), la de cada tee, y los
-       obstáculos (bunkers y agua). Son unos 60-100 puntos en total.
-       Se sacan trazando sobre imagen satelital, y se corrigen en cancha.
+   [x] CANCHA MEDIDA el 5/8/2026: 65 puntos a pie, ±3 a 4 m — frente, centro y
+       fondo de los nueve greens, y todas las salidas, con el doble tee de negras
+       del 4/13 y del 9/18. De ahí salen las distancias que muestra la app.
+   [ ] Falta UN punto: el tee de damas del 18, que se juega 114 yardas adelante
+       del de la ida y nunca se midió. `medir.html` ya lo pide.
    [ ] ► MAURO: mandame una FOTO DE LA TARJETA FÍSICA de Trisquelia, de los
        dos lados. Quiero que la digital diga exactamente lo mismo: si hay
        valuación distinta para damas, cómo están impresos rating y slope,
@@ -455,9 +468,10 @@ const S = {
        de cancha y padrón. Daniel Rodríguez → torneos. Mauro → todo.
    [x] Los 18 son UNA configuración: ida por blancas (1 al 9) y vuelta por
        azules (10 al 18). Por eso dan un único handicap de cancha.
-   [x] TARJETA OFICIAL CARGADA (foto del 4º Abierto, 22/03/25). Verificada:
-       negras 3353+3194=6547 · blancas/azules 3178+3096=6274 · damas
-       2867+2807=5674 · par 36+35=71 · valuación 1 a 18 sin repetir.
+   [x] TARJETA CARGADA Y VERIFICADA, hoy la de la recategorización de la AAG:
+       negras 3469+3328=6797 · blancas/azules 3175+3109=6284 · damas
+       2830+2716=5546 · par 36+35=71 · valuación 1 a 18 sin repetir.
+       (La anterior era la foto del 4º Abierto, 22/03/25, con negras en 6547.)
    [x] Negras: 7 de 9 hoyos repiten tee; cambian el 4/13 y el 9/18, y el
        9/18 además cambia de par (5 la ida, 4 la vuelta). Confirmado.
    ── OBSTÁCULOS CONFIRMADOS POR MAURO (la foto satelital está vieja) ──
@@ -471,9 +485,8 @@ const S = {
 
    [x] Estacas: 100 rojo, 150 blanco, 200 azul. Banderas: adelante rojo,
        centro blanco, atrás azul.
-   [ ] ► OJO: me habías dicho que las negras suman 540 yardas, pero la
-       tarjeta da 273 sobre blancas/azules (6547 vs 6274). ¿Las 540 son de
-       la recategorización que viene?
+   [x] Las 540 de negras: eran de la recategorización, y la medición oficial
+       dio +513 sobre blancas/azules. Cerrado el 22/9/2026.
    [ ] ► El mail del club dice "@gmail.com.ar" y ese dominio NO EXISTE
        (verificado: no tiene MX ni A, no puede recibir nada). ¿Cuál es el
        bueno, "@gmail.com"? No lo corrijo adivinando. Lo mismo le pasa a
@@ -551,45 +564,56 @@ const CLUBS_DB = {
             azul:'#1f5fa9', azulOsc:'#173a72', rojo:'#c8202e' },
     crest:'trisquel',
 
-    /* ===== LA CANCHA — TARJETA OFICIAL DEL CLUB =====
-       Cargada de la tarjeta física (4º Abierto de General Pico, 22/03/25).
-       Los tres totales verifican: negras 6547, blancas/azules 6274, damas 5674.
-       La valuación va del 1 al 18 sin repetir.
+    /* ===== LA CANCHA — RECATEGORIZACIÓN OFICIAL DE LA AAG (septiembre de 2026) =====
+       Reemplaza la tarjeta vieja (4º Abierto, 22/03/25), que tenía el yardaje de
+       negras mal impreso y una valuación con incoherencias — el hoyo 5 llevaba 18
+       en la ida y 11 en la vuelta.
+       De la AAG salen, para las tres salidas: yardas hoyo por hoyo, par, valuación,
+       y rating y slope de 18 hoyos y de cada nueve. Los totales verifican:
+         negras 3469+3328=6797 · blancas/azules 3175+3109=6284 · damas 2830+2716=5546
+         par 36+35=71 · valuación del 1 al 18 sin repetir
+       LA VALUACIÓN ES UNA SOLA para las tres salidas, damas incluida. Eso no es un
+       descuido de la federación: es lo que dice la tabla oficial, hoyo por hoyo.
+       `y` de acá abajo es el yardaje de blancas/azules, que es la vuelta que juega
+       la mayoría; cada salida tiene el suyo en `tees`.
        9 hoyos jugados en dos vueltas: la ida por blancas, la vuelta por azules.
-       Desde negras 7 de los 9 repiten tee; cambian el 4/13 y el 9/18. */
+       Desde negras 7 de los 9 repiten tee; cambian el 4/13 y el 9/18, y el 9/18
+       además cambia de par (5 la ida, 4 la vuelta). */
     cancha:{
       nombre:'Trisquelia — 18 hoyos (dos vueltas)',
       par:71, hoyosFisicos:9,
       holes:[
-        {n:1, par:4,hcp:16,y:335}, {n:2, par:4,hcp:10,y:366}, {n:3, par:5,hcp:6, y:525},
-        {n:4, par:3,hcp:12,y:175}, {n:5, par:4,hcp:18,y:320}, {n:6, par:4,hcp:4, y:415},
-        {n:7, par:4,hcp:8, y:405}, {n:8, par:3,hcp:14,y:131}, {n:9, par:5,hcp:2, y:506},
-        {n:10,par:4,hcp:15,y:338}, {n:11,par:4,hcp:9, y:395}, {n:12,par:5,hcp:7, y:520},
-        {n:13,par:3,hcp:13,y:156}, {n:14,par:4,hcp:11,y:330}, {n:15,par:4,hcp:5, y:395},
-        {n:16,par:4,hcp:3, y:435}, {n:17,par:3,hcp:17,y:121}, {n:18,par:4,hcp:1, y:406}
+        {n:1, par:4,hcp:15,y:330}, {n:2, par:4,hcp:9, y:400}, {n:3, par:5,hcp:7, y:515},
+        {n:4, par:3,hcp:13,y:175}, {n:5, par:4,hcp:11,y:310}, {n:6, par:4,hcp:5, y:422},
+        {n:7, par:4,hcp:3, y:400}, {n:8, par:3,hcp:17,y:120}, {n:9, par:5,hcp:1, y:503},
+        {n:10,par:4,hcp:16,y:348}, {n:11,par:4,hcp:10,y:430}, {n:12,par:5,hcp:8, y:507},
+        {n:13,par:3,hcp:14,y:155}, {n:14,par:4,hcp:12,y:335}, {n:15,par:4,hcp:6, y:400},
+        {n:16,par:4,hcp:4, y:425}, {n:17,par:3,hcp:18,y:110}, {n:18,par:4,hcp:2, y:399}
       ]
     },
     // el hoyo físico al que corresponde cada uno de los 18 (dos vueltas sobre los mismos 9)
     fisico:[1,2,3,4,5,6,7,8,9, 1,2,3,4,5,6,7,8,9],
-    /* La cancha está en proceso de recategorización e incorpora salidas negras.
-       Los valores de las negras son provisionales: cuando salga la nueva
-       categorización se cambian acá los tres números y listo. */
     /* IMPORTANTE: son 9 hoyos. La vuelta de 18 se juega IDA POR BLANCAS
        (hoyos 1 al 9) y VUELTA POR AZULES (hoyos 10 al 18). O sea que
        blancas y azules no son dos salidas distintas: son una sola
        configuración, y por eso dan un único handicap de cancha.
        Las que sí cambian el handicap son negras y rojas. */
     /* ===== SALIDAS =====
-       La vuelta de caballeros es UNA sola configuración: los hoyos 1 al 9
-       se juegan de BLANCAS y los 10 al 18 de AZULES. Por eso dan un único
-       handicap de cancha. Confirmado por Mauro leyendo la tarjeta.
-         blancas ida  3178 + azules vuelta 3096 = 6274
-       Damas juega el mismo tee de ida y de vuelta (salvo el 9/18, donde
-       cambia el par): 2867 + 2807 = 5674.
-       Las NEGRAS existen en la cancha pero NO están en la tarjeta ni
-       tienen medición oficial. Hoy el que sale de negras anota en el
-       casillero de blancas la ida y en el de azules la vuelta. Las yardas
-       de abajo son estimaciones que dictó Mauro a ojo, hoyo por hoyo. */
+       Las tres están homologadas desde la recategorización de septiembre de 2026:
+       tienen yardas, rating y slope oficiales de la AAG, de 18 hoyos y de cada nueve.
+         negras          3469 + 3328 = 6797 · 72.5 / 128
+         blancas/azules  3175 + 3109 = 6284 · 69.6 / 120
+         damas           2830 + 2716 = 5546 · 71.7 / 124
+       La vuelta de caballeros es UNA sola configuración: los hoyos 1 al 9 se juegan
+       de BLANCAS y los 10 al 18 de AZULES. Por eso dan un único handicap de cancha.
+       Negras repite tee salvo en el 13 y el 18; damas, salvo en el 18.
+       Por qué las yardas no coinciden con las medidas por GPS el 5/8/2026: la
+       federación mide siguiendo la línea de juego desde una marca fija, y el GPS se
+       tomó en línea recta desde donde estaban las marcas ese día. En el 1 y el 2 la
+       recta da 30 a 47 yardas menos en las cuatro salidas por igual. Manda la
+       federación: es el número con el que se juega y con el que se carga el handicap.
+       Las coordenadas medidas siguen siendo las buenas para las DISTANCIAS en cancha,
+       que es otra cosa: ahí importa dónde está parado el socio, no la tarjeta. */
   /* ===== COORDENADAS REALES DE LA CANCHA =====
      Medidas por Mauro el 5 de agosto de 2026, promediando 6 segundos de GPS
      en cada punto. Precisión: ±3 a 4 metros en los 65 puntos.
@@ -619,38 +643,39 @@ const CLUBS_DB = {
     }
   },
     tees:[
-      /* NEGRAS · SIN NINGÚN NÚMERO CONFIABLE, y por eso van vacías.
-         Hay dos cifras dando vueltas y las dos están mal:
-           · la tarjeta imprime 6547, pero el club dice que esa medición es errónea;
-           · el club habla de "540 yardas más", que daría 6814, pero es un número
-             global que nadie midió hoyo por hoyo.
-         Antes acá había una estimación repartiendo esas 540. La saqué: prefiero
-         que la app diga "sin medir" a que muestre una distancia inventada.
-         Se juega igual desde negras; lo que no hay es yardaje ni handicap de cancha.
-         Único dato firme: UN SOLO tee por hoyo salvo el 4/13 y el 9/18. */
-      /* NEGRAS · yardas medidas con GPS el 5/8/2026, porque no existe medición
-         oficial: no están en la tarjeta y la recategorización todavía no salió.
-         Ojo: son en línea recta desde donde estaban las marcas ese día, así que
-         no son comparables con las yardas de tarjeta de las otras salidas.
-         Rating y slope siguen sin existir, así que no hay handicap de cancha. */
-      {id:'negras', n:'Negras', c:'#1a1a1a', r:null, s:null, medidoGPS:true,
-       y:[332,406,519,175,343,412,432,128,527, 332,406,519,148,343,412,432,128,414],
+      /* Las tres salidas: yardas, rating y slope de la recategorización de la AAG.
+         `nueve` son el rating y el slope de cada nueve por separado, que es lo que
+         pide la regla 6.1b para una vuelta de 9 hoyos. NO es la mitad del de 18:
+         en negras la ida rinde 36.6 y la vuelta 35.9, y el slope cambia también.
+
+         NEGRAS · la medición oficial da 513 yardas más que blancas/azules. Eso cierra
+         el "540 contra 273" del acta: el club hablaba de 540 y andaba cerca; el 6547
+         que imprimía la tarjeta vieja estaba mal. Repite tee salvo en el 13 (170
+         contra 190) y en el 18 (420 contra 541, que además cambia de par). */
+      {id:'negras', n:'Negras', c:'#1a1a1a', r:72.5, s:128,
+       nueve:{ ida:{r:36.6, s:128}, vuelta:{r:35.9, s:127} },
+       y:[371,450,530,190,370,432,445,140,541, 371,450,530,170,370,432,445,140,420],
        mismoTee:[true,true,true,false,true,true,true,true,false],
-       nota:'Medidas con GPS, todavía sin homologar'},
-      /* OFICIAL. Sale de la tabla del club "Sistema de Handicap Mundial ·
-         439 Trisquelia Golf Club · Cat: Caballeros · Tee: Azul · Par 71".
-         Con estos dos números la fórmula del WHS reproduce esa tabla fila por fila. */
+       nota:'Repite tee salvo en el 13 y el 18'},
+      /* BLANCAS / AZULES · la salida de la mayoría de los socios. El total casi no se
+         movió con la recategorización (6274 → 6284), pero hoyo por hoyo sí: el 2 suma
+         34 y el 11 suma 35. Lo que cambió de verdad es el handicap de cancha: antes la
+         app usaba 70.0/126 despejados de dos datos sueltos, y daba hasta 4 golpes de
+         más. Ahora son los números de la federación. */
       {id:'mixta',  n:'Blancas / Azules', c:'#f5f5f5', c2:'#3b82f6',
-       r:70.0, s:126,
-       y:[335,366,525,175,320,415,405,131,506, 338,395,520,156,330,395,435,121,406],
+       r:69.6, s:120,
+       nueve:{ ida:{r:34.9, s:122}, vuelta:{r:34.7, s:117} },
+       y:[330,400,515,175,310,422,400,120,503, 348,430,507,155,335,400,425,110,399],
        nota:'Ida por blancas (1 al 9), vuelta por azules (10 al 18)'},
-      /* DAMAS · rating y slope todavía estimados: falta la tabla de damas del club.
-         Las yardas sí son las de la tarjeta. El 9/18 tiene dos tees: en el 18 las
-         rojas están 16 pasos adelante de las azules (406 − 16 = 390). */
-      {id:'damas',  n:'Damas', c:'#ef4444', r:71.5, s:120, ratingProvisorio:true,
+      /* DAMAS · ya no son estimados: la tabla oficial trae rating y slope propios, y
+         la misma valuación que caballeros. Repite tee salvo el 18, que se juega 114
+         yardas adelante del 9 (349 contra 463) — ese tee es el único punto de la
+         cancha que todavía no está medido con GPS. `medir.html` lo pide. */
+      {id:'damas',  n:'Damas', c:'#ef4444', r:71.7, s:124,
+       nueve:{ ida:{r:36.2, s:125}, vuelta:{r:35.5, s:122} },
        mismoTee:[true,true,true,true,true,true,true,true,false],
-       y:[316,354,459,120,290,383,385,110,450, 316,354,459,120,290,383,385,110,390],
-       nota:'Mismo tee de ida y de vuelta'}
+       y:[310,385,465,122,250,360,380,95,463, 310,385,465,122,250,360,380,95,349],
+       nota:'Mismo tee de ida y de vuelta, salvo el 18'}
     ],
     /* De la tarjeta: qué significan las estacas y el color de la bandera */
     estacas:[['100 yardas','#c8202e'],['150 yardas','#f5f5f5'],['200 yardas','#1f3d8f']],
@@ -704,7 +729,7 @@ const CLUBS_DB = {
       {ic:'⛳',t:'Abierto de Profesionales de General Pico',s:'Trisquelia recibe al Tour de Profesionales'},
       {ic:'🌱',t:'Estado de la cancha',s:'Greens en buen estado · driving range abierto'},
       {ic:'💳',t:'Cuota de agosto',s:'$150.000 · pagando del 1 al 10, $130.000',socios:true},
-      {ic:'⚑',t:'Recategorización de la cancha',s:'Se incorporan las salidas negras · valores provisionales en la app'}
+      {ic:'⚑',t:'Recategorización de la cancha',s:'Yardas, valuación y handicap de cancha nuevos · las tres salidas homologadas'}
     ],
     shop:[ {n:'Docena de pelotas',p:'—',ic:'🥎'},{n:'Guante',p:'—',ic:'🧤'},
            {n:'Gorra Trisquelia',p:'—',ic:'🧢'},{n:'Green fee invitado',p:'—',ic:'🎟️'} ],
@@ -1057,19 +1082,26 @@ const par = h => COURSE.holes[h-1].par;
    negras medidas con GPS el 5/8/2026. Si vuelve a hacer falta, está en el
    historial de git. */
 /* ---------- MEDIDA Y HOMOLOGACIÓN NO SON LO MISMO ----------
-   MEDIDA: sabemos cuántas yardas tiene. Las negras sí lo están, con GPS.
-   HOMOLOGADA: tiene rating y slope oficiales de la federación. Las negras
-   NO, y por eso no dan handicap de cancha propio.
-   Qué hace el club con eso: el que sale de negras anota en el casillero
-   de blancas la ida y de azules la vuelta, así que su handicap sale de esa
-   tabla. La app hace lo mismo en vez de mostrar un hueco. */
+   MEDIDA: sabemos cuántas yardas tiene.
+   HOMOLOGADA: tiene rating y slope oficiales de la federación, y entonces da
+   handicap de cancha propio.
+   Desde la recategorización de septiembre de 2026 las tres salidas de Trisquelia
+   están homologadas, negras incluidas — antes las negras no lo estaban y su handicap
+   salía de la tabla de blancas/azules, que es lo que el club hacía en el papel.
+   Las funciones se quedan igual: son las que evitan que la app invente un número si
+   alguna vez aparece una salida sin medir (otro club, un tee nuevo). */
 const homologada = t => !!(t && t.r && t.s);
 /* De qué salida sale el handicap de cancha de esta salida. */
 const teeDelHcp  = t => homologada(t) ? t
   : (CLUB.tees.find(x => homologada(x)) || t);
-/* Cómo se escribe el rating y el slope de una salida, sin mentir ni dejar huecos. */
-const ratingTxt  = t => homologada(t) ? `${t.r}/${t.s}`
-  : `sin homologar · handicap de ${teeDelHcp(t).n.toLowerCase()}`;
+/* Cómo se escribe el rating y el slope, sin mentir ni dejar huecos. En 9 hoyos se
+   escribe el del nueve que se juega, que no es la mitad del de 18. */
+const ratingTxt  = (t, hoyos) => {
+  const m = ratingDe(t, hoyos);
+  if(m) return `${m.r}/${m.s}`;
+  return homologada(t) ? 'sin rating de 9 hoyos'
+    : `sin homologar · handicap de ${teeDelHcp(t).n.toLowerCase()}`;
+};
 const sinMedida = t => !t.y && !t.f;
 function yardaDe(t,h){
   if(t.y) return t.y[h-1];
@@ -1086,18 +1118,36 @@ function repiteTee(h){
   return t.mismoTee[CLUB.fisico[h-1]-1];
 }
 const parTotal = () => COURSE.holes.reduce((a,h)=>a+h.par,0);
-/* Handicap de cancha = Index × (Slope/113) + (Rating − Par).
-   Es la fórmula del WHS. Cuando tengamos la tabla oficial del club
-   se compara contra esta y se ajusta si hace falta. */
+/* El rating y el slope con los que se calcula, según el recorrido.
+   En 9 hoyos son los DE ESE NUEVE: la federación mide cada nueve por separado y no
+   es la mitad del de 18 (negras: 36.6 la ida, 35.9 la vuelta, y el slope también
+   cambia). Si una salida no los trae, devolvemos null y la app dice que falta. */
+function ratingDe(t, hoyos){
+  if(!homologada(t)) return null;
+  if((hoyos || 18) !== 9) return {r:t.r, s:t.s};
+  return t.nueve && t.nueve.ida ? {r:t.nueve.ida.r, s:t.nueve.ida.s} : null;
+}
+const par9 = () => COURSE.holes.slice(0,9).reduce((a,h)=>a+h.par,0);
+/* Handicap de cancha = Index × (Slope/113) + (Rating − Par). Es la fórmula del WHS.
+   Verificada contra el "Hándicap de Juego" que publica la AAG para Trisquelia: da lo
+   mismo en las tres salidas, y también el redondeo al 100 %, al 85 % y a 3/8.
+
+   EN 9 HOYOS NO ALCANZA CON DIVIDIR POR DOS. La regla 6.1b pide dos cosas que la app
+   no hacía: usar el rating y el slope de ese nueve, y redondear la mitad del index a
+   la décima ANTES de calcular. Los 9 hoyos de la app son la ida (hoyos 1 al 9).
+
+   Sin index no hay handicap de cancha: devolvemos null y la pantalla muestra "—".
+   Antes un index vacío entraba como 0 y salía un número con cara de real. */
 function hcpCancha(index, t, hoyos){
   /* Si la salida no está homologada, el handicap sale de la que sí lo está.
      Es lo que el club ya hace en la tarjeta de papel. */
   t = teeDelHcp(t || tee()); hoyos = hoyos || 18;
-  if(!t.r) return null;                    // ningún tee homologado: no inventamos
-  const f = hoyos===9 ? 0.5 : 1;
-  const par9 = COURSE.holes.slice(0,9).reduce((a,h)=>a+h.par,0);
-  const par_ = hoyos===9 ? par9 : parTotal();
-  return Math.round(index*f*(t.s/113) + (t.r*f - par_));
+  if(index == null) return null;
+  const m = ratingDe(t, hoyos);
+  if(!m) return null;                      // sin rating no inventamos
+  const idx  = hoyos===9 ? Math.round(index*5)/10 : index;   // la mitad, a la décima
+  const par_ = hoyos===9 ? par9() : parTotal();
+  return Math.round(idx*(m.s/113) + (m.r - par_));
 }
 /* hace cuántos días se actualizó el index */
 const ydsDe = t => t.y ? t.y.reduce((a,b)=>a+b,0)
@@ -2006,7 +2056,8 @@ const HOJAS = {
     <div class="between" style="margin-bottom:10px">
       <div><div class="lbl">Estás jugando</div>
         <div style="font-weight:700;font-size:14px">${tee().n} · ${totalYds()} yds</div>
-        <div class="dim2" style="font-size:11px">${ratingTxt(tee())}</div></div>
+        <div class="dim2" style="font-size:11px">${ratingTxt(tee(), S.vuelta)}${
+          S.vuelta===9?' · rating de la ida':''}</div></div>
       <button class="chip" style="padding:9px 13px;font-size:12px;flex:0 0 auto"
         onclick="setVuelta(${S.vuelta===9?18:9})">${S.vuelta} hoyos ⇄</button>
     </div>
@@ -2018,11 +2069,11 @@ const HOJAS = {
     ${tee().nota?`<div class="dim2" style="font-size:11.5px;margin-top:10px">${tee().nota}</div>`:''}
     ${homologada(tee())?'':`<div class="aviso" style="margin-top:12px;background:#3a3117;
       border:1px solid #5c4a1f;border-radius:13px;padding:11px 13px">
-      <div style="font-size:12.5px;font-weight:700;color:var(--gold)">Negras: medidas, sin homologar</div>
+      <div style="font-size:12.5px;font-weight:700;color:var(--gold)">${tee().n}: sin homologar</div>
       <div class="dim" style="font-size:11.5px;line-height:1.55;margin-top:3px">
-        Las yardas son reales, medidas con GPS en cancha el 5 de agosto. Lo que todavía no
-        existe es el rating y el slope oficiales, así que tu handicap de cancha sale de la
-        tabla de ${teeDelHcp(tee()).n.toLowerCase()} — lo mismo que hacés hoy en el papel.</div>
+        Las yardas son reales, pero esta salida todavía no tiene rating ni slope oficiales,
+        así que tu handicap de cancha sale de la tabla de
+        ${teeDelHcp(tee()).n.toLowerCase()} — lo mismo que se hace en el papel.</div>
     </div>`}
     <button class="btn ghost sm" style="margin-top:14px"
       onclick="cerrarHoja();go('handicap')">Ver mi handicap en cada salida</button>` },
@@ -2598,9 +2649,11 @@ function clubCancha(){return `
         onclick="setTee('${t.id}')">${bolita(t)}${t.n}${homologada(t)?'':' *'}</button>`).join('')}</div>
     <div class="dim2" style="font-size:11px;margin-top:9px">
       La cancha tiene 9 hoyos y los 18 se completan en dos vueltas.
-      ${tee().nota||''}${homologada(tee())?'':
-        ' (*) Las yardas de negras están medidas con GPS, pero la salida todavía no tiene '
-        + 'rating ni slope oficiales: el handicap de cancha sale de la tabla de blancas/azules.'}</div>
+      ${tee().nota||''} Yardas, par, valuación, rating y slope son los de la
+      recategorización de la AAG de septiembre de 2026: la valuación es la misma para
+      las tres salidas.${homologada(tee())?'':
+        ' (*) Esta salida todavía no tiene rating ni slope oficiales: el handicap de '
+        + 'cancha sale de la tabla de '+teeDelHcp(tee()).n.toLowerCase()+'.'}</div>
   </div>
   <div class="card"><h3>Estacas y banderas</h3>
     <div class="grid2">
@@ -2701,7 +2754,8 @@ function vHandicap(){
         ida por blancas, vuelta por azules. Las que cambian son negras y rojas.</div>
       <div class="dim2" style="font-size:11px;margin-top:7px">
         Se calcula con la fórmula del WHS: index × (slope ÷ 113) + (rating − par).
-        ${CLUB.tees.some(t=>t.ratingProvisorio)?'El rating y el slope de damas están a confirmar con la tabla del club.':''}</div>
+        En 9 hoyos van el rating y el slope de la ida, y la mitad de tu index redondeada
+        a la décima, como pide la regla 6.1b.</div>
     </div>
 
     <div class="card" style="margin-bottom:24px"><h3>Cómo funciona</h3>
@@ -2900,8 +2954,8 @@ function vTarjeta(){
       <div class="grid2" style="gap:14px">
         ${[['Jugador','Mauro Domina'],['Fecha','31/07/2026'],
            ['Salida',tee().n],['Handicap','index '+verIndex(S.user.hcp)+' · cancha '+verHcp(hcpCancha(S.user.hcp))],
-           ['Rating / Slope',tee().r+' / '+tee().s],['Recorrido',S.vuelta+' hoyos · par '+
-             (S.vuelta===9?COURSE.holes.slice(0,9).reduce((a,x)=>a+x.par,0):parTotal())]].map(([l,v])=>
+           ['Rating / Slope',ratingTxt(tee(), S.vuelta)],['Recorrido',S.vuelta+' hoyos · par '+
+             (S.vuelta===9?par9():parTotal())]].map(([l,v])=>
           `<div><div class="lbl">${l}</div><div style="font-weight:700;font-size:13px">${v}</div></div>`).join('')}
       </div>
       ${S.torneo?`<div class="sep"></div>
@@ -4138,7 +4192,7 @@ function mv(d){
 function setTee(id){S.tee=id;render();
   toast(homologada(tee())
     ? `${tee().n} · ${totalYds()} yds · rating ${tee().r} slope ${tee().s}`
-    : `${tee().n} · ${totalYds()} yds medidas con GPS · handicap de ${teeDelHcp(tee()).n.toLowerCase()}`);}
+    : `${tee().n} · ${totalYds()} yds · sin homologar: handicap de ${teeDelHcp(tee()).n.toLowerCase()}`);}
 function setVuelta(v){S.vuelta=v;if(S.hole>v)S.hole=v;render();
   toast(v===9?'Recorrido de 9 hoyos (una vuelta)':'Recorrido de 18 hoyos (dos vueltas)');}
 function setScore(v){R.scores[S.hole]=v;S.playing=true;
@@ -4348,22 +4402,25 @@ function limpiarCambio(){ CLUB.torneo.cambio=null; render(); }
 /* De qué salida le toca jugar a cada uno.
    Damas: rojas siempre, sin mirar el index.
    Caballeros: hasta 10.3 de index van de negras; de 10.4 en adelante, blancas/azules.
-   El corte en 10.3 no es caprichoso: es el último index que juega con 10 de cancha.
 
-   Ojo con las negras: no tienen rating ni slope, así que no existe un handicap
-   "de negras". El club ya lo resuelve así — el que sale de negras anota en el
-   casillero de blancas a la ida y de azules a la vuelta. La app hace lo mismo:
-   te manda a negras pero te da el handicap de la tabla de blancas/azules. */
+   DE DÓNDE SALE EL 10.3, y por qué sigue igual después de la recategorización: era el
+   último index que jugaba con 10 de handicap de cancha en la tabla VIEJA. Con la tabla
+   nueva de blancas/azules (69.6/120) ese lugar lo ocupa el 11.2. O sea que el corte es
+   uno u otro según qué haya querido decir el club: "hasta 10 de cancha" o "hasta 10.3
+   de index". Preguntado y sin respuesta todavía; hasta que contesten queda en 10.3,
+   que es lo que la app venía haciendo. Está en el acta.
+
+   Desde la recategorización las negras SÍ tienen rating y slope propios (72.5/128), así
+   que el que sale de negras ya recibe el handicap de negras y no el de blancas/azules.
+   En la tarjeta de papel el club lo hacía al revés porque no había con qué calcularlo. */
 const CORTE_NEGRAS = 10.3;
 function salidaPorIndex(idx, cat){
   if(cat === 'dam') return {tee:'damas', hcpCon:'damas',
     por:'En damas se juega siempre de rojas.'};
   // sin categoría no suponemos nada: la regla arranca distinto para cada una
   if(cat !== 'cab' || idx == null) return null;
-  if(idx <= CORTE_NEGRAS) return {tee:'negras', hcpCon:'mixta',
-    por:`Con index hasta ${CORTE_NEGRAS} te corresponden las negras.`,
-    aviso:'Las negras todavía no están homologadas, así que tu handicap sale de la '
-        + 'tabla de blancas/azules. Es lo mismo que hacés hoy en la tarjeta de papel.'};
+  if(idx <= CORTE_NEGRAS) return {tee:'negras', hcpCon:'negras',
+    por:`Con index hasta ${CORTE_NEGRAS} te corresponden las negras.`};
   return {tee:'mixta', hcpCon:'mixta',
     por:`Con index de ${(CORTE_NEGRAS+0.1).toFixed(1)} en adelante, blancas y azules.`};
 }
