@@ -1265,6 +1265,17 @@ function refrescarGPS(){
      código de la ronda del grupo y `render()` se lo borraría. */
   const a = document.activeElement;
   if(a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA')) return;
+  /* El GPS manda una posición por segundo, y con `enableHighAccuracy` a veces
+     más. Redibujar la pantalla entera en cada una la hacía PARPADEAR sin
+     parar —la animación de entrada se reinicia en cada render— y encima
+     perdía el scroll y el toque a medio camino. Y para nada: de toda la
+     pantalla, lo único que cambia es el renglón de la precisión.
+     Así que ese renglón se escribe a mano, y la pantalla se redibuja sólo
+     cuando cambia algo que cambia la FORMA: que el GPS pase a estar listo (o
+     deje de estarlo), o que aparezca otro error. Se nota mirando el 3644 de
+     una captura: el número puede bailar, la pantalla no. */
+  const linea = document.getElementById('estadoGps');
+  if(linea && firmaGps() === _gpsFirma){ linea.innerHTML = textoEstadoGps(); return; }
   render();
 }
 /* ---------- ¿en qué tee estás parado? ----------
@@ -4232,7 +4243,13 @@ function setOtro(v){ OTRO[S.hole]=v; render();
 function tg(k){R[k][S.hole]=!R[k][S.hole];render();}   // sólo lo usa el GIR
 function yaCargada(i){ PARA_AAG[i].cargada=!PARA_AAG[i].cargada; render();
   toast(PARA_AAG[i].cargada?`${PARA_AAG[i].n} marcada como cargada`:`${PARA_AAG[i].n} vuelve a pendientes`); }
+/* El estado del GPS, reducido a lo que cambia la FORMA de la pantalla: si está
+   listo o no, y qué error hay. La precisión exacta no entra a propósito — baila
+   todo el tiempo y no cambia nada de lo que se ve, salvo el número. */
+const firmaGps = () => (gpsVivo() ? 'listo' : 'no') + '·' + (POS_ERR || '');
+let _gpsFirma = null;
 function textoEstadoGps(){
+  _gpsFirma = firmaGps();          // queda anotado qué estado se dibujó
   if(gpsVivo()) return `<b style="color:var(--acc)">Lista</b> · precisión de ±${Math.round(POS.acc)} m`;
   return `<b class="gold">${POS_ERR || 'Buscándola…'}</b>`;
 }
