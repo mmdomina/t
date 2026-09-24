@@ -16,7 +16,7 @@
    teléfonos que ya tienen la app pueden seguir con la vieja.
    ============================================================ */
 
-const VERSION = 'trisquelia-v11';
+const VERSION = 'trisquelia-v12';
 
 /* Todo lo que tiene que estar en el teléfono para que la app abra sola.
 
@@ -57,7 +57,13 @@ self.addEventListener('activate', e => {
 
 /* La app pide entrar cuando el jugador no está en el medio de una vuelta. */
 self.addEventListener('message', e => {
-  if (e.data && e.data.tipo === 'ACTIVAR') self.skipWaiting();
+  if (!e.data) return;
+  if (e.data.tipo === 'ACTIVAR') self.skipWaiting();
+  /* Qué versión está sirviendo este teléfono. La respuesta sale de acá, que es
+     el único lugar donde vive el número: si la app lo tuviera escrito aparte,
+     algún día dejarían de coincidir y el dato serviría para nada justo cuando
+     un socio dice "a mí no me anda". */
+  if (e.data.tipo === 'VERSION' && e.ports && e.ports[0]) e.ports[0].postMessage(VERSION);
 });
 
 self.addEventListener('fetch', e => {
