@@ -315,7 +315,7 @@ td.name{text-align:left;font-weight:600;font-size:13px}
    ============================================================ */
 const S = {
   tab:'home', mode:'player', hole:1, playing:false, statTab:'general', clubTab:'tee',
-  socialTab:'amigos', persona:0, comoQuien:0, tipo:'socio', resultadosPublicos:true, onb:0, onboarded:false, pickedClub:null,
+  socialTab:'amigos', persona:0, comoQuien:null, tipo:null, resultadosPublicos:true, onb:0, onboarded:false, pickedClub:null,
   mat:'', fedOk:false, indexDias:9, chequeoRonda:false,
   dni:'', nsocio:'', padronOk:false, soloSeguir:false, vA:10, vB:18,
   marco:1,              // a quién le llevo la tarjeta yo (índice en el grupo)
@@ -324,7 +324,15 @@ const S = {
   certifico:false, firmoLaOtra:false, entregada:false, presento:null, padronEstado:null, hallado:null, codigo:'', email:'', clave:0,
   shotOpen:false, cerrando:false,
   tee:'mixta', vuelta:18,
-  user:{name:'Mauro Domina', ini:'MD', hcp:7.4, socio:'—', club:'Trisquelia Golf Club',
+  /* ── LA APP NO ARRANCA SIENDO NADIE ──────────────────────────────
+     Acá había un nombre y un index escritos a mano ("Mauro Domina", 7.4).
+     Servía para ver la app llena sin registrarse, y era una bomba de tiempo:
+     el que abría el link quedaba con el nombre de otro, y desde que existe la
+     ronda compartida ese nombre VIAJA — el socio que entraba a la ronda
+     aparecía en la tarjeta del grupo con el nombre del que había armado la app.
+     Vacío es la única opción honesta: el nombre lo pone la persona, una sola
+     vez, y sin nombre no se entra a una ronda compartida. */
+  user:{name:null, ini:null, hcp:null, socio:null, club:'Trisquelia Golf Club',
         cat:null},   // 'cab' | 'dam' — categoría de juego, define la salida
   hoja:null,             // hoja abierta en la pantalla de jugar
   verDatos:null,         // cuadro de texto con los datos de la prueba
@@ -815,14 +823,62 @@ function tapar(m){
 }
 function taparTel(t){ return t ? '•••• ••• '+t.slice(-3) : ''; }
 
+/* ============================================================
+   QUIÉN SOS
+   ============================================================
+   El nombre es el único dato de identidad que la app tiene y que los demás
+   ven: sale en la tarjeta del grupo, en las firmas y en la ronda compartida.
+   Por eso vive en un solo lugar y se escribe por una sola puerta,
+   `ponerNombre`. Nada de nombres escritos a mano en las pantallas: si mañana
+   el nombre sale de un login, se cambia acá y se arregla en toda la app. */
+const iniciales = n => String(n||'').trim().split(/\s+/).filter(Boolean)
+  .map(x => Array.from(x)[0]).join('').slice(0,2).toUpperCase();
+const hayNombre = () => !!(S.user.name && String(S.user.name).trim());
+/* El nombre de pila, para saludar. "Mauro Domina" → "Mauro". */
+const primerNombre = () => hayNombre() ? String(S.user.name).trim().split(/\s+/)[0] : '';
+/* Nombre y apellido abreviado, como en la tarjeta de papel: "Mauro D." */
+function nombreCorto(){
+  if(!hayNombre()) return 'Vos';
+  const p = String(S.user.name).trim().split(/\s+/);
+  return p.length>1 ? p[0]+' '+Array.from(p[1])[0]+'.' : p[0];
+}
+/* En las pantallas de ejemplo hay una fila que sos vos. Antes decía "Mauro
+   Domina" a mano, así que cualquiera se veía con el nombre de otro. */
+const yoNombre = () => hayNombre() ? S.user.name : 'Vos';
+const yoIni    = () => S.user.ini || '··';
+/* Cómo se muestra una fila de una tabla de ejemplo: la tuya, con tu nombre. */
+const nomDe = j => j && j.yo ? yoNombre() : (j ? j.n : '');
+/* El handicap de cancha con el que estás jugando ESTA vuelta: la salida de hoy
+   y los hoyos de hoy (nueve tiene su propia tabla). Devuelve null si todavía no
+   hay index cargado, y null no es cero: cero significa "juega scratch" y daba
+   un neto y un stableford inventados para alguien que no cargó nada. */
+const hcpJuego = () => hcpCancha(S.user.hcp, tee(), S.vuelta);
+/* La ÚNICA puerta de escritura del nombre. Devuelve si lo pudo guardar. */
+function ponerNombre(n){
+  const t = String(n||'').trim().replace(/\s+/g,' ');
+  if(t.length < 3) return false;
+  S.user.name = t;
+  S.user.ini  = iniciales(t);
+  return true;
+}
+
 const EQUIPO = [
   {n:'Mauro Domina',     i:'MD', rol:'admin',   vos:true},
   {n:'Félix Córdoba',    i:'FC', rol:'salidas'},
   {n:'Chelo Caballero',  i:'CC', rol:'avisos'},
   {n:'Daniel Rodríguez', i:'DR', rol:'torneos'}
 ];
-/* quién está mirando el panel — sirve para probar qué ve cada uno */
-const quien  = () => EQUIPO[S.comoQuien||0];
+/* ¿Esta persona es de la comisión? Todavía no hay login, así que lo único con
+   qué reconocerla es el nombre que cargó. Alcanza para lo que hace falta hoy:
+   que el panel del club no se le abra a cualquiera que baja la app, y que el
+   que sí entra lo haga con SU rol y no como administrador. Cuando haya cuentas
+   de verdad, el rol lo dice el servidor y esto se cae solo. */
+const enComision = () => EQUIPO.findIndex(m =>
+  hayNombre() && m.n.toLowerCase() === String(S.user.name).trim().toLowerCase());
+const esComision = () => enComision() >= 0;
+/* quién está mirando el panel — el selector de "ver como" manda si lo usaron */
+const quienK = () => S.comoQuien ?? Math.max(0, enComision());
+const quien  = () => EQUIPO[quienK()] || EQUIPO[0];
 /* Qué es público y qué es solo para socios.
    Los resultados van abiertos: ya son públicos en la federación y son
    la mejor carta de presentación del club. Lo de plata, no. */
@@ -893,7 +949,7 @@ function GROUP(){
   const ab=n=>n.split(' ')[0]+' '+n.split(' ')[1][0]+'.';
   /* el handicap que se muestra es el DE CANCHA, calculado con el index
      de cada uno y la salida elegida. No va escrito a mano. */
-  return [{n:'Mauro D.', i:'MD', index:S.user.hcp, hcp:hcpCancha(S.user.hcp),
+  return [{n:nombreCorto(), i:yoIni(), index:S.user.hcp, hcp:hcpCancha(S.user.hcp),
            sc:played().map(x=>R.scores[x]), yo:true},
     ...[0,3,2].map((k,j)=>({n:ab(m[k].n), i:m[k].i, index:m[k].hcp,
            hcp:hcpCancha(m[k].hcp), sc:SC_DEMO[j]}))];
@@ -1023,7 +1079,7 @@ const RESULTADOS = [];
 /* Tarjetas que llegaron y todavía hay que pasar a la federación.
    El diferencial lo calcula la app: (113/slope) × (gross − rating). */
 let PARA_AAG = [
-  {n:'Mauro Domina', i:'MD', mat:'104905', fecha:'31/07', gross:84, tee:'mixta', cargada:false},
+  {n:'Socio Seis',   i:'S6', mat:'104905', fecha:'31/07', gross:84, tee:'mixta', cargada:false},
   {n:'Socio Uno',    i:'S1', mat:'104211', fecha:'31/07', gross:79, tee:'negras', cargada:false},
   {n:'Socio Tres',   i:'S3', mat:'110902', fecha:'31/07', gross:88, tee:'mixta', cargada:false},
   {n:'Socia Dos',    i:'S2', mat:'098554', fecha:'31/07', gross:95, tee:'damas', cargada:false},
@@ -1050,7 +1106,10 @@ const INVIERNO = [
   {n:'Jugador B', i:'JB', hcp:6.8,  fechas:7, gross:[76,78,79,80,81,82,85], negras:5},
   {n:'Jugador C', i:'JC', hcp:8.2,  fechas:6, gross:[78,79,81,82,84,86],    negras:4},
   {n:'Jugador D', i:'JD', hcp:9.5,  fechas:7, gross:[79,80,82,83,84,86,88], negras:2},
-  {n:'Mauro Domina', i:'MD', hcp:7.4, fechas:6, gross:[78,80,81,83,85,88], negras:3, yo:true},
+  /* La fila marcada con `yo` es la de quien está usando la app. El nombre que
+     se muestra sale de `S.user`, no de acá: en las tablas va `nomDe(j)`. Este
+     texto queda sólo como clave interna de las tablas de ejemplo. */
+  {n:'Jugador E', i:'JE', hcp:7.4, fechas:6, gross:[78,80,81,83,85,88], negras:3, yo:true},
   {n:'Jugador F', i:'JF', hcp:15.7, fechas:7, gross:[85,86,88,89,90,91,94], negras:0},
   {n:'Jugador G', i:'JG', hcp:18.3, fechas:6, gross:[88,89,91,92,93,96],    negras:0},
   {n:'Jugador H', i:'JH', hcp:21.0, fechas:7, gross:[90,92,93,95,96,98,99], negras:0}
@@ -1489,22 +1548,31 @@ function vHome(){
   return `<div class="fade">
   <div class="hdr">
     <div class="row" style="gap:11px">${crest(38)}
-      <div><div class="lbl">Viernes 31 de julio</div><h1 style="font-size:23px">Hola, Mauro</h1></div></div>
+      <div><div class="lbl">Viernes 31 de julio</div><h1 style="font-size:23px">Hola${
+        hayNombre()?', '+esc(primerNombre()):''}</h1></div></div>
     <div class="row" style="gap:8px">
       <button class="arrow" style="font-size:16px;position:relative"
         onclick="go('notif')">🔔<span style="position:absolute;top:5px;right:6px;width:8px;height:8px;
         border-radius:50%;background:var(--red)"></span></button>
       <div class="avatar" style="cursor:pointer;width:44px;height:44px;font-size:15px"
-           onclick="go('me')">${S.user.ini}</div>
+           onclick="go('me')">${esc(yoIni())}</div>
     </div>
   </div>
   <div class="pad">
-    <div class="card" style="cursor:pointer;background:linear-gradient(135deg,var(--tint),var(--card));border-color:${indexViejo()?'var(--gold)':'var(--acc2)'}"
+    ${hayNombre()?'':`<div class="card" style="border-color:var(--gold);cursor:pointer"
+      onclick="S.editNombre=true;go('me')">
+      <div class="row" style="align-items:flex-start"><div class="ico">🙋</div>
+      <div style="min-width:0"><div style="font-weight:700;font-size:14px" class="gold">Falta tu nombre</div>
+      <div class="dim" style="font-size:12px">Es lo que ven los del grupo en la tarjeta compartida.
+      Sin nombre no podés entrar a la ronda de un grupo.</div></div></div>
+    </div>`}
+    <div class="card" style="cursor:pointer;background:linear-gradient(135deg,var(--tint),var(--card));border-color:${S.user.hcp==null||indexViejo()?'var(--gold)':'var(--acc2)'}"
       onclick="go('handicap')">
       <div class="between">
-        <div><div class="lbl">Handicap index</div><div class="big acc">${S.user.hcp}</div>
-          <div style="font-size:12px" class="${indexViejo()?'gold':'dim'}">
-            ${indexViejo()?'⚠️ Actualizalo, cambió el jueves':'Al día'}</div></div>
+        <div><div class="lbl">Handicap index</div><div class="big acc">${verIndex(S.user.hcp)}</div>
+          <div style="font-size:12px" class="${S.user.hcp==null||indexViejo()?'gold':'dim'}">
+            ${S.user.hcp==null ? 'Cargalo y sabés con cuánto jugás'
+              :(indexViejo()?'⚠️ Actualizalo, cambió el jueves':'Al día')}</div></div>
         <div style="text-align:right"><div class="lbl">De cancha</div>
           <div class="big">${verHcp(hcpCancha(S.user.hcp))}</div>
           <div style="font-size:12px" class="dim">${tee().n.toLowerCase()} · ${
@@ -2120,13 +2188,16 @@ const HOJAS = {
       const arr = i===0 ? played().map(x=>R.scores[x]) : pl.sc;
       const t = arr.reduce((a,b)=>a+b,0);
       const parr = arr.reduce((a,_,j)=>a+par(j+1),0);
-      const stb = arr.reduce((a,s,j)=>a+stableford(s,par(j+1),COURSE.holes[j].hcp,pl.hcp||0),0);
+      /* Sin handicap no hay stableford: con 0 saldría el de un scratch, que es
+         un puntaje inventado para alguien que todavía no cargó su index. */
+      const stb = pl.hcp==null ? null
+        : arr.reduce((a,s,j)=>a+stableford(s,par(j+1),COURSE.holes[j].hcp,pl.hcp),0);
       return `<tr><td class="name"><span class="avatar" style="width:22px;height:22px;font-size:9px;
-        display:inline-flex;vertical-align:-6px;margin-right:7px">${pl.i}</span>${pl.n}</td>
+        display:inline-flex;vertical-align:-6px;margin-right:7px">${esc(pl.i)}</span>${esc(pl.n)}</td>
         <td class="dim">${verIndex(pl.index)}</td><td class="dim">${verHcp(pl.hcp)}</td>
         <td style="font-weight:800">${t||'–'}</td>
         <td class="${t-parr<=0?'acc':''}">${arr.length?fmtPar(t-parr):'–'}</td>
-        <td class="gold" style="font-weight:800">${arr.length?stb:'–'}</td></tr>`;}).join('')}
+        <td class="gold" style="font-weight:800">${arr.length&&stb!=null?stb:'–'}</td></tr>`;}).join('')}
     </tbody></table>
     <div class="dim2" style="font-size:11px;margin-top:10px">
       Estos scores son de ejemplo. Para ver los de verdad, abrí una ronda con el grupo
@@ -2321,7 +2392,8 @@ function vClub(){
               shop:clubShop,cancha:clubCancha}[S.clubTab] || clubTee)();
   return `<div class="fade">
   <div class="hdr"><div class="row" style="gap:11px">${crest(40)}
-    <div><div class="lbl">Socio ${S.nsocio||S.user.socio}</div><h1 style="font-size:23px">${CLUB.corto}</h1></div></div></div>
+    <div><div class="lbl">${esSocio() ? 'Socio '+(S.nsocio||S.user.socio||'—')
+      : 'Invitado'}</div><h1 style="font-size:23px">${CLUB.corto}</h1></div></div></div>
   <div class="tabs">${t.map(([k,l])=>
     `<button class="tab ${S.clubTab===k?'on':''}" onclick="S.clubTab='${k}';render()">${l}</button>`).join('')}</div>
   <div class="pad" style="padding-top:10px">${body}</div></div>`;
@@ -2492,7 +2564,7 @@ function clubInvierno(){
       const dentro = clasClub.includes(j);
       return `<tr style="${j.yo?'background:var(--tint)':''};${dentro?'':'opacity:.55'}">
         <td class="${dentro?'gold':''}" style="font-weight:800">${k+1}</td>
-        <td class="name">${j.n}</td><td class="dim">${j.fechas}</td>
+        <td class="name">${esc(nomDe(j))}</td><td class="dim">${j.fechas}</td>
         <td class="${j.negras>=I.copas[0].req.negras?'acc':'red'}">${j.negras}</td>
         <td style="font-weight:800">${sumaGross(j)}</td></tr>`}).join('')}
     </tbody></table>
@@ -2508,7 +2580,7 @@ function clubInvierno(){
       <th>Hcp</th><th>Tarj.</th><th>Neto</th></tr></thead><tbody>
     ${porNeto.map((j,k)=>`<tr style="${j.yo?'background:var(--tint)':''}">
       <td class="${k<I.copas[1].cupo?'gold':''}" style="font-weight:800">${k+1}</td>
-      <td class="name">${j.n}</td><td class="dim">${j.hcp}</td><td class="dim">${j.fechas}</td>
+      <td class="name">${esc(nomDe(j))}</td><td class="dim">${j.hcp}</td><td class="dim">${j.fechas}</td>
       <td style="font-weight:800">${sumaNeto(j)}</td></tr>`).join('')}
     </tbody></table>
   </div>
@@ -2609,8 +2681,8 @@ function clubTorneo(){return `
     <table><thead><tr><th style="text-align:left">#</th><th style="text-align:left">Jugador</th>
       <th>Hoyo</th><th>Hoy</th><th>Total</th></tr></thead><tbody>
     ${[['1','Socio Uno','16','−3','−5'],['2','Socia Dos','15','−2','−3'],['3','Socio Tres','17','E','−1'],
-       ['4','Mauro Domina','9','+1','+1'],['5','Socio Cuatro','14','+3','+4']].map(([p,n,h,t,tt])=>
-      `<tr style="${n.includes('Mauro')?'background:var(--tint)':''}"><td>${p}</td><td class="name">${n}</td>
+       ['4',yoNombre(),'9','+1','+1',true],['5','Socio Cuatro','14','+3','+4']].map(([p,n,h,t,tt,yo])=>
+      `<tr style="${yo?'background:var(--tint)':''}"><td>${p}</td><td class="name">${esc(n)}</td>
        <td class="dim">${h}</td><td>${t}</td><td style="font-weight:800" class="${tt.startsWith('−')?'acc':''}">${tt}</td></tr>`).join('')}
     </tbody></table>
   </div>
@@ -2897,26 +2969,19 @@ function socRanking(){
       con tu posición y lo que te falta para clasificar.</div>
     <button class="btn sm" style="margin-top:12px" onclick="S.clubTab='invierno';go('club')">Ver la clasificación</button>
   </div>`;
-  if(!esSocio()) return `<div class="card" style="margin-bottom:24px">
+  /* El que no es socio no ve el orden de mérito del club.
+     Acá abajo había una tabla de ejemplo con una posición y un puntaje para
+     cada socio. Era código muerto —los dos `return` de arriba cubren todos los
+     casos desde que el ranking pasó a ser el Torneo de Invierno— y encima
+     llevaba un nombre de persona escrito a mano, de los que hacían que
+     cualquiera abriera la app y se viera con el nombre de otro. Cuando el
+     ranking salga del servidor, la tabla se arma con lo que llegue. */
+  return `<div class="card" style="margin-bottom:24px">
     <div class="ico" style="margin-bottom:10px">🔒</div>
     <div style="font-weight:700">El ranking es de los socios</div>
     <div class="dim" style="font-size:13px;margin-top:4px">El orden de mérito del club lo ven los socios de Trisquelia.
     Los resultados de los torneos, en cambio, están abiertos para todos en Club → Resultados.</div>
     <button class="btn ghost sm" style="margin-top:12px" onclick="S.clubTab='result';go('club')">Ver resultados</button>
-  </div>`;
-  return `<div class="card"><h3>Ranking del club · orden de mérito</h3>
-    <table><thead><tr><th style="text-align:left">#</th><th style="text-align:left">Socio</th>
-      <th>Rondas</th><th>Hcp</th><th>Pts</th></tr></thead><tbody>
-    ${[['1','Socio Uno','19','8.1','412'],['2','Socia Dos','22','12.4','388'],
-       ['3','Socio Tres','17','11.0','341'],['4','Mauro Domina','23','14.2','327'],
-       ['5','Socia Cinco','14','16.3','290'],['6','Socio Cuatro','16','21.7','244']].map(([p,n,r,h,pt])=>
-      `<tr style="${n.includes('Mauro')?'background:var(--tint)':''}"><td>${p}</td>
-       <td class="name">${n}</td><td class="dim">${r}</td><td class="dim">${h}</td>
-       <td style="font-weight:800" class="gold">${pt}</td></tr>`).join('')}
-    </tbody></table></div>
-  <div class="card" style="margin-bottom:24px"><h3>Ranking por categoría</h3>
-    <div class="dim" style="font-size:13px">Estás 4° general y <b class="acc">2° en categoría 10–18</b>.
-    Con 2 rondas más bajo 84 pasás al podio general.</div>
   </div>`;}
 function socLogros(){return `<div class="card"><h3>Tus logros</h3>
     <div class="grid3">${LOGROS.map(([i,l,v])=>
@@ -2987,7 +3052,7 @@ function vTarjeta(){
 
     <div class="card" style="padding:14px">
       <div class="grid2" style="gap:14px">
-        ${[['Jugador','Mauro Domina'],['Fecha','31/07/2026'],
+        ${[['Jugador',esc(yoNombre())],['Fecha','31/07/2026'],
            ['Salida',tee().n],['Handicap','index '+verIndex(S.user.hcp)+' · cancha '+verHcp(hcpCancha(S.user.hcp))],
            ['Rating / Slope',ratingTxt(tee(), S.vuelta)],['Recorrido',S.vuelta+' hoyos · par '+
              (S.vuelta===9?par9():parTotal())]].map(([l,v])=>
@@ -3013,10 +3078,11 @@ function vTarjeta(){
         <div style="text-align:center"><div class="lbl">Al par</div>
           <div class="big ${toPar()<=0?'acc':''}">${p.length?fmtPar(toPar()):'–'}</div></div>
         <div style="text-align:right"><div class="lbl">Neto</div>
-          <div class="big">${t?t-hcpCancha(S.user.hcp):'–'}</div></div>
+          <div class="big">${t && hcpJuego()!=null ? t-hcpJuego() : '–'}</div></div>
       </div>
       <div class="dim2" style="font-size:11px;margin-top:9px">
-        ${p.length} de ${S.vuelta} hoyos jugados.</div>
+        ${p.length} de ${S.vuelta} hoyos jugados.${
+          hcpJuego()==null ? ' Sin index cargado no hay neto: es sólo tu gross.' : ''}</div>
     </div>
 
     ${S.torneo?`
@@ -3025,7 +3091,7 @@ function vTarjeta(){
         <span style="font-size:13px;font-weight:600">Marcador · ${mio.n}</span>
         <span class="pill ${S.certifico?'':'gold'}">${S.certifico?'Firmada':'Pendiente'}</span></div>
       <div class="between" style="padding:10px 0">
-        <span style="font-size:13px;font-weight:600">Jugador · Mauro Domina</span>
+        <span style="font-size:13px;font-weight:600">Jugador · ${esc(yoNombre())}</span>
         <span class="pill ${S.certifico?'':'gold'}">${S.certifico?'Certificada':'Pendiente'}</span></div>
       <div class="dim2" style="font-size:11px;margin-top:9px">
         Se firma al terminar, desde Cerrar la tarjeta.</div>
@@ -3177,9 +3243,10 @@ function vArranque(){
       <div class="dim" style="font-size:12px;margin-bottom:10px">
         Sale de la grilla que armó el club. No cargás a nadie a mano.</div>
       ${g.map((p,k)=>`<div class="item" style="padding:10px 0">
-        <div class="avatar">${p.i}</div>
-        <div style="flex:1;min-width:0"><div style="font-weight:700;font-size:14px">${p.n}${p.yo?' <span class="dim2" style="font-weight:500">· vos</span>':''}</div>
-          <div class="dim" style="font-size:12px">Hcp ${p.hcp}</div></div>
+        <div class="avatar">${esc(p.i)}</div>
+        <div style="flex:1;min-width:0"><div style="font-weight:700;font-size:14px">${esc(p.n)}${p.yo?' <span class="dim2" style="font-weight:500">· vos</span>':''}</div>
+          <div class="dim" style="font-size:12px">${p.hcp==null
+            ? 'Sin index cargado' : 'Hcp '+verHcp(p.hcp)}</div></div>
         ${k===S.meMarca?'<span class="pill">te marca</span>':''}
         ${k===S.marco?'<span class="pill blue">lo marcás</span>':''}
       </div>`).join('')}
@@ -3415,6 +3482,30 @@ function vOnboard(){
     <button class="btn ghost sm" style="margin-top:8px" onclick="skipOnb()">Ya tengo cuenta · entrar</button>
   </div>`;
 
+  /* ---- ¿cómo te llamás? ----
+     La única puerta que queda para entrar sin hacer el alta completa. Antes
+     esa puerta te dejaba adentro con el nombre de otro; ahora pide lo mínimo
+     para que la tarjeta del grupo diga quién sos. No es un paso numerado: es
+     el atajo, y tiene que poder resolverse en diez segundos. */
+  if(S.onb==='nombre') return `<div class="fade" style="height:100%;display:flex;
+    flex-direction:column;justify-content:center;padding:0 26px">
+    <div style="font-size:52px;text-align:center">🙋</div>
+    <h1 style="font-size:26px;margin:14px 0 8px;text-align:center">¿Cómo te llamás?</h1>
+    <p style="font-size:15px;text-align:center;margin-bottom:22px">Es lo que van a ver los del
+    grupo en la tarjeta compartida. Poné el mismo nombre que usás en el club, así te reconocen.</p>
+    <input id="inNombre" value="${esc(S.nombreIn||'')}" placeholder="Nombre y apellido"
+      autocomplete="name" oninput="S.nombreIn=this.value"
+      style="width:100%;padding:16px;border-radius:12px;background:var(--nav);
+      border:1px solid var(--line);color:var(--txt);font-family:inherit;font-size:17px;
+      font-weight:600;text-align:center">
+    <button class="btn" style="margin-top:14px" onclick="guardarNombre()">Entrar a la app</button>
+    <button class="btn ghost sm" style="margin-top:8px" onclick="S.onb=0;render()">
+      Mejor hago mi cuenta desde cero</button>
+    <div class="dim2" style="font-size:11px;text-align:center;margin-top:14px;line-height:1.55">
+      Todavía no hay cuentas en un servidor: por ahora tu nombre vive en este teléfono
+      y lo podés cambiar cuando quieras desde Mi cuenta.</div>
+  </div>`;
+
   /* ---- 1. socio o no ---- */
   if(S.onb===1) return `<div class="fade">${paso(1,'¿Cómo entrás?')}
     <div class="pad">
@@ -3556,6 +3647,14 @@ function vOnboard(){
       </div></div>
     </div>` : ''}
     <div class="card">
+      ${hayNombre()?'':`
+      <div class="lbl">Tu nombre</div>
+      <input value="${esc(S.nombreIn||'')}" placeholder="Nombre y apellido" autocomplete="name"
+        oninput="S.nombreIn=this.value"
+        style="width:100%;margin:6px 0 6px;padding:14px;border-radius:12px;background:var(--nav);
+        border:1px solid var(--line);color:var(--txt);font-family:inherit;font-size:15px">
+      <div class="dim2" style="font-size:11px;margin-bottom:14px">Es lo que ven los del grupo
+      en la tarjeta compartida.</div>`}
       <div class="lbl">Email</div>
       <input value="${S.email||''}" placeholder="nombre@correo.com" inputmode="email" oninput="S.email=this.value"
         style="width:100%;margin:6px 0 14px;padding:14px;border-radius:12px;background:var(--nav);
@@ -3575,7 +3674,7 @@ function vOnboard(){
         <div style="font-weight:600;font-size:13px">¿Preferís sin clave?</div>
         <div class="dim2" style="font-size:11px">Te mandamos un código al email cada vez que entrás.
         No hay clave que recordar ni que te puedan robar.</div></div></div>
-      <button class="btn ghost sm" style="margin-top:10px" onclick="S.email=S.email||'socio@trisquelia.com';S.clave=8;S.claveOk=true;S.claveMsg='';S.onb=4;render();toast('Entrás con código al email')">
+      <button class="btn ghost sm" style="margin-top:10px" onclick="entrarConCodigo()">
         Entrar con código, sin clave</button>
     </div>
     <button class="btn" onclick="crearCuenta()">Crear la cuenta</button>
@@ -3667,7 +3766,8 @@ function vOnboard(){
   return `<div class="fade" style="height:100%;display:flex;flex-direction:column;
     justify-content:center;padding:0 26px;text-align:center">
     <div style="font-size:64px">🎉</div>
-    <h1 style="font-size:28px;margin:14px 0 8px">Listo${esSocio()?', Mauro':''}</h1>
+    <h1 style="font-size:28px;margin:14px 0 8px">Listo${
+      hayNombre()?', '+esc(primerNombre()):''}</h1>
     <p style="font-size:15px;margin-bottom:24px">${CLUB.corto} cargado con sus ${CLUB.cancha.hoyosFisicos} hoyos,
     las dos vueltas, las reglas locales y los torneos.</p>
     <div class="card" style="text-align:left">
@@ -3687,14 +3787,32 @@ function vMe(){
     <div class="row"><button class="arrow" onclick="go('home')">‹</button>
     <div><div class="lbl">Perfil</div><h1 style="font-size:22px">Mi cuenta</h1></div></div></div>
   <div class="pad">
-    <div class="card"><div class="row">
-      <div class="avatar" style="width:56px;height:56px;font-size:20px">MD</div>
-      <div style="flex:1;min-width:0"><div style="font-weight:800;font-size:17px">${S.user.name}</div>
-        <div class="dim" style="font-size:13px">Socio ${S.nsocio||S.user.socio} · ${S.user.club}</div>
-        <div style="margin-top:5px"><span class="pill">Index ${S.user.hcp}</span>
+    <div class="card">
+      ${(S.editNombre || !hayNombre()) ? `
+      <div class="lbl">Tu nombre</div>
+      <input value="${esc(S.nombreIn ?? S.user.name ?? '')}" placeholder="Nombre y apellido"
+        autocomplete="name" oninput="S.nombreIn=this.value"
+        style="width:100%;margin:7px 0 5px;padding:14px;border-radius:12px;background:var(--nav);
+        border:1px solid var(--line);color:var(--txt);font-family:inherit;font-size:16px;font-weight:600">
+      <div class="dim2" style="font-size:11px;line-height:1.55">Es el nombre con el que aparecés
+      en la tarjeta del grupo y en la ronda compartida. Los que ya te vieron en una ronda
+      abierta siguen viendo el anterior.</div>
+      ${hayNombre()?`<div class="grid2" style="margin-top:11px">
+        <button class="btn ghost sm" onclick="S.editNombre=false;S.nombreIn=null;render()">Cancelar</button>
+        <button class="btn sm" onclick="guardarNombre()">Guardar</button></div>`
+      :`<button class="btn sm" style="margin-top:11px" onclick="guardarNombre()">Guardar mi nombre</button>`}`
+      : `<div class="row">
+      <div class="avatar" style="width:56px;height:56px;font-size:20px">${esc(yoIni())}</div>
+      <div style="flex:1;min-width:0"><div style="font-weight:800;font-size:17px">${esc(S.user.name)}</div>
+        <div class="dim" style="font-size:13px">${esSocio()
+          ? 'Socio '+(S.nsocio||S.user.socio||'—') : 'Invitado'} · ${S.user.club}</div>
+        <div style="margin-top:5px"><span class="pill">Index ${verIndex(S.user.hcp)}</span>
           <span class="pill" style="margin-left:5px">Cancha ${verHcp(hcpCancha(S.user.hcp))}</span></div></div>
       ${crest(46)}
-    </div></div>
+    </div>
+      <button class="btn ghost sm" style="margin-top:12px"
+        onclick="S.editNombre=true;S.nombreIn=null;render()">Cambiar mi nombre</button>`}
+    </div>
 
     <div class="card">
       <div class="lbl" style="margin-bottom:9px">Estás usando la app como</div>
@@ -3734,9 +3852,10 @@ function vMe(){
         Borrar todo y empezar de nuevo</button>
     </div>
 
-    ${esSocio()?`<div class="card modeban">
+    ${esComision()?`<div class="card modeban">
       <div style="font-weight:700">Panel del club</div>
-      <div class="dim" style="font-size:12px">Tenés acceso de administrador.</div>
+      <div class="dim" style="font-size:12px">Figurás en la comisión de ${CLUB.corto}:
+      ${ROLES[quien().rol].n}. Este panel no lo ve el resto de los socios.</div>
       <button class="btn sm" style="margin-top:10px;background:var(--gold);color:#2a2005"
         onclick="S.mode='club';S.tab='dash';render()">Abrir panel del club</button>
     </div>`:''}
@@ -3781,7 +3900,7 @@ function selectorQuien(){
   return `<div class="card" style="padding:12px">
     <div class="lbl" style="margin-bottom:8px">Estás viendo el panel como</div>
     <div class="grid4">${EQUIPO.map((e,k)=>
-      `<button class="chip ${(S.comoQuien||0)===k?'on':''}" style="padding:9px 3px;font-size:11px"
+      `<button class="chip ${quienK()===k?'on':''}" style="padding:9px 3px;font-size:11px"
         onclick="S.comoQuien=${k};S.tab='dash';render()">${e.n.split(' ')[0]}
         <div class="dim2" style="font-size:9px;font-weight:500">${ROLES[e.rol].n}</div></button>`).join('')}</div>
     ${!quien().vos?`<div class="dim2" style="font-size:11px;margin-top:9px">
@@ -3840,7 +3959,7 @@ function vDash(){
         <div><div class="lbl">${CLUB.torneo.n}</div>
           <div class="dim" style="font-size:12px">Firmadas por el marcador y certificadas por el jugador</div></div>
         <span class="pill">3 de ${CLUB.torneo.inscriptos}</span></div>
-      ${[['MD','Mauro Domina','84 · +13','Entregada','',''],
+      ${[['S6','Socio Seis','84 · +13','Entregada','',''],
          ['S1','Socio Uno','79 · +8','Entregada','',''],
          ['S4','Socio Cuatro','92 · +21','Sin certificar','gold',''],
          ['S3','Socio Tres','—','En cancha, hoyo 14','',''],
@@ -4321,7 +4440,11 @@ function entregar(){
     ? `📩 Entregaste la de ${GROUP()[S.marco].n} · la tuya no se presenta`
     : `📩 Tarjetas entregadas · le llegaron a ${CLUB.pro.n}`);
 }
-function seguirDesdeTipo(){ S.onb = esSocio() ? 2 : 3; render(); }
+/* La app no supone que sos socio: hasta que lo digas, `S.tipo` es null. */
+function seguirDesdeTipo(){
+  if(!S.tipo){ toast('Elegí cómo entrás'); return; }
+  S.onb = esSocio() ? 2 : 3; render();
+}
 function buscarPadron(){
   const d=(S.dni||'').replace(/\D/g,'');
   if(d.length<7){toast('Poné tu DNI completo');return;}
@@ -4338,6 +4461,13 @@ function buscarPadron(){
 function verificarCodigo(){
   if((S.codigo||'').replace(/\D/g,'').length<6){toast('Poné los 6 dígitos del código');return;}
   S.padronEstado='verificado'; S.padronOk=true;
+  /* Con padrón de verdad, el nombre verificado ES tu nombre: lo copiamos acá y
+     no hay que escribirlo. Hoy el padrón es de mentira, así que la persona lo
+     escribe en la pantalla siguiente (usarNombrePrueba). Ojo: sin esta copia,
+     la app te mostraba el nombre verificado en pantalla y después seguía
+     llamándote como el dueño de la maqueta. */
+  if(S.hallado && !S.hallado.deMentira && S.hallado.n) ponerNombre(S.hallado.n);
+  if(S.hallado && S.hallado.socio) S.user.socio = S.hallado.socio;
   // Dejamos cargado el mail que el club ya tiene: es el que conviene usar de usuario.
   if(!S.email && S.hallado && S.hallado.mail) S.email = S.hallado.mail;
   render();
@@ -4385,23 +4515,51 @@ function pintarVentaja(){
   if(b) b.textContent = v;
 }
 function crearCuenta(){
+  /* El socio ya puso su nombre en el paso del padrón; el invitado no pasa por
+     ahí, así que se lo pedimos acá. Sin nombre no se sigue: es el dato que
+     después ven los otros tres del grupo en la tarjeta. */
+  if(!hayNombre() && !ponerNombre(S.nombreIn)){toast('Escribí tu nombre y tu apellido');return;}
   if(!S.email||!S.email.includes('@')){toast('Poné un email válido');return;}
   if((S.clave||0)<8){toast('La clave necesita al menos 8 caracteres');return;}
   if(S.claveOk===false && (S.clave||0)>=8){toast(S.claveMsg);return;}
   // el DNI queda tomado: nadie más puede registrarse con él
   if(S.hallado) S.hallado.cuenta = S.email;
+  S.nombreIn = null;
   S.onb=4; render(); toast('Cuenta creada · te mandamos un mail de confirmación');
+}
+/* "Entrar con código, sin clave" saltea la clave, no el nombre. */
+function entrarConCodigo(){
+  if(!hayNombre() && !ponerNombre(S.nombreIn)){toast('Escribí tu nombre y tu apellido');return;}
+  S.email = S.email || 'socio@trisquelia.com';
+  S.clave = 8; S.claveOk = true; S.claveMsg = '';
+  S.nombreIn = null; S.onb = 4; render();
+  toast('Entrás con código al email');
 }
 /* En modo prueba la persona escribe su nombre, así ve el suyo y no el de otro. */
 function usarNombrePrueba(){
-  const n = (S.nombrePrueba||'').trim();
-  if(n.length < 3){ toast('Escribí tu nombre para seguir'); return; }
-  S.hallado.n = n;
-  S.user.name = n;
-  S.user.ini  = n.split(/\s+/).map(x=>x[0]).join('').slice(0,2).toUpperCase();
+  if(!ponerNombre(S.nombrePrueba)){ toast('Escribí tu nombre para seguir'); return; }
+  if(S.hallado) S.hallado.n = S.user.name;
   S.onb=3; render();
 }
-function skipOnb(){S.onboarded=true;S.tab='home';render();}
+/* El nombre desde la pantalla del atajo, o desde Mi cuenta si lo van a cambiar. */
+function guardarNombre(){
+  if(!ponerNombre(S.nombreIn)){ toast('Escribí tu nombre y tu apellido'); return; }
+  S.nombreIn = null; S.editNombre = false;
+  const entrando = !S.onboarded;
+  if(entrando){ S.onboarded = true; S.tab = 'home'; }
+  render();
+  toast(entrando ? `Listo, ${primerNombre()}` : `Ahora aparecés como ${S.user.name}`);
+}
+/* LA ÚNICA PUERTA A LA APP, y no se abre sin nombre.
+   Acá entraban los tres atajos que dejaban a cualquiera adentro como el dueño
+   de la maqueta: "ya tengo cuenta", "entrar con esa cuenta" y el final del
+   alta. Mientras no haya cuentas en un servidor, lo único que la app puede
+   saber de alguien es el nombre que escribió, y sin eso no hay tarjeta que
+   valga: el resto del grupo necesita saber a quién le está anotando. */
+function skipOnb(){
+  if(!hayNombre()){ S.onb='nombre'; S.nombreIn = S.nombreIn || S.nombrePrueba || ''; render(); return; }
+  S.onboarded=true;S.tab='home';render();
+}
 /* Cambiar el index desde adentro de la app. Es lo que hay que hacer cada jueves,
    así que tiene que estar a mano y no escondido en el registro. */
 function guardarIndex(){
@@ -5270,26 +5428,38 @@ function cargarRonda(){
   if(RONDA) arrancarLatido();
 }
 
-/* ---------- abrir y sumarse ---------- */
+/* ---------- abrir y sumarse ----------
+   Sin nombre no se entra a una ronda compartida. No es un capricho: acá lo que
+   viaja al servidor lo ven los otros tres del grupo, y una tarjeta que dice "—"
+   o el nombre de otro no sirve para firmar nada. El index sí puede faltar —se
+   juega igual y la tarjeta sale sin neto— pero el nombre, no. */
+function listoParaRonda(){
+  if(hayNombre()) return true;
+  toast('Primero poné tu nombre');
+  S.editNombre = true; go('me');
+  return false;
+}
 async function crearRonda(){
   if(!hayNube()){ toast('Todavía no hay servidor configurado'); return; }
+  if(!listoParaRonda()) return;
   const codigo = codigoNuevo();
   await entrar('ronda_abrir', {
     p_codigo:codigo, p_club:CLUB.id, p_cancha:CLUB.cancha.nombre,
     p_vuelta:S.vuelta, p_torneo:!!S.torneo,
     p_jugador: dispositivo()+'-'+codigo, p_nombre:S.user.name,
     p_iniciales:S.user.ini, p_index:S.user.hcp,
-    p_hcp:hcpCancha(S.user.hcp), p_salida:S.tee, p_llave:llaveDe(codigo)
+    p_hcp:hcpJuego(), p_salida:S.tee, p_llave:llaveDe(codigo)
   }, codigo);
 }
 async function unirseRonda(){
   if(!hayNube()){ toast('Todavía no hay servidor configurado'); return; }
+  if(!listoParaRonda()) return;
   const codigo = String(S.codigoIn||'').toUpperCase().replace(/[^A-Z2-9]/g,'');
   if(codigo.length !== 6){ toast('El código son seis letras'); return; }
   await entrar('ronda_unirse', {
     p_codigo:codigo, p_jugador: dispositivo()+'-'+codigo, p_nombre:S.user.name,
     p_iniciales:S.user.ini, p_index:S.user.hcp,
-    p_hcp:hcpCancha(S.user.hcp), p_salida:S.tee, p_llave:llaveDe(codigo)
+    p_hcp:hcpJuego(), p_salida:S.tee, p_llave:llaveDe(codigo)
   }, codigo);
 }
 async function entrar(fn, args, codigo){
@@ -5593,8 +5763,10 @@ function grupoEnVivo(){
     const hoyos = Object.keys(sc).map(Number).sort((a,b)=>a-b);
     const golpes = hoyos.reduce((a,h)=>a+sc[h].golpes, 0);
     const parr  = hoyos.reduce((a,h)=>a+par(h), 0);
-    const stb   = hoyos.reduce((a,h)=>a+stableford(sc[h].golpes, par(h),
-                    COURSE.holes[h-1].hcp, j.hcp_cancha||0), 0);
+    /* Igual que en la tarjeta del grupo: sin handicap no hay stableford. */
+    const stb   = j.hcp_cancha==null ? null
+      : hoyos.reduce((a,h)=>a+stableford(sc[h].golpes, par(h),
+                    COURSE.holes[h-1].hcp, j.hcp_cancha), 0);
     const ajeno = hoyos.filter(h=>!sc[h].propio).length;
     return { j, hoyos, golpes, parr, stb, ajeno };
   });
@@ -5608,7 +5780,7 @@ function grupoEnVivo(){
       <td class="dim">${hoyos.length}</td>
       <td style="font-weight:800">${golpes||'–'}</td>
       <td class="${golpes-parr<=0?'acc':''}">${hoyos.length?fmtPar(golpes-parr):'–'}</td>
-      <td class="gold" style="font-weight:800">${hoyos.length?stb:'–'}</td></tr>
+      <td class="gold" style="font-weight:800">${hoyos.length&&stb!=null?stb:'–'}</td></tr>
       ${ajeno?`<tr><td colspan="5" class="dim2" style="font-size:10.5px;padding-top:0">
         ${ajeno} hoyo${ajeno===1?'':'s'} tomado${ajeno===1?'':'s'} de lo que anotó su marcador,
         porque él todavía no cargó</td></tr>`:''}`).join('')}
