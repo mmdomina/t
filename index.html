@@ -1186,7 +1186,10 @@ function stableford(s,p,hcp,phcp){ // puntos stableford netos
 }
 function clubFor(d){
   const l = inBag();
-  if(!l.length) return null;
+  /* Sin distancia no hay palo que recomendar. Antes, con `d` en null, la resta
+     daba el valor absoluto de la media de cada palo y ganaba el más corto: la
+     app recomendaba el putter desde el tee. */
+  if(d == null || !l.length) return null;
   let bb=l[0],diff=1e9;
   l.forEach(c=>{const x=Math.abs(media(c)-d);if(x<diff){diff=x;bb=c;}});
   return bb;
@@ -1369,11 +1372,22 @@ const greenDe = h => CLUB.geo && CLUB.geo.greens[CLUB.fisico[h-1]];
 /* Distancia al green.
    Con GPS enganchado: medida real desde donde estás.
    Sin GPS: se estima con el largo del hoyo menos lo que llevás pegado. */
+/* El hoyo más largo de la cancha son 541 yardas. Cualquier medición que pase de
+   700 no es un tiro: es alguien mirando la app desde el pueblo, o desde el
+   sillón. La cuenta está bien y el GPS también; lo que no significa nada es el
+   número. Y un número imposible mostrado en letras grandes, con la misma cara
+   que una distancia de verdad, es exactamente lo que esta app no puede hacer.
+   Cuando pasa, lo decimos con palabras. */
+const LEJOS_YDS = 700;
 function gps(h){
   const g = greenDe(h);
   if(GPS_REAL && gpsVivo() && g){
     const p=[POS.lat,POS.lon];
-    return {front:aYardas(metros(p,g.f)), mid:aYardas(metros(p,g.c)),
+    const m = metros(p, g.c);
+    if(aYardas(m) > LEJOS_YDS)
+      return {front:null, mid:null, back:null, real:true, acc:Math.round(POS.acc),
+              lejos:true, metros:Math.round(m), desdeTee:true, dados:0};
+    return {front:aYardas(metros(p,g.f)), mid:aYardas(m),
             back:aYardas(metros(p,g.b)), real:true, acc:Math.round(POS.acc),
             desdeTee:!(R.shots[h]||[]).length, dados:0};
   }
@@ -1391,10 +1405,18 @@ function gps(h){
 }
 /* Refresca sólo los tres números, sin redibujar la pantalla entera:
    el GPS avisa una vez por segundo y no queremos que parpadee todo. */
+/* El renglón de abajo de los tres números. Cambia de sentido según el caso, y
+   es el que avisa cuando no hay que creerle a la pantalla. */
+function textoUnidad(g){
+  if(g.lejos) return `estás a ${(g.metros/1000).toFixed(1)} km de la cancha · `
+    + `las distancias aparecen cuando llegues`;
+  return `yardas ${g.real ? 'desde donde estás parado' : 'estimadas'}`;
+}
 function pintarDistancias(){
   const g = gps(S.hole);
   const set=(id,v)=>{const e=document.getElementById(id); if(e) e.textContent = v ?? '—';};
   set('dFront',g.front); set('dMid',g.mid); set('dBack',g.back);
+  set('dUnid', textoUnidad(g));
   const e=document.getElementById('gpsPill');
   if(e) e.textContent = g.real ? `GPS ±${g.acc} m` : (POS_ERR || 'Buscando señal…');
   const dg=document.getElementById('dGolpe');
@@ -1923,7 +1945,7 @@ function vPlay(){
         <div class="d c"><div class="k">Al centro</div><div class="v" id="dMid">${g.mid ?? '—'}</div></div>
         <div class="d"><div class="k">Fondo</div><div class="v" id="dBack">${g.back ?? '—'}</div></div>
       </div>
-      <div class="u">yardas ${g.real ? 'desde donde estás parado' : 'estimadas'}</div>
+      <div class="u" id="dUnid">${textoUnidad(g)}</div>
       ${g.esperandoGPS && !POS_ERR?`<div class="dim" style="background:var(--tint);border-radius:11px;
         padding:9px 12px;margin-top:8px;font-size:12px">
         Buscando el GPS. Mientras tanto es una estimación con el largo del hoyo;
@@ -3729,7 +3751,10 @@ function vMe(){
             : PRUEBA ? 'Hay una prueba guardada' : 'Medir GPS y batería en la cancha', "go('prueba')"],
          ['💾','Copia de seguridad','Guardar todo en un archivo o traerlo de otro teléfono',"go('copia')"],
          ...(esSocio()?[['💳','Cuota y pagos',`${pesos(cuotaSocio().v)} · del 1 al ${CLUB.cuotas.vence}, ${pesos(cuotaSocio().b)}`,"toast('Cuota al día')"],
-         ['👥','Invitados','2 pases disponibles',"toast('Pase de invitado enviado')"]]:[])].map(([i,t,s,f])=>
+         ['👥','Invitados','2 pases disponibles',"toast('Pase de invitado enviado')"]]:[]),
+         /* Última a propósito: no es algo que el socio use, es lo primero que
+            hay que preguntarle cuando dice "a mí no me anda". */
+         ['📱','Versión de la app', versionTxt(), "copiarDiagnostico()"]].map(([i,t,s,f])=>
         `<div class="item" style="cursor:pointer" onclick="${f}"><div class="ico">${i}</div>
           <div style="flex:1;min-width:0">
           <div style="font-weight:600">${t}</div><div class="dim" style="font-size:12px">${s}</div></div>
@@ -4570,6 +4595,59 @@ function aplicarVersion(){
   sw.postMessage({tipo:'ACTIVAR'});
 }
 
+/* ---------- qué versión está corriendo en ESTE teléfono ----------
+   El número vive en `sw.js` y en ningún otro lado. Escribirlo también acá sería
+   cómodo por diez minutos y mentiroso para siempre: el día que alguien suba el
+   índice de un archivo y no del otro, el dato deja de servir justo cuando más
+   se necesita. Así que se lo preguntamos al service worker, que es el que tiene
+   la app guardada, y lo que se muestra es lo que de verdad está sirviendo.
+   Sin service worker —primera visita, o abierta como página suelta— no hay
+   número que mostrar, y eso también es información: la app todavía no quedó
+   guardada en el teléfono. */
+let APP_VERSION = null;
+function preguntarVersion(){
+  try{
+    const sw = navigator.serviceWorker && navigator.serviceWorker.controller;
+    if(!sw){ APP_VERSION = null; return; }
+    const canal = new MessageChannel();
+    canal.port1.onmessage = e => {
+      if(e.data && e.data !== APP_VERSION){
+        APP_VERSION = e.data;
+        if(S.tab === 'me') render();
+      }
+    };
+    sw.postMessage({tipo:'VERSION'}, [canal.port2]);
+  }catch(e){ /* si no contesta, se muestra que no hay dato */ }
+}
+const versionTxt = () =>
+  (APP_VERSION ? APP_VERSION.replace('trisquelia-','') : 'todavía no está guardada en el teléfono')
+  + (VERSION_ESPERANDO ? ' · hay una nueva esperando' : '');
+
+/* Para dar soporte sin interrogatorio. El socio toca la fila de la versión y le
+   queda en el portapapeles todo lo que hace falta para entender su caso: qué
+   versión tiene, si la instaló o la abre como página, cómo le está yendo con el
+   servidor y en qué ronda está. Lo pega en el mensaje y listo. */
+function copiarDiagnostico(){
+  let instalada = 'no sé';
+  try{ instalada = matchMedia('(display-mode: standalone)').matches ? 'sí' : 'no'; }catch(e){}
+  const d = [
+    'Trisquelia ' + (APP_VERSION || 'sin guardar'),
+    'instalada: ' + instalada,
+    'servidor: ' + (!hayNube() ? 'sin configurar'
+      : NUBE_ESTADO.conectado ? 'al día'
+      : (NUBE_ESTADO.error || 'sin conectar')),
+    'ronda: ' + (RONDA ? RONDA.codigo : 'ninguna'),
+    navigator.userAgent
+  ].join(' · ');
+  /* El portapapeles sólo funciona en https y con permiso; si no se puede, al
+     menos mostramos la versión, que es el 90 % del valor. */
+  try{
+    navigator.clipboard.writeText(d)
+      .then(() => toast('Copiado · pegalo en el mensaje'))
+      .catch(() => toast('Versión ' + versionTxt()));
+  }catch(e){ toast('Versión ' + versionTxt()); }
+}
+
 if('serviceWorker' in navigator){
   let recargando = false;
   navigator.serviceWorker.addEventListener('controllerchange', () => {
@@ -4578,6 +4656,10 @@ if('serviceWorker' in navigator){
   });
   window.addEventListener('load', async () => {
     cuidarLosDatos();
+    preguntarVersion();
+    /* Y otra vez cuando el service worker toma el control, que en la primera
+       visita pasa después de esto. */
+    navigator.serviceWorker.ready.then(preguntarVersion).catch(()=>{});
     try{
       const reg = await navigator.serviceWorker.register('./sw.js', {scope:'./'});
       if(reg.waiting) hayVersionNueva(reg.waiting);
@@ -5053,9 +5135,12 @@ function vPrueba(){
    seis letras: lo que protege la tarjeta es la llave propia de cada teléfono y
    que las tablas estén cerradas. Está todo en `esquema.sql`. */
 const NUBE = {
-  url : 'https://ep-withered-sky-b604798p.apirest.c-2.sa-east-1.aws.neon.tech/neondb/rest/v1'
+  url : 'https://ep-withered-sky-b604798p.apirest.c-2.sa-east-1.aws.neon.tech/neondb/rest/v1',
+  /* La dirección de autenticación, que sale del JWKS que muestra la consola.
+     Se puede pegar entera —con `/.well-known/jwks.json` al final— o cortada. */
+  auth: 'https://ep-withered-sky-b604798p.neonauth.c-2.sa-east-1.aws.neon.tech/neondb/auth'
 };
-const hayNube = () => !!NUBE.url;
+const hayNube = () => !!(NUBE.url && NUBE.auth);
 /* La URL de Neon ya termina en /rest/v1. Aceptamos las dos formas —con esa
    cola y sin ella— porque es lo que más fácil se pega mal al copiar, y un
    error ahí no se ve hasta que alguien intenta abrir una ronda en la cancha. */
@@ -5063,6 +5148,13 @@ function nubeBase(){
   let u = String(NUBE.url || '').trim().replace(/\/+$/, '');
   if(!/\/rest\/v1$/.test(u)) u += '/rest/v1';
   return u;
+}
+/* Lo mismo con la de autenticación: en la consola lo que se ve es el JWKS, así
+   que aceptamos que lo peguen entero y le sacamos la cola. */
+function authBase(){
+  return String(NUBE.auth || '').trim()
+    .replace(/\/+$/, '')
+    .replace(/\/\.well-known\/jwks\.json$/, '');
 }
 
 const RONDA_KEY = 'trisquelia_ronda';
@@ -5102,17 +5194,50 @@ function codigoNuevo(){
 }
 
 /* ---------- hablar con el servidor ---------- */
-/* SIN NINGÚN HEADER DE AUTENTICACIÓN, y es a propósito: mandar `Authorization`
-   haría que la Data API tratara la petición como de un usuario con sesión, y
-   ahí no hay ninguno. Sin ese header entra como `anonymous`, que es el rol al
-   que el esquema le dio permiso para llamar exactamente seis funciones. */
-async function rpc(fn, args){
+/* ---------- el token anónimo ----------
+   La Data API pide SIEMPRE un `Authorization`, incluso para lo público. Lo que
+   Neon llama "anónimo" no es entrar sin credencial: es entrar con un token de
+   una hora que cualquiera puede pedir, sin cuenta ni registro, y que adentro
+   dice `"role":"anonymous"` — el mismo rol al que `esquema.sql` le dio permiso
+   para llamar exactamente seis funciones y nada más.
+
+   Costó descubrirlo porque la documentación se contradice: una página dice que
+   el rol anónimo atiende "las peticiones sin header Authorization", y la de
+   control de acceso aclara que "anonymous access still uses a JWT". Manda la
+   segunda. Queda escrito acá para que nadie lo vuelva a averiguar a ciegas.
+
+   No se guarda en el teléfono a propósito: dura poco, no identifica a nadie, y
+   volver a pedirlo cuesta una sola llamada. */
+let TOKEN = null, TOKEN_VENCE = 0;
+async function tokenAnonimo(forzar){
+  const ahora = Date.now() / 1000;
+  /* Dos minutos de colchón: una vuelta dura cuatro horas y el token una, así
+     que se renueva sola varias veces. Que no se venza justo entre que se pide
+     y que se usa. */
+  if(!forzar && TOKEN && TOKEN_VENCE - ahora > 120) return TOKEN;
+  const r = await fetch(`${authBase()}/token/anonymous`, { headers:{'Accept':'application/json'} });
+  if(!r.ok) throw new Error('token ' + r.status);
+  const d = await r.json();
+  if(!d || !d.token) throw new Error('token sin formato');
+  TOKEN = d.token;
+  TOKEN_VENCE = d.expires_at || (ahora + 3000);
+  return TOKEN;
+}
+async function rpc(fn, args, reintento){
   if(!hayNube()) throw new Error('sin servidor');
   const r = await fetch(`${nubeBase()}/rpc/${fn}`, {
     method:'POST',
-    headers:{ 'Content-Type':'application/json', 'Accept':'application/json' },
+    headers:{ 'Content-Type':'application/json', 'Accept':'application/json',
+              'Authorization':'Bearer ' + await tokenAnonimo() },
     body: JSON.stringify(args)
   });
+  /* Un 401 es el token vencido antes de tiempo, o rotado del otro lado. Se pide
+     otro y se reintenta UNA vez: si vuelve a fallar es otra cosa, y no vale
+     quedarse en un bucle mientras el socio espera parado en el tee. */
+  if(r.status === 401 && !reintento){
+    await tokenAnonimo(true);
+    return rpc(fn, args, true);
+  }
   if(!r.ok) throw new Error('servidor ' + r.status);
   return r.json();
 }
