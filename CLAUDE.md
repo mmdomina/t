@@ -25,7 +25,7 @@ una razón concreta (claves de servidor que no puedan ir en el código, o un des
 
 ## 2. Mapa de `index.html`
 
-Son ~5.220 líneas. Los números se corren al editar; buscá el texto, no la línea.
+Son ~6.170 líneas. Los números se corren al editar; buscá el texto, no la línea.
 
 | Dónde | Qué |
 |---|---|
@@ -33,6 +33,7 @@ Son ~5.220 líneas. Los números se corren al editar; buscá el texto, no la lí
 | `const CLUBS_DB` (~472) | Todo lo que cambia de un club a otro. Para otro club se copia este bloque y listo |
 | `geo:{` (~567) | Las 65 coordenadas medidas en cancha el 5/8/2026, ±3-4 m |
 | `const PADRON` (~731) | Padrón de prueba, **inventado**. El real vive en el servidor |
+| `QUIÉN SOS` (~827) | Nombre e iniciales: `ponerNombre()`, `hayNombre()`, `yoNombre()`. La app arranca sin nadie |
 | `const BAG` (~853) | Los 31 palos y la media ponderada |
 | `MEDIDA Y HOMOLOGACIÓN` (~1029) | `homologada()`, `teeDelHcp()`, `ratingTxt()` |
 | `function ratingDe` (~1090) | Con qué rating y slope se calcula: 18 hoyos o ese nueve |
@@ -46,7 +47,7 @@ Son ~5.220 líneas. Los números se corren al editar; buscá el texto, no la lí
 | `PANTALLAS — CLUB` (~3466) | El panel de la comisión |
 | `INSTALARLA Y QUE ANDE SIN SEÑAL` (~4166) | Service worker, instalación, actualizaciones |
 | `MODO PRUEBA` (~4277) | Medir GPS y batería en la cancha |
-| `const NUBE` (~4724) | ⚠️ **Los dos datos del servidor**. Vacíos = todo local |
+| `const NUBE` (~4724) | ⚠️ **Las dos direcciones del servidor**: la Data API y la de autenticación. Vacías = todo local |
 | `const LS_KEY` (~5132) | Guardado en el teléfono |
 | `function render()` (~5164) | El render |
 
@@ -65,7 +66,7 @@ queda publicada igual, pero no la carga nadie).
 No es opcional: es lo que le avisa a los teléfonos que ya tienen la app que hay algo nuevo.
 Si no se toca, pueden seguir abriendo la versión vieja para siempre.
 
-Va en `trisquelia-vN`. Al día de hoy: **v10**.
+Va en `trisquelia-vN`. Al día de hoy: **v14**.
 
 ---
 
@@ -106,6 +107,42 @@ un club puede confiar en esto. No la pierdas por rellenar un hueco.
 ---
 
 ## 5. Las trampas
+
+**La app no arranca siendo nadie, y no hay nombres de persona escritos a mano.** `S.user`
+empieza con `name`, `ini` y `hcp` en `null`, y `S.tipo` también: la app no supone que sos socio
+ni te pone el nombre de otro. Hasta la v13 venía cargada con "Mauro Domina" y 7.4 para poder
+verla llena sin registrarse, y cuando apareció la ronda compartida ese nombre empezó a **viajar
+al servidor**: el socio que entraba a una ronda aparecía en la tarjeta del grupo con el nombre
+del que había armado la app. El nombre se escribe por una sola puerta, `ponerNombre()`, y se lee
+por `hayNombre()`, `primerNombre()`, `nombreCorto()`, `yoNombre()` y `yoIni()`. En las tablas de
+ejemplo, la fila que sos vos se dibuja con `nomDe(j)` y nunca con un nombre literal. `skipOnb()`
+es la única puerta a la app y **no se abre sin nombre**; `crearRonda()` y `unirseRonda()`
+tampoco. Si agregás una pantalla, usá esos ayudantes: `bugs.js` corre sin nombre cargado y
+`identidadtest` barre las quince pantallas del jugador buscando nombres de persona.
+
+**Sin index no se inventan números.** `hcpCancha()` devuelve `null` cuando no hay index, y
+`null` **no es cero**: cero significa "juega scratch" y daba un neto igual al gross y un
+stableford de scratch para alguien que nunca cargó su handicap. El que muestra números de la
+vuelta en curso es `hcpJuego()`, que además usa la salida y los hoyos de HOY (nueve tiene su
+propia tabla). Donde no hay número va una raya, nunca un cero disfrazado.
+
+**La Data API pide un token SIEMPRE, incluso sin cuentas.** Lo que Neon llama "anónimo" no es
+entrar sin credencial: es un token de una hora que cualquiera pide en `GET
+<auth>/token/anonymous`, sin registro, y que adentro dice `"role":"anonymous"`. Por eso `NUBE`
+tiene dos direcciones y no una. La documentación de Neon se contradice —una página dice que el
+rol anónimo atiende "las peticiones sin header Authorization", la de control de acceso aclara
+que *"anonymous access still uses a JWT"*—; manda la segunda, comprobado contra el servidor
+real. `tokenAnonimo()` lo pide, lo guarda en memoria con dos minutos de colchón y lo renueva
+solo; si igual llega un 401, `rpc()` pide otro y reintenta **una** vez. Una vuelta dura cuatro
+horas y el token una: esto se ejercita varias veces por partido, y `nubetest` lo prueba.
+
+**No redibujes la pantalla entera con cada posición del GPS.** El teléfono manda una por
+segundo, y la animación de entrada (`.fade`) se reinicia en cada `render()`: la pantalla de
+arranque **parpadeaba** sin parar y perdía el scroll. De toda esa pantalla, lo único que cambia
+es el renglón de la precisión. `refrescarGPS()` lo escribe a mano y sólo redibuja cuando cambia
+la FORMA —que el GPS pase a estar listo, o que aparezca un error—, que es lo que `firmaGps()`
+resume. La pantalla de jugar ya lo hacía así con `pintarDistancias()`. Probado en
+`ubicaciontest`: se marca el elemento y se comprueba que sobreviva a cuatro posiciones.
 
 **El código de la ronda NO es una credencial.** Son seis letras que se dictan en voz alta en el
 tee y se mandan por WhatsApp: es una dirección, sirve para entrar y nada más. Lo que prueba quién
@@ -244,13 +281,14 @@ node pruebas/bugs.js                   # barre TODAS las pantallas buscando null
 node pruebas/test-pwa.js               # instalación y offline          (18 ✓)
 node pruebas/playtest.js              # la pantalla de jugar           (22 ✓)
 node pruebas/pruebatest.js            # el modo prueba                 (28 ✓)
-node pruebas/nubetest.js              # dos teléfonos a la vez         (38 ✓)
+node pruebas/nubetest.js              # dos teléfonos a la vez         (43 ✓)
 node pruebas/exportar-test.js          # sacar los datos del teléfono   (11 ✓)
 node pruebas/copiatest.js             # copia de seguridad             (26 ✓)
-node pruebas/ubicaciontest.js         # el portón del GPS              (23 ✓)
+node pruebas/ubicaciontest.js         # el portón del GPS              (27 ✓)
 node pruebas/cierretest.js            # cerrar el hoyo                 (43 ✓)
 node pruebas/teetest.js                # el aviso al llegar al tee      (21 ✓)
 node pruebas/canchatest.js             # la tarjeta y el handicap       (78 ✓)
+node pruebas/identidadtest.js          # quién sos: nombre e identidad  (44 ✓)
 ```
 
 El esquema del servidor se prueba aparte, contra un Postgres de verdad — no
@@ -274,9 +312,14 @@ cambio.** Tiene que dar cero hallazgos.
 recalcula el handicap de cancha por su cuenta, en 18 y en 9 hoyos, en las tres salidas. Si
 alguien cambia un número en `index.html` y no ahí, se enciende.
 
-Entre las diez suites son **308 comprobaciones**, más las **61** del esquema: 369 en total. Si
+`identidadtest` es el que cuida que la app no vuelva a arrancar siendo otro: instala un
+teléfono nuevo, prueba los tres atajos que antes dejaban entrar sin nombre, barre las quince
+pantallas del jugador buscando un nombre de persona escrito a mano, y comprueba que a una ronda
+compartida no se entre con nombre prestado.
+
+Entre las once suites son **361 comprobaciones**, más las **61** del esquema: 422 en total. Si
 alguna se pone en rojo después de un cambio tuyo, es un bug tuyo: estaban todas en verde el
-22/9/2026 (las 61 del esquema, el 31/8/2026 — la v10 no lo tocó).
+24/9/2026 (las 61 del esquema, ese mismo día, ya con los roles de Neon).
 
 Si Playwright no encuentra Chromium solo, pásale la ruta en `CHROME_PATH`.
 
@@ -302,9 +345,11 @@ distancias por GPS con coordenadas medidas a pie, el handicap de cancha en 18 y 
 bolsa que se autocorrige, el registro de golpes, la app instalable que funciona sin señal, el
 modo prueba, y la ronda compartida entre teléfonos con el cruce de tarjetas.
 
-**Falta que Mauro cree el proyecto de Supabase** y pegue los dos valores en `const NUBE`.
-Mientras estén vacíos, la app funciona igual que siempre, todo local. Instrucciones en
-`esquema.sql` y en el README.
+**El servidor es Neon**, no Supabase: proyecto `icy-unit-62393285`, rama `production`, con la
+Data API prendida y `esquema.sql` corriendo adentro. Las dos direcciones ya están en `const
+NUBE`. Si alguna vez quedan vacías, la app funciona igual que siempre, todo local. El porqué del
+cambio y lo que costó —la Data API pide token hasta para lo público— está en `neon.md`, en el
+proyecto de Claude.
 
 **Lo próximo, en orden:**
 
@@ -312,10 +357,13 @@ Mientras estén vacíos, la app funciona igual que siempre, todo local. Instrucc
    principio y el que más va a enseñar. Nada de lo construido vio una cancha todavía.
 2. Firma y entrega: que la tarjeta firmada le llegue de verdad al club.
 3. Cuentas de verdad: padrón real y verificación por DNI. Con la llave por teléfono ya nadie
-   puede anotar en la tarjeta de otro ni suplantarlo, pero cualquiera con el código sigue
-   pudiendo **sumarse** a la ronda con el nombre que quiera. Para un torneo oficial hace falta
-   que el que entra sea un socio verificado.
-4. El panel de la comisión, funcionando contra el servidor.
+   puede anotar en la tarjeta de otro ni suplantarlo, y desde la v14 nadie entra a una ronda sin
+   haber escrito su nombre, pero ese nombre lo elige la persona: cualquiera con el código sigue
+   pudiendo **sumarse** con el nombre que quiera. Para un torneo oficial hace falta que el que
+   entra sea un socio verificado contra el padrón.
+4. El panel de la comisión, funcionando contra el servidor. Hoy la puerta al panel la abre el
+   nombre: `esComision()` compara contra `EQUIPO`, que alcanza para que no se le abra a
+   cualquiera que baja la app, y se cae solo el día que el rol lo diga el servidor.
 5. ~~Rating y slope oficiales de las tres salidas.~~ **Resueltos en la v10**, y el club cerró
    las dos preguntas que quedaban el 22/9/2026: la tarjeta de papel nueva **ya está impresa**
    (el papel y la app coinciden) y el corte para salir de negras es **por index, hasta 10.3**.

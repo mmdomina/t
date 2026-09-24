@@ -43,7 +43,7 @@ async function hasta(p, fn, arg, tope = 14000) {
     }, [nombre, ini]);
     await p.goto(APP, { waitUntil: 'load' });
     await p.waitForTimeout(1200);
-    await p.evaluate(u => { NUBE.url = u; NUBE.llave = 'llave-de-prueba'; }, MOCK);
+    await p.evaluate(u => { NUBE.url = u; NUBE.auth = u + '/auth'; }, MOCK);
     return { ctx, p, nombre };
   };
 
@@ -141,7 +141,7 @@ async function hasta(p, fn, arg, tope = 14000) {
   console.log('\n9. Cerrar la app y volver');
   await B.p.reload({ waitUntil: 'load' });
   await B.p.waitForTimeout(1500);
-  await B.p.evaluate(u => { NUBE.url = u; NUBE.llave = 'llave-de-prueba'; arrancarLatido(); }, MOCK);
+  await B.p.evaluate(u => { NUBE.url = u; NUBE.auth = u + '/auth'; arrancarLatido(); }, MOCK);
   await esperar(800);
   const tras = await B.p.evaluate(() => ({ codigo: RONDA && RONDA.codigo, js: (RONDA.jugadores||[]).length }));
   ok(tras.codigo === codigo && tras.js === 2, `sigue en la ronda ${tras.codigo} con ${tras.js} jugadores`);
@@ -163,7 +163,7 @@ async function hasta(p, fn, arg, tope = 14000) {
   ok(suLlave && suLlave !== laLlave, 'y la del otro teléfono es distinta');
 
   const publico = await (await fetch(MOCK + '/rest/v1/rpc/ronda_estado', {
-    method:'POST', headers:{'Content-Type':'application/json'},
+    method:'POST', headers:{'Content-Type':'application/json', 'Authorization':'Bearer token-de-prueba'},
     body: JSON.stringify({ p_codigo: codigo, p_desde: null }) })).json();
   ok(publico.jugadores.every(j => j.llave === undefined),
      'el estado de la ronda NO reparte las llaves a los demás');
@@ -171,20 +171,20 @@ async function hasta(p, fn, arg, tope = 14000) {
   const idVictima = await A.p.evaluate(() => RONDA.yo);
   const antesDelAtaque = publico.anotaciones.filter(a => a.de === idVictima).length;
   const ataque = await (await fetch(MOCK + '/rest/v1/rpc/anotar', {
-    method:'POST', headers:{'Content-Type':'application/json'},
+    method:'POST', headers:{'Content-Type':'application/json', 'Authorization':'Bearer token-de-prueba'},
     body: JSON.stringify({ p_codigo:codigo, p_llave:'llave-inventada', p_por:idVictima,
       p_de:idVictima, p_hoyo:1, p_golpes:12, p_putts:null, p_bunker:null,
       p_penal:null, p_salida_fw:null }) })).json();
   ok(ataque.error === 'no sos vos', 'anotar con una llave inventada rebota');
 
   const suplantar = await (await fetch(MOCK + '/rest/v1/rpc/ronda_unirse', {
-    method:'POST', headers:{'Content-Type':'application/json'},
+    method:'POST', headers:{'Content-Type':'application/json', 'Authorization':'Bearer token-de-prueba'},
     body: JSON.stringify({ p_codigo:codigo, p_jugador:idVictima, p_nombre:'NO SOY YO',
       p_iniciales:'ZZ', p_index:54, p_hcp:54, p_salida:'negras' }) })).json();
   ok(!!suplantar.error, 'y tampoco se le puede pisar el nombre y el handicap a otro');
 
   const despues = await (await fetch(MOCK + '/rest/v1/rpc/ronda_estado', {
-    method:'POST', headers:{'Content-Type':'application/json'},
+    method:'POST', headers:{'Content-Type':'application/json', 'Authorization':'Bearer token-de-prueba'},
     body: JSON.stringify({ p_codigo: codigo, p_desde: null }) })).json();
   const yo = despues.jugadores.find(j => j.id === idVictima);
   ok(yo && yo.nombre === 'Mauro Domina' && yo.hcp_cancha !== 54,
@@ -195,7 +195,7 @@ async function hasta(p, fn, arg, tope = 14000) {
   /* Y lo peor que se podía hacer con el código: entrar con un nombre que sea
      HTML y ejecutar código en el teléfono de todos los del grupo. */
   await fetch(MOCK + '/rest/v1/rpc/ronda_unirse', {
-    method:'POST', headers:{'Content-Type':'application/json'},
+    method:'POST', headers:{'Content-Type':'application/json', 'Authorization':'Bearer token-de-prueba'},
     body: JSON.stringify({ p_codigo:codigo, p_jugador:'atacante-'+codigo,
       p_nombre:'<img src=x onerror="window.__roto=1">', p_iniciales:'<b>X',
       p_index:10, p_hcp:10, p_salida:'mixta' }) });
@@ -231,15 +231,42 @@ async function hasta(p, fn, arg, tope = 14000) {
   /* Y lo importante: la fila no se destruyó, se puede volver atrás. */
   await fetch(MOCK + '/__test?restaurar=' + codigo);
   const vuelta = await (await fetch(MOCK + '/rest/v1/rpc/ronda_estado', {
-    method:'POST', headers:{'Content-Type':'application/json'},
+    method:'POST', headers:{'Content-Type':'application/json', 'Authorization':'Bearer token-de-prueba'},
     body: JSON.stringify({ p_codigo: codigo, p_desde: null }) })).json();
   ok(vuelta.ronda && vuelta.ronda.codigo === codigo, 'restaurar la trae de vuelta entera');
   ok(vuelta.jugadores.length >= 2 && vuelta.anotaciones.length >= 1,
      `con sus ${vuelta.jugadores.length} jugadores y sus ${vuelta.anotaciones.length} anotaciones`);
   ok(vuelta.borrada === false, 'y ya no viene marcada como borrada');
 
+  /* ---------- el token anónimo ----------
+     El servidor de verdad pide un `Authorization` en CADA llamada, incluso sin
+     cuentas: lo que Neon llama anónimo es un token de una hora que cualquiera
+     puede pedir. El mock ahora miente igual —sin token contesta 401— así que
+     esta parte prueba que la app lo pide sola y que sabe renovarlo. */
+  console.log('\n11. El token: se pide solo y se renueva sin que el jugador se entere');
+  const t1 = (await (await fetch(MOCK + '/__test')).json()).tokens;
+  ok(t1 >= 1, `la app pidió el token sin que nadie se lo diga (${t1} ${t1 === 1 ? 'vez' : 'veces'})`);
+
+  /* La ronda del punto 10 quedó borrada y el teléfono A ya no está adentro, así
+     que abrimos una nueva para esta parte. */
+  await A.p.evaluate(() => { RONDA = null; S.codigoIn = ''; crearRonda(); });
+  ok(await hasta(A.p, () => !!(RONDA && RONDA.codigo)), 'abre una ronda nueva para esta prueba');
+
+  /* Que el servidor conteste 401 una vez es exactamente lo que pasa cuando el
+     token vence en el medio de la vuelta: a las cuatro horas de juego pasa
+     varias veces. El socio no se tiene que enterar. */
+  await fetch(MOCK + '/__test?vencer=1');
+  await A.p.evaluate(() => { S.hole = 7; R.scores[7] = 5; cerrarHoyo(); });
+  ok(await hasta(A.p, () => (RONDA.cola || []).length === 0 && NUBE_ESTADO.conectado),
+     'con el token vencido, la anotación igual llega: pide otro y reintenta');
+  const t2 = (await (await fetch(MOCK + '/__test')).json()).tokens;
+  ok(t2 > t1, `y se nota que pidió uno nuevo (${t1} → ${t2})`);
+  const pantallaFin = await A.p.evaluate(() =>
+    document.getElementById('screen').innerText.replace(/\s+/g, ' '));
+  ok(!/no se pudo|error/i.test(pantallaFin), 'y el jugador no vio ningún error');
+
   const estado = await (await fetch(MOCK + '/__test')).json();
-  console.log(`\n    en el servidor: ${estado.rondas} ronda · ${estado.jugadores} jugadores · ${estado.anotaciones} anotaciones`);
+  console.log(`\n    en el servidor: ${estado.rondas} ronda · ${estado.jugadores} jugadores · ${estado.anotaciones} anotaciones · ${estado.tokens} tokens`);
 
   console.log('\nErrores de JavaScript:', errores.length ? errores : 'ninguno');
   await b.close();

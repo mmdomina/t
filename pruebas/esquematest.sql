@@ -3,7 +3,7 @@
 -- ============================================================
 --  Cómo correrlo, contra un Postgres vacío:
 --
---    createdb t && psql -d t -c 'create role anon' -c 'create role authenticated'
+--    createdb t && psql -d t -c 'create role anonymous' -c 'create role authenticated'
 --    psql -d t -f esquema.sql
 --    psql -d t -f esquema.sql          -- otra vez: tiene que ser idempotente
 --    psql -d t -f pruebas/esquematest.sql
@@ -107,18 +107,18 @@ begin
   perform _ok(v = 0, 'lo borrado hace 200 días sí desaparece de verdad');
 
   -- ---------- 8. los permisos ----------
-  perform _ok(has_function_privilege('anon','anotar(text,text,text,text,int,int,int,int,int,text)','execute'),
-              'anon puede anotar');
-  perform _ok(not has_function_privilege('anon','borrar_ronda(text)','execute'),
-              'anon NO puede borrar rondas');
-  perform _ok(not has_function_privilege('anon','purgar_borradas(int)','execute'),
-              'anon NO puede purgar');
+  perform _ok(has_function_privilege('anonymous','anotar(text,text,text,text,int,int,int,int,int,text)','execute'),
+              'anonymous puede anotar');
+  perform _ok(not has_function_privilege('anonymous','borrar_ronda(text)','execute'),
+              'anonymous NO puede borrar rondas');
+  perform _ok(not has_function_privilege('anonymous','purgar_borradas(int)','execute'),
+              'anonymous NO puede purgar');
   perform _ok(not has_function_privilege('public','purgar_borradas(int)','execute'),
               'public tampoco puede purgar (la trampa de Postgres)');
-  perform _ok(not has_function_privilege('anon','llave_nueva()','execute'),
-              'anon NO puede fabricarse una llave');
-  perform _ok(not has_function_privilege('anon','entrar_jugador(text,text,text,text,numeric,int,text,text)','execute'),
-              'anon NO puede llamar al alta de jugador por atrás');
+  perform _ok(not has_function_privilege('anonymous','llave_nueva()','execute'),
+              'anonymous NO puede fabricarse una llave');
+  perform _ok(not has_function_privilege('anonymous','entrar_jugador(text,text,text,text,numeric,int,text,text)','execute'),
+              'anonymous NO puede llamar al alta de jugador por atrás');
   perform _ok(not exists (select 1 from pg_proc p join pg_namespace n on n.oid=p.pronamespace
                 where n.nspname='public' and p.proname='anotar'
                   and pg_get_function_identity_arguments(p.oid)
@@ -128,8 +128,8 @@ begin
   -- ---------- 9. las tablas siguen cerradas con llave ----------
   perform _ok((select relrowsecurity from pg_class where relname='rondas'),
               'rondas sigue con row level security');
-  perform _ok(not has_table_privilege('anon','anotaciones','select'),
-              'anon no puede leer anotaciones directo');
+  perform _ok(not has_table_privilege('anonymous','anotaciones','select'),
+              'anonymous no puede leer anotaciones directo');
 
   -- ---------- 10. ADVERSARIO: tengo el código, ¿qué puedo hacer? ----------
   --  El atacante escuchó "TEST01" y llama a ronda_estado, que es su derecho:

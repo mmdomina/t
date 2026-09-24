@@ -1,5 +1,13 @@
-/* Servidor falso que imita las funciones de Supabase que usa la app.
-   Sirve para probar la ronda compartida sin tener que crear el proyecto. */
+/* Servidor falso que imita las funciones del servidor que usa la app.
+   Sirve para probar la ronda compartida sin tocar la base de verdad.
+
+   El nombre del archivo es histórico: el servidor pasó a ser la Data API de
+   Neon, que es PostgREST igual que Supabase — mismas rutas `/rest/v1/rpc/…` y
+   mismas respuestas. Lo que cambió es que ya no hace falta ninguna clave:
+   las peticiones entran sin `Authorization` y valen como rol `anonymous`.
+   El archivo no se renombró a propósito: al bajarlo y arrastrarlo a GitHub,
+   un nombre nuevo se sube AL LADO del viejo en vez de pisarlo, y quedan dos
+   versiones publicadas sin que nadie lo note. Ya pasó una vez. */
 const http = require('http');
 
 const rondas = new Map();      // codigo -> {…}
@@ -13,6 +21,11 @@ const ahora = () => { const t = Math.max(Date.now(), ultimo + 1); ultimo = t; re
 
 let caido = false;             // para simular que el servidor no responde
 let latencia = 0;
+/* El servidor de verdad pide un token en CADA llamada y lo vence a la hora.
+   Acá lo imitamos: contamos cuántos pidió la app, y `vencer` hace que la
+   próxima llamada rebote con 401 una sola vez, para probar que la app pide
+   otro y reintenta sin que el jugador se entere. */
+let tokens = 0, vencer = false;
 
 const up = s => String(s || '').toUpperCase();
 /* Igual que `llave_nueva()` y `recortar()` en esquema.sql. */
@@ -134,8 +147,8 @@ function restaurarRonda(c){
 
 const CORS = {
   'Access-Control-Allow-Origin':'*',
-  'Access-Control-Allow-Headers':'apikey, authorization, content-type, prefer',
-  'Access-Control-Allow-Methods':'POST, OPTIONS',
+  'Access-Control-Allow-Headers':'authorization, content-type, prefer',
+  'Access-Control-Allow-Methods':'POST, GET, OPTIONS',
   'Access-Control-Max-Age':'86400'
 };
 
@@ -150,15 +163,38 @@ const server = http.createServer((req, res) => {
     if(u.searchParams.has('reset')){ rondas.clear(); jugadores.clear(); anotaciones.clear(); }
     if(u.searchParams.has('borrar'))    borrarRonda(u.searchParams.get('borrar'));
     if(u.searchParams.has('restaurar')) restaurarRonda(u.searchParams.get('restaurar'));
+    if(u.searchParams.has('vencer'))    vencer = u.searchParams.get('vencer') === '1';
+    if(u.searchParams.has('reset'))     tokens = 0;
     res.writeHead(200, {...CORS, 'Content-Type':'application/json'});
     return res.end(JSON.stringify({ caido, latencia, rondas:rondas.size,
-      jugadores:jugadores.size, anotaciones:anotaciones.size }));
+      jugadores:jugadores.size, anotaciones:anotaciones.size, tokens }));
+  }
+
+  /* El token anónimo, igual que el de verdad: se pide sin credencial, dura una
+     hora y adentro dice que el rol es `anonymous`. */
+  if(req.url.startsWith('/auth/token/anonymous')){
+    if(caido){
+      res.writeHead(503, {...CORS, 'Content-Type':'application/json'});
+      return res.end('{"error":"servidor caído"}');
+    }
+    tokens++;
+    res.writeHead(200, {...CORS, 'Content-Type':'application/json'});
+    return res.end(JSON.stringify({ token:'token-de-prueba-' + tokens,
+                                    expires_at: Math.floor(Date.now()/1000) + 3600 }));
   }
 
   const m = req.url.match(/^\/rest\/v1\/rpc\/(\w+)$/);
   if(req.method !== 'POST' || !m || !FN[m[1]] || m[1].startsWith('_')){
     res.writeHead(404, {...CORS, 'Content-Type':'application/json'});
     return res.end('{"error":"no existe"}');
+  }
+  /* Sin token no se entra, igual que en el servidor de verdad. Si el mock
+     aceptara la llamada pelada, la suite daría verde con una app que en la
+     cancha no anda. */
+  if(!/^Bearer .+/.test(req.headers.authorization || '') || vencer){
+    vencer = false;                       // vence una sola vez
+    res.writeHead(401, {...CORS, 'Content-Type':'application/json'});
+    return res.end('{"message":"missing authentication credentials: required authorization bearer token in JWT format"}');
   }
   if(caido){
     res.writeHead(503, {...CORS, 'Content-Type':'application/json'});

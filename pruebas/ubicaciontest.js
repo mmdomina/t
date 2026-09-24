@@ -104,6 +104,37 @@ async function telefono(b, conGps) {
     return R.shots[1][0];
   });
   ok(golpe && golpe.lat === null, 'y no guarda una coordenada vieja como si fuera dónde pegaste');
+
+  /* La pantalla de arranque no puede parpadear. El GPS manda una posición por
+     segundo y antes cada una redibujaba todo: la animación de entrada se
+     reiniciaba sin parar. Marcamos el renglón de la precisión y comprobamos que
+     sobreviva a varias posiciones seguidas — si hubo `render()`, el elemento es
+     otro y la marca desapareció. */
+  console.log('\n6. La pantalla de arranque no parpadea con cada posición');
+  await con.p.evaluate(() => { POS_T = Date.now(); S.tab = 'arranque'; render(); });
+  await con.p.evaluate(() => { document.getElementById('estadoGps').dataset.marca = 'x'; });
+  for(const acc of [7, 6, 8, 5]){
+    await con.p.evaluate(a => { POS = {lat:-35.6561758, lon:-63.7915282, acc:a};
+                                POS_T = Date.now(); refrescarGPS(); }, acc);
+  }
+  const quieta = await con.p.evaluate(() => {
+    const e = document.getElementById('estadoGps');
+    return { marca: e && e.dataset.marca, texto: e && e.textContent };
+  });
+  ok(quieta.marca === 'x', 'cuatro posiciones seguidas no redibujan la pantalla');
+  ok(/±5 m/.test(quieta.texto || ''), `pero el renglón se actualiza igual: "${(quieta.texto||'').trim()}"`);
+
+  /* Y cuando cambia de verdad —el GPS se cae— ahí sí hay que redibujar, porque
+     cambia la forma de la pantalla: aparece el botón de reintentar. */
+  await con.p.evaluate(() => { POS = null; POS_T = 0; POS_ERR = 'Sin señal. Salí a cielo abierto.';
+                               refrescarGPS(); });
+  const cambio = await con.p.evaluate(() => {
+    const e = document.getElementById('estadoGps');
+    return { marca: e && e.dataset.marca,
+             pantalla: document.getElementById('screen').innerText.replace(/\s+/g,' ') };
+  });
+  ok(cambio.marca === undefined, 'pero si el GPS se cae, ahí sí redibuja');
+  ok(/Reintentar/.test(cambio.pantalla), 'y aparece el botón de reintentar');
   await con.ctx.close();
 
   console.log('\nErrores de JavaScript:', errores.length ? errores : 'ninguno');
