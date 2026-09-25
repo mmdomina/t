@@ -16,7 +16,7 @@
    teléfonos que ya tienen la app pueden seguir con la vieja.
    ============================================================ */
 
-const VERSION = 'trisquelia-v16';
+const VERSION = 'trisquelia-v17';
 
 /* Todo lo que tiene que estar en el teléfono para que la app abra sola.
 
