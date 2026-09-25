@@ -159,7 +159,11 @@ td.name{text-align:left;font-weight:600;font-size:13px}
 .item{display:flex;gap:12px;padding:12px 0;border-bottom:1px solid var(--hair);align-items:center}
 .item:last-child{border-bottom:0}
 .ico{width:38px;height:38px;border-radius:11px;background:var(--tint);display:flex;align-items:center;
-  justify-content:center;flex:0 0 auto;font-size:17px}
+  justify-content:center;flex:0 0 auto;font-size:17px;color:var(--acc)}
+/* el ícono dibujado adentro de la baldosa. Toma el color del texto que lo
+   rodea, así el mismo dibujo sirve en la baldosa verde y en la de un aviso. */
+.ic{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.8;
+  stroke-linecap:round;stroke-linejoin:round;display:block}
 .tabs{display:flex;gap:6px;padding:0 18px 4px;overflow-x:auto}
 .tabs::-webkit-scrollbar{display:none}
 .tab{padding:8px 14px;border-radius:99px;border:1px solid var(--line);background:transparent;
@@ -952,6 +956,63 @@ let COURSE = CLUB.cancha;
    del logo no tiene contraste contra el fondo oscuro de la app. ===== */
 const LOGO_FULL = "data:image/jpeg;base64,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";
 const LOGO_MARK = "data:image/jpeg;base64,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";
+/* ============================================================
+   ÍCONOS DIBUJADOS
+   ============================================================
+   Un emoji se ve DISTINTO en cada teléfono —el trofeo de un Samsung no es el
+   de un iPhone—, es una caricatura de color al lado de un escudo serio, y no
+   se puede teñir para que acompañe a la pantalla. Estos son de trazo, del
+   mismo peso que el escudo del club, y toman el color del texto que los rodea.
+
+   `ico()` recibe el emoji que YA ESTABA escrito en los datos y devuelve el
+   dibujo. Si todavía no dibujamos ese, devuelve el emoji tal cual: nada se
+   rompe y se van agregando de a uno. Por eso los datos siguen teniendo el
+   emoji, que además se lee de un vistazo en el código. */
+const TRAZO = {
+  '🏆':'M8 4h8v5a4 4 0 0 1-8 0Z M8 6H5.5v1.5A3 3 0 0 0 8.5 10 M16 6h2.5v1.5A3 3 0 0 1 15.5 10 M12 13v3 M9.5 20h5l-.8-4h-3.4z',
+  '🥇':'M12 15.5m-4.5 0a4.5 4.5 0 1 0 9 0a4.5 4.5 0 1 0-9 0 M8.5 11 7 3l5 2.2L17 3l-1.5 8',
+  '🏅':'M12 15.5m-4.5 0a4.5 4.5 0 1 0 9 0a4.5 4.5 0 1 0-9 0 M8.5 11 7 3l5 2.2L17 3l-1.5 8',
+  '⛳':'M6 21V3.5 M6 3.5h11l-2.6 4L17 11.5H6',
+  '⚑':'M6 21V3.5 M6 3.5h11l-2.6 4L17 11.5H6',
+  '🏌':'M6 21V3.5 M6 3.5h11l-2.6 4L17 11.5H6',
+  '🌱':'M12 21v-7 M12 14c0-3.3-2.2-5.5-5.5-5.5C6.5 11.8 8.7 14 12 14Z M12 14c0-3.3 2.2-5.5 5.5-5.5C17.5 11.8 15.3 14 12 14Z',
+  '💳':'M3.5 6.5h17v11h-17z M3.5 10.5h17 M6.5 14.5h3',
+  '💰':'M12 12m-8 0a8 8 0 1 0 16 0a8 8 0 1 0-16 0 M12 7.3v9.4 M14.4 9.8a2.4 2.4 0 0 0-4.8.4c0 2.2 4.8 1.4 4.8 3.6a2.4 2.4 0 0 1-4.8.4',
+  '🕐':'M12 12m-8 0a8 8 0 1 0 16 0a8 8 0 1 0-16 0 M12 7.5V12l3 1.8',
+  '⌚':'M7.5 7.5h9v9h-9z M9.8 7.5V4h4.4v3.5 M9.8 16.5V20h4.4v-3.5',
+  '📊':'M5 20v-8 M12 20V4.5 M19 20v-5.5',
+  '📈':'M4 16.5 9.5 11l3 3 7-7 M20.5 7h-4 M20.5 7v4',
+  '📣':'M4 10v4h3.5l7 4V6l-7 4z M17.5 9.6a3.6 3.6 0 0 1 0 4.8',
+  '🔔':'M6.5 17h11l-1.6-2.2v-3.8a3.9 3.9 0 0 0-7.8 0v3.8z M10.2 19.8h3.6',
+  '👥':'M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm-6 8a6 6 0 0 1 12 0m3-11a3 3 0 0 1 0 6m4 5a6 6 0 0 0-4-5.6',
+  '👤':'M12 8m-3.4 0a3.4 3.4 0 1 0 6.8 0a3.4 3.4 0 1 0-6.8 0 M5 20a7 7 0 0 1 14 0',
+  '🙋':'M12 6.2m-2.6 0a2.6 2.6 0 1 0 5.2 0a2.6 2.6 0 1 0-5.2 0 M8 21v-6.5a4 4 0 0 1 8 0V21 M16.5 10.5 19 5',
+  '🔑':'M8 12m-3.5 0a3.5 3.5 0 1 0 7 0a3.5 3.5 0 1 0-7 0 M11.5 12H20l-2 2.2 M16.6 12v2.4',
+  '🔒':'M5.5 10.5h13v9.5h-13z M8.8 10.5V7.4a3.2 3.2 0 0 1 6.4 0v3.1',
+  '🎯':'M12 12m-8 0a8 8 0 1 0 16 0a8 8 0 1 0-16 0 M12 12m-4 0a4 4 0 1 0 8 0a4 4 0 1 0-8 0 M12 12h.01',
+  '🎟':'M3.5 9.2a2.8 2.8 0 0 0 0 5.6V18h17v-3.2a2.8 2.8 0 0 1 0-5.6V6h-17z M13.5 6v12',
+  '📋':'M9 3.8h6v2.8H9z M9 5.2H6.5v15h11v-15H15 M9 12h6 M9 15.8h4',
+  '📇':'M3.5 6.5h17v12h-17z M3.5 10.3h17 M7.5 14h3.5 M7.5 16.4h7',
+  '📩':'M3.5 6.5h17v11h-17z M3.5 7.4 12 13.2l8.5-5.8',
+  '✉':'M3.5 6.5h17v11h-17z M3.5 7.4 12 13.2l8.5-5.8',
+  '📱':'M7.5 3.5h9v17h-9z M10.5 18h3',
+  '📞':'M6.2 3.8 9.2 4.4l1 3.9-2 1.5a12 12 0 0 0 6 6l1.5-2 3.9 1 .6 3a1.8 1.8 0 0 1-1.8 2C10.6 19.8 4.2 13.4 4.2 5.6a1.8 1.8 0 0 1 2-1.8z',
+  '🔍':'M11 11m-6 0a6 6 0 1 0 12 0a6 6 0 1 0-12 0 M15.4 15.4 20 20',
+  '📏':'M3.5 9h17v6h-17z M7.5 9v2.6 M11 9v2.6 M14.5 9v2.6 M18 9v2.6',
+  '🎒':'M9 21h6l1-10.5a4 4 0 0 0-8 0z M10.2 6.5 10.7 3h2.6l.5 3.5 M9.6 14.5h4.8',
+  '💾':'M5 4.5h11l3 3v12H5z M8.5 4.5v5h7v-5 M8.5 19.5V14h7v5.5',
+  '🧪':'M10 3.5v6.8l-3.8 8.3a1.8 1.8 0 0 0 1.7 2.6h8.2a1.8 1.8 0 0 0 1.7-2.6L14 10.3V3.5 M9 3.5h6 M8.2 14.8h7.6',
+  '⚠':'M12 4 2.8 20h18.4z M12 10.2v4 M12 17h.01',
+  '🚫':'M12 12m-8 0a8 8 0 1 0 16 0a8 8 0 1 0-16 0 M6.4 6.4 17.6 17.6',
+  '✅':'M5 12.5 10 17.5 19.5 7',
+  '✓':'M5 12.5 10 17.5 19.5 7',
+  '🎖':'M12 15.5m-4.5 0a4.5 4.5 0 1 0 9 0a4.5 4.5 0 1 0-9 0 M8.5 11 7 3l5 2.2L17 3l-1.5 8',
+  '🔥':'M12 3.2s5 3.8 5 8.8a5 5 0 0 1-10 0c0-2 1-3.6 2-4.6.4 2 1.5 2.6 1.5 2.6s-1.1-4 1.5-6.8z'
+};
+const ico = e => TRAZO[String(e||'').replace(/️/g,'')]
+  ? `<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="${TRAZO[String(e).replace(/️/g,'')]}"/></svg>`
+  : (e ?? '');
+
 function crest(size=44){
   const r=Math.max(8,Math.round(size*0.26));
   return `<div style="width:${size}px;height:${size}px;border-radius:${r}px;background:#fff;border:1px solid var(--line);
@@ -1609,7 +1670,7 @@ function vHome(){
         hayNombre()?', '+esc(primerNombre()):''}</h1></div></div>
     <div class="row" style="gap:8px">
       <button class="arrow" style="font-size:16px;position:relative"
-        onclick="go('notif')">🔔<span style="position:absolute;top:5px;right:6px;width:8px;height:8px;
+        onclick="go('notif')" aria-label="Avisos">${ico('🔔')}<span style="position:absolute;top:5px;right:6px;width:8px;height:8px;
         border-radius:50%;background:var(--red)"></span></button>
       <div class="avatar" style="cursor:pointer;width:44px;height:44px;font-size:15px"
            onclick="go('me')">${esc(yoIni())}</div>
@@ -1618,7 +1679,7 @@ function vHome(){
   <div class="pad">
     ${hayNombre()?'':`<div class="card" style="border-color:var(--gold);cursor:pointer"
       onclick="S.editNombre=true;go('me')">
-      <div class="row" style="align-items:flex-start"><div class="ico">🙋</div>
+      <div class="row" style="align-items:flex-start"><div class="ico">${ico('🙋')}</div>
       <div style="min-width:0"><div style="font-weight:700;font-size:14px" class="gold">Falta tu nombre</div>
       <div class="dim" style="font-size:12px">Es lo que ven los del grupo en la tarjeta compartida.
       Sin nombre no podés entrar a la ronda de un grupo.</div></div></div>
@@ -1629,7 +1690,7 @@ function vHome(){
         <div><div class="lbl">Handicap index</div><div class="big acc">${verIndex(S.user.hcp)}</div>
           <div style="font-size:12px" class="${S.user.hcp==null||indexViejo()?'gold':'dim'}">
             ${S.user.hcp==null ? 'Cargalo y sabés con cuánto jugás'
-              :(indexViejo()?'⚠️ Actualizalo, cambió el jueves':'Al día')}</div></div>
+              :(indexViejo()?'Actualizalo, cambió el jueves':'Al día')}</div></div>
         <div style="text-align:right"><div class="lbl">De cancha</div>
           <div class="big">${verHcp(hcpCancha(S.user.hcp))}</div>
           <div style="font-size:12px" class="dim">${tee().n.toLowerCase()} · ${
@@ -1669,7 +1730,7 @@ function vHome(){
 
     <h2>Novedades del club</h2>
     <div class="card">
-      ${FEED().filter(f=>!f.socios||esSocio()).map(f=>`<div class="item"><div class="ico">${f.ic}</div>
+      ${FEED().filter(f=>!f.socios||esSocio()).map(f=>`<div class="item"><div class="ico">${ico(f.ic)}</div>
         <div style="min-width:0"><div style="font-weight:700;font-size:14px">${f.t}</div>
         <div class="dim" style="font-size:12px">${f.s}</div></div></div>`).join('')}
     </div>
@@ -1679,7 +1740,7 @@ function vHome(){
       ${[['🏌️','Empezar ronda',"go('arranque')"],['🎒','Mi bolsa',"go('bag')"],
          ['🏆','Torneos',"S.clubTab='torneo';go('club')"],['📊','Stats',"S.statTab='bolsa';go('stats')"]]
         .map(([i,l,f])=>`<button class="chip" style="padding:14px 4px" onclick="${f}">
-          <div style="font-size:20px">${i}</div>${l}</button>`).join('')}
+          <div style="display:flex;justify-content:center;margin-bottom:5px">${ico(i)}</div>${l}</button>`).join('')}
     </div>
   </div></div>`;
 }
@@ -2083,7 +2144,7 @@ function vPlay(){
   ${avisoCruce(h) ? `<div class="pad">${avisoCruce(h)}</div>` : ''}
   ${(indexViejo() && !S.chequeoRonda)?`
   <div class="pad"><div class="card" style="background:var(--avisoBg);border-color:var(--avisoLn);margin-bottom:8px">
-    <div class="row" style="align-items:flex-start"><div class="ico" style="background:var(--avisoIco)">🏅</div>
+    <div class="row" style="align-items:flex-start"><div class="ico" style="background:var(--avisoIco)">${ico('🏅')}</div>
       <div style="min-width:0"><div style="font-weight:700;font-size:14px">¿Controlaste tu index?</div>
         <div class="dim" style="font-size:12px">Lo actualizaste hace ${diasIndex()} días y el handicap
         cambia los jueves. Con index ${verIndex(S.user.hcp)} salís
@@ -2441,7 +2502,7 @@ function statPlan(){return `<div class="card" style="background:linear-gradient(
      ['🎱','Putts de 2–3 m','15 min por sesión · circuito del reloj, 8 posiciones','Prioridad media'],
      ['🚀','Dispersión del driver','1 sesión · alineación con varillas, apuntar borde izquierdo','Prioridad media']]
     .map(([i,t,s,p])=>`<div class="card"><div class="row" style="align-items:flex-start">
-      <div class="ico">${i}</div><div style="min-width:0">
+      <div class="ico">${ico(i)}</div><div style="min-width:0">
       <div style="font-weight:700">${t}</div><div class="dim" style="font-size:12px;margin:3px 0 7px">${s}</div>
       <span class="pill ${p.includes('alta')?'red':'gold'}">${p}</span></div></div></div>`).join('')}
   <div style="height:24px"></div>`;}
@@ -2472,7 +2533,7 @@ function bolita(t){
 function bannerCambio(){
   if(!CLUB.torneo.cambio) return '';
   return `<div class="card" style="background:var(--ojoBg);border-color:var(--ojoLn);margin-bottom:12px">
-    <div class="row"><div class="ico" style="background:var(--ojoIco)">⚠️</div>
+    <div class="row"><div class="ico" style="background:var(--ojoIco)">${ico('⚠️')}</div>
       <div style="min-width:0"><div style="font-weight:700;font-size:14px">Cambió la modalidad de salida</div>
       <div class="dim" style="font-size:12px">${CLUB.torneo.cambio}</div></div></div></div>`;
 }
@@ -2524,7 +2585,7 @@ function salidaTorneo(){
     </div>
     ${mias.length?`<div class="card" style="border-color:var(--acc2)">
       <h3>Estás anotado</h3>
-      ${mias.map(x=>`<div class="item"><div class="ico">⛳</div>
+      ${mias.map(x=>`<div class="item"><div class="ico">${ico('⛳')}</div>
         <div style="flex:1;min-width:0"><div style="font-weight:700">${t.fecha} · ${x}</div>
         <div class="dim" style="font-size:12px">Sumá hasta ${CLUB.horarios.porSalida-1} jugadores</div></div>
         <button class="chip" onclick="book('${x}')">Bajarme</button></div>`).join('')}
@@ -2552,7 +2613,7 @@ function clubTee(){
     ${[['🟢','Hoyo 2','salieron hace 15 min · 4 jugadores'],
        ['🟡','Hoyo 5','salieron hace 40 min · 4 jugadores'],
        ['🟡','Hoyo 8','salieron hace 1 h · 4 jugadores']].map(([i2,h2,d])=>
-      `<div class="item"><div class="ico">${i2}</div><div style="flex:1;min-width:0">
+      `<div class="item"><div class="ico">${ico(i2)}</div><div style="flex:1;min-width:0">
         <div style="font-weight:700;font-size:14px">${h2}</div>
         <div class="dim" style="font-size:12px">${d}</div></div></div>`).join('')}
     <div class="dim2" style="font-size:11px;margin-top:10px">
@@ -2605,7 +2666,7 @@ function clubInvierno(){
        ['🥇','Copa del Club', clasClub.some(j=>j.yo),
         faltaNegras? `Te faltan ${faltaNegras} salidas de negras (llevás ${yo.negras} de ${I.copas[0].req.negras}).`
                    : `Vas ${porGross.findIndex(j=>j.yo)+1}º en la tabla gross. Entran ${I.copas[0].cupo}.`]]
-      .map(([ic,t,ok,d])=>`<div class="item"><div class="ico">${ic}</div>
+      .map(([ic,t,ok,d])=>`<div class="item"><div class="ico">${ico(ic)}</div>
         <div style="flex:1;min-width:0"><div style="font-weight:700;font-size:14px">${t}</div>
           <div class="dim" style="font-size:12px">${d}</div></div>
         <span class="pill ${ok?'':'gold'}">${ok?'Entrando':'Afuera'}</span></div>`).join('')}
@@ -2657,7 +2718,7 @@ function clubInvierno(){
        ['📞','Oficial de Reglas',CLUB.pro.tel
           ? `${CLUB.pro.n} · ${CLUB.pro.tel}`
           : `${CLUB.pro.n} · pedile el teléfono en la sede`]].map(([ic,t,d])=>
-      `<div class="item"><div class="ico">${ic}</div><div style="min-width:0">
+      `<div class="item"><div class="ico">${ico(ic)}</div><div style="min-width:0">
         <div style="font-weight:600;font-size:13px">${t}</div>
         <div class="dim" style="font-size:12px">${d}</div></div></div>`).join('')}
     <div class="sep"></div>
@@ -2718,7 +2779,7 @@ function clubResultados(){
        ['📇','Cada uno ve su tarjeta','Hoyo por hoyo, no una foto de la planilla'],
        ['📈','Suman a tu historial','El handicap y las estadísticas se actualizan solas'],
        ['🔔','Llegan al toque','Notificación apenas se publican']].map(([i,t,d])=>
-      `<div class="item"><div class="ico">${i}</div><div style="min-width:0">
+      `<div class="item"><div class="ico">${ico(i)}</div><div style="min-width:0">
         <div style="font-weight:600;font-size:13px">${t}</div>
         <div class="dim" style="font-size:12px">${d}</div></div></div>`).join('')}
   </div>`;
@@ -2751,7 +2812,7 @@ function clubTorneo(){return `
   <div class="card" style="margin-bottom:24px">
     ${[['Skins','$2.000 por hoyo · 3 acumulados','$6.000'],['Nassau','Ida / vuelta / total','$5.000'],
        ['Más cerca hoyo 6','Javier P. · 2.4 m','$3.000']].map(([t,s,v])=>
-      `<div class="item"><div class="ico">💰</div><div style="flex:1;min-width:0">
+      `<div class="item"><div class="ico">${ico('💰')}</div><div style="flex:1;min-width:0">
         <div style="font-weight:700">${t}</div><div class="dim" style="font-size:12px">${s}</div></div>
         <div class="gold" style="font-weight:800">${v}</div></div>`).join('')}
     <button class="btn ghost sm" style="margin-top:10px" onclick="toast('Liquidación enviada al grupo')">Liquidar al final de la ronda</button>
@@ -2932,7 +2993,7 @@ function vHandicap(){
          ['🔔','Te avisamos','Los jueves, y otra vez antes de empezar una ronda si está vencido'],
          ['🧮','El de cancha sale solo','No tenés que buscar la tabla: la app lo calcula por salida'],
          ['🎫','La tarjeta física sigue igual','Félix te la sigue dando y controlando como siempre']].map(([i,t,d])=>
-        `<div class="item"><div class="ico">${i}</div><div style="min-width:0">
+        `<div class="item"><div class="ico">${ico(i)}</div><div style="min-width:0">
           <div style="font-weight:600;font-size:13px">${t}</div>
           <div class="dim" style="font-size:12px">${d}</div></div></div>`).join('')}
     </div>
@@ -3015,7 +3076,7 @@ function socAmigos(){return `
   </div>`;}
 function socRetos(){return `${RETOS.map(r=>
   `<div class="card"><div class="row" style="align-items:flex-start">
-    <div class="ico">${r.ic}</div><div style="flex:1;min-width:0">
+    <div class="ico">${ico(r.ic)}</div><div style="flex:1;min-width:0">
       <div style="font-weight:700">${r.t}</div>
       <div class="dim" style="font-size:12px;margin:3px 0 7px">${r.s}</div>
       <span class="pill ${r.c}">${r.st}</span></div></div></div>`).join('')}
@@ -3023,7 +3084,7 @@ function socRetos(){return `${RETOS.map(r=>
     + Crear un reto</button>`;}
 function socRanking(){
   if(esSocio()) return `<div class="card" style="margin-bottom:24px">
-    <div class="ico" style="margin-bottom:10px">🏆</div>
+    <div class="ico" style="margin-bottom:10px">${ico('🏆')}</div>
     <div style="font-weight:700">El ranking del club es el Torneo de Invierno</div>
     <div class="dim" style="font-size:13px;margin-top:4px">
       Ahí está la tabla gross de la Copa del Club y la tabla neto de la Copa Trisquelia,
@@ -3038,7 +3099,7 @@ function socRanking(){
      cualquiera abriera la app y se viera con el nombre de otro. Cuando el
      ranking salga del servidor, la tabla se arma con lo que llegue. */
   return `<div class="card" style="margin-bottom:24px">
-    <div class="ico" style="margin-bottom:10px">🔒</div>
+    <div class="ico" style="margin-bottom:10px">${ico('🔒')}</div>
     <div style="font-weight:700">El ranking es de los socios</div>
     <div class="dim" style="font-size:13px;margin-top:4px">El orden de mérito del club lo ven los socios de Trisquelia.
     Los resultados de los torneos, en cambio, están abiertos para todos en Club → Resultados.</div>
@@ -3069,7 +3130,7 @@ function vNotif(){return `<div class="fade">
        ['🌧️','Alerta de lluvia el domingo','70% de probabilidad entre 10 y 13 hs','ayer',false],
        ['💳','Cuota de agosto',`${pesos(cuotaSocio().v)} · del 1 al 10, ${pesos(cuotaSocio().b)}`,'hace 2 días',false]].map(([i,t,s,w,nw])=>
       `<div class="item" style="${nw?'background:var(--tint);border-radius:12px;padding:12px 10px':''}">
-        <div class="ico">${i}</div><div style="flex:1;min-width:0">
+        <div class="ico">${ico(i)}</div><div style="flex:1;min-width:0">
         <div style="font-weight:700;font-size:14px">${t}</div>
         <div class="dim" style="font-size:12px">${s}</div>
         <div class="dim2" style="font-size:11px;margin-top:2px">${w}</div></div></div>`).join('')}
@@ -3228,7 +3289,7 @@ function vCargaAAG(){
     </div>
 
     ${listas.length?`<div class="card" style="margin-bottom:24px"><h3>Ya cargadas</h3>
-      ${listas.map(t=>`<div class="item"><div class="ico">✓</div>
+      ${listas.map(t=>`<div class="item"><div class="ico">${ico('✓')}</div>
         <div style="flex:1;min-width:0"><div style="font-weight:600;font-size:13px">${t.n}</div>
           <div class="dim2" style="font-size:11px">${t.fecha} · ${t.gross} golpes${
             difAAG(t) ? ' · dif '+difAAG(t) : ''}</div></div>
@@ -3267,7 +3328,7 @@ function vArranque(){
 
     ${!S.torneo?`
     <div class="card">
-      <div class="row" style="align-items:flex-start"><div class="ico">🎯</div>
+      <div class="row" style="align-items:flex-start"><div class="ico">${ico('🎯')}</div>
         <div style="min-width:0"><div style="font-weight:700;font-size:14px">Ronda de práctica</div>
           <div class="dim" style="font-size:12px">Llevás vos tu tarjeta. Cargás los palos y las distancias
           y todo va a tus estadísticas y a tu bolsa. No hace falta marcador y no le llega nada al club.</div></div>
@@ -3294,7 +3355,7 @@ function vArranque(){
         <div><div class="lbl">${CLUB.torneo.n} · tu salida</div>
           <div style="font-weight:800;font-size:20px">12:20</div>
           <div class="dim" style="font-size:12px">Tee 1 · ${tee().n.toLowerCase()} · ${S.vuelta} hoyos</div></div>
-        <div class="ico" style="width:44px;height:44px;font-size:20px">🏆</div>
+        <div class="ico" style="width:44px;height:44px;font-size:20px">${ico('🏆')}</div>
       </div>
     </div>
 
@@ -3380,13 +3441,13 @@ function vFirma(){
           </div></div>`).join('')}
       </div>`:`
       <div class="row" style="background:var(--tint);border-radius:11px;padding:10px 12px;margin-top:12px">
-        <div class="ico" style="width:30px;height:30px;font-size:14px">✅</div>
+        <div class="ico" style="width:30px;height:30px;font-size:14px">${ico('✅')}</div>
         <div class="dim" style="font-size:12px">Lo que anotó ${mio.i} coincide con tus golpes en los ${p.length} hoyos.</div>
       </div>`}
 
       ${S.presento===false?`
       <div class="row" style="background:var(--avisoBg);border:1px solid var(--avisoLn);border-radius:11px;padding:11px 13px;margin-top:12px">
-        <div class="ico" style="background:var(--avisoIco);width:32px;height:32px;font-size:15px">🚫</div>
+        <div class="ico" style="background:var(--avisoIco);width:32px;height:32px;font-size:15px">${ico('🚫')}</div>
         <div style="min-width:0"><div style="font-weight:700;font-size:13px" class="gold">No presentás esta tarjeta</div>
         <div class="dim" style="font-size:11px">No cuenta para el Invierno ni va al club.
         Igual te queda guardada para vos, con los palos y las distancias que cargaste.</div></div>
@@ -3479,11 +3540,11 @@ function vSummary(){
     </div>
 
     <div class="card"><h3>Lo mejor y lo peor</h3>
-      <div class="item"><div class="ico">🔥</div><div><div style="font-weight:700">Hoyo 6 — birdie</div>
+      <div class="item"><div class="ico">${ico('🔥')}</div><div><div style="font-weight:700">Hoyo 6 — birdie</div>
         <div class="dim" style="font-size:12px">Par 3 de 187 yds. Green en regulación y un putt.</div></div></div>
-      <div class="item"><div class="ico">🩹</div><div><div style="font-weight:700">Hoyo 2 — doble bogey</div>
+      <div class="item"><div class="ico">${ico('🩹')}</div><div><div style="font-weight:700">Hoyo 2 — doble bogey</div>
         <div class="dim" style="font-size:12px">Segundo golpe al bunker. Es tu patrón: 2 golpes perdidos por ronda ahí.</div></div></div>
-      <div class="item"><div class="ico">📈</div><div><div style="font-weight:700">${fw} fairways de ${p.filter(h=>par(h)>3).length}</div>
+      <div class="item"><div class="ico">${ico('📈')}</div><div><div style="font-weight:700">${fw} fairways de ${p.filter(h=>par(h)>3).length}</div>
         <div class="dim" style="font-size:12px">Por encima de tu media de la temporada.</div></div></div>
     </div>
 
@@ -3536,7 +3597,7 @@ function vOnboard(){
          ['📏','Las distancias de cada hoyo, desde las cuatro salidas'],
          ['📊','Cargás tu index y sabés con cuánto jugás'],
          ['🏆','Torneos, inscripciones y resultados']].map(([i,t])=>
-        `<div class="row" style="margin-bottom:12px"><div class="ico">${i}</div>
+        `<div class="row" style="margin-bottom:12px"><div class="ico">${ico(i)}</div>
           <div style="font-size:14px;font-weight:600">${t}</div></div>`).join('')}
     </div>
     <button class="btn" onclick="S.onb=1;render()">Crear mi cuenta</button>
@@ -3583,7 +3644,7 @@ function vOnboard(){
       .map(([k,t,ic,d])=>
       `<div class="card" style="cursor:pointer;${S.tipo===k?'border-color:var(--acc)':''}"
         onclick="S.tipo='${k}';render()">
-        <div class="row" style="align-items:flex-start"><div class="ico">${ic}</div>
+        <div class="row" style="align-items:flex-start"><div class="ico">${ico(ic)}</div>
         <div style="min-width:0"><div style="font-weight:700">${t}</div>
         <div class="dim" style="font-size:12px">${d}</div></div></div></div>`).join('')}
     <button class="btn" onclick="seguirDesdeTipo()">Continuar</button>
@@ -3593,7 +3654,7 @@ function vOnboard(){
   if(S.onb===2){
     const est = S.padronEstado, p = S.hallado;
     const aviso = (ic,tit,txt) => `<div style="background:var(--avisoBg);border:1px solid var(--avisoLn);border-radius:12px;padding:13px">
-      <div class="row" style="align-items:flex-start"><div class="ico" style="background:var(--avisoIco)">${ic}</div>
+      <div class="row" style="align-items:flex-start"><div class="ico" style="background:var(--avisoIco)">${ico(ic)}</div>
         <div style="min-width:0"><div style="font-weight:700;font-size:14px" class="gold">${tit}</div>
         <div class="dim" style="font-size:12px">${txt}</div></div></div></div>`;
 
@@ -3615,7 +3676,7 @@ function vOnboard(){
 
       ${est==='codigo'?`
       <div class="sep"></div>
-      <div class="row" style="margin-bottom:12px"><div class="ico">📩</div>
+      <div class="row" style="margin-bottom:12px"><div class="ico">${ico('📩')}</div>
         <div style="min-width:0"><div style="font-weight:700;font-size:13px">Te mandamos un código</div>
         <div class="dim" style="font-size:12px">A ${p.mail?tapar(p.mail):taparTel(p.tel)}, el contacto
         que ${CLUB.corto} tiene registrado.</div></div></div>
@@ -3682,7 +3743,7 @@ function vOnboard(){
       </div>`:''}
     </div>
 
-    ${!est?`<div class="card"><div class="row"><div class="ico">🎟️</div>
+    ${!est?`<div class="card"><div class="row"><div class="ico">${ico('🎟️')}</div>
       <div style="min-width:0"><div style="font-weight:700;font-size:13px">¿Todavía no sos socio?</div>
       <div class="dim" style="font-size:12px">Podés usar la app igual, con menos funciones.</div></div></div>
       <button class="btn ghost sm" style="margin-top:11px" onclick="S.tipo='invitado';S.onb=3;render()">
@@ -3699,7 +3760,7 @@ function vOnboard(){
     <p>El usuario es tu email. Con eso recuperás la clave si te la olvidás.</p>
     ${(S.hallado && S.hallado.mail) ? `
     <div class="card" style="border-color:var(--acc);padding:13px">
-      <div class="row" style="align-items:flex-start"><div class="ico">✉️</div>
+      <div class="row" style="align-items:flex-start"><div class="ico">${ico('✉️')}</div>
       <div style="min-width:0">
         <div style="font-weight:700;font-size:13px">Usá el mismo mail que tiene el club</div>
         <div class="dim" style="font-size:12px;margin-top:2px">Es el que figura en el padrón y ya lo
@@ -3731,7 +3792,7 @@ function vOnboard(){
         Sin reglas de mayúsculas ni símbolos. Lo que la hace fuerte es que sea larga:
         <b style="color:var(--dim)">mipaloesundriver</b> es mejor que <b style="color:var(--dim)">Tr1sq!</b></div>
       <div class="sep"></div>
-      <div class="row"><div class="ico">📱</div><div style="min-width:0">
+      <div class="row"><div class="ico">${ico('📱')}</div><div style="min-width:0">
         <div style="font-weight:600;font-size:13px">¿Preferís sin clave?</div>
         <div class="dim2" style="font-size:11px">Te mandamos un código al email cada vez que entrás.
         No hay clave que recordar ni que te puedan robar.</div></div></div>
@@ -3750,7 +3811,7 @@ function vOnboard(){
     y la app te calcula sola el handicap de cancha en cada salida.</p>
     <div class="card">
       <div class="row" style="background:var(--tint);border-radius:12px;padding:11px 13px;margin-bottom:14px">
-        <div class="ico" style="background:var(--card)">🏅</div>
+        <div class="ico" style="background:var(--card)">${ico('🏅')}</div>
         <div style="min-width:0"><div style="font-weight:700;font-size:13px">${CLUB.federacion}</div>
           <div class="dim2" style="font-size:11px">La matrícula es para que el profesional pueda cargar tu tarjeta en la federación sin buscarla. El index lo actualizás vos los jueves.</div></div>
       </div>
@@ -3792,7 +3853,7 @@ function vOnboard(){
         ${S.fedOk?'Corregir':'Guardar mi handicap'}</button>
     </div>
     <button class="btn" onclick="if(S.fedOk){S.onb=5;render()}else{toast('Cargá tu matrícula y tu index')}">Continuar</button>
-    <div class="card" style="margin-top:12px"><div class="row"><div class="ico">📇</div>
+    <div class="card" style="margin-top:12px"><div class="row"><div class="ico">${ico('📇')}</div>
       <div style="min-width:0"><div style="font-weight:700;font-size:13px">¿No tenés matrícula?</div>
       <div class="dim" style="font-size:12px">Para jugar hace falta handicap vigente. Si sos socio
       colaborador y no jugás, igual podés seguir los torneos y las novedades del club.</div></div></div>
@@ -3836,7 +3897,7 @@ function vOnboard(){
          ...(esSocio()?[['✅','Socio verificado','figurás en el padrón del club']]:[]),
          ['✅','Cuenta creada', S.email||'con tu email'],
          ['✅','Bolsa cargada',BAG.filter(b=>b.on).length+' palos listos para medir']].map(([i,t,d])=>
-        `<div class="item"><div class="ico">${i}</div><div><div style="font-weight:700;font-size:14px">${t}</div>
+        `<div class="item"><div class="ico">${ico(i)}</div><div><div style="font-weight:700;font-size:14px">${t}</div>
           <div class="dim" style="font-size:12px">${d}</div></div></div>`).join('')}
     </div>
     <button class="btn" onclick="skipOnb()">Entrar a la app</button>
@@ -3879,9 +3940,9 @@ function vMe(){
       <div class="lbl" style="margin-bottom:9px">Estás usando la app como</div>
       <div class="grid2">
         <button class="chip ${esSocio()?'on':''}" style="padding:12px 6px" onclick="setTipo('socio')">
-          <div style="font-size:17px">🎖️</div>Socio</button>
+          <div style="display:flex;justify-content:center;margin-bottom:4px">${ico('🎖')}</div>Socio</button>
         <button class="chip ${!esSocio()?'on':''}" style="padding:12px 6px" onclick="setTipo('invitado')">
-          <div style="font-size:17px">🎟️</div>Invitado</button>
+          <div style="display:flex;justify-content:center;margin-bottom:4px">${ico('🎟')}</div>Invitado</button>
       </div>
       <div class="sep"></div>
       <div class="lbl" style="margin-bottom:8px">Qué incluye cada uno</div>
@@ -3904,7 +3965,7 @@ function vMe(){
     </div>
 
     <div class="card" style="border-color:var(--avisoLn)">
-      <div class="row" style="align-items:flex-start"><div class="ico">🧪</div>
+      <div class="row" style="align-items:flex-start"><div class="ico">${ico('🧪')}</div>
       <div style="min-width:0">
         <div style="font-weight:700;font-size:13px">Estás probando la app</div>
         <div class="dim" style="font-size:12px">Todo lo que cargues se guarda en este teléfono
@@ -3925,7 +3986,7 @@ function vMe(){
     <div class="card">
       ${[['31 jul',CLUB.corto,'84','+13'],['24 jul',CLUB.corto,'79','+8'],
          ['18 jul',CLUB.corto,'88','+17'],['11 jul',CLUB.corto,'82','+11']].map(([d,c,s,p])=>
-        `<div class="item"><div class="ico">⛳</div><div style="flex:1;min-width:0">
+        `<div class="item"><div class="ico">${ico('⛳')}</div><div style="flex:1;min-width:0">
           <div style="font-weight:700">${c}</div><div class="dim" style="font-size:12px">${d}</div></div>
           <div style="text-align:right"><div style="font-weight:800;font-size:17px">${s}</div>
           <div class="dim" style="font-size:11px">${p}</div></div></div>`).join('')}
@@ -3946,7 +4007,7 @@ function vMe(){
          /* Última a propósito: no es algo que el socio use, es lo primero que
             hay que preguntarle cuando dice "a mí no me anda". */
          ['📱','Versión de la app', versionTxt(), "copiarDiagnostico()"]].map(([i,t,s,f])=>
-        `<div class="item" style="cursor:pointer" onclick="${f}"><div class="ico">${i}</div>
+        `<div class="item" style="cursor:pointer" onclick="${f}"><div class="ico">${ico(i)}</div>
           <div style="flex:1;min-width:0">
           <div style="font-weight:600">${t}</div><div class="dim" style="font-size:12px">${s}</div></div>
           <span class="dim2">›</span></div>`).join('')}
@@ -4191,7 +4252,7 @@ function vDash(){
       </div>
       ${[['Socio Sin Mail','DNI 20.456.789 · figura en el padrón, sin contacto'],
          ['Persona Nueva','DNI 41.222.333 · no figura en el padrón']].map(([n,d])=>
-        `<div class="item"><div class="ico">👤</div>
+        `<div class="item"><div class="ico">${ico('👤')}</div>
           <div style="flex:1;min-width:0"><div style="font-weight:700;font-size:14px">${n}</div>
             <div class="dim" style="font-size:12px">${d}</div></div>
           <div style="display:flex;gap:6px">
@@ -4276,7 +4337,7 @@ function vPermisos(){
          ['📣','Chelo avisó aireación de greens','ayer 18:40'],
          ['🏆','Daniel abrió la inscripción del sábado','ayer 11:02'],
          ['🔑','Le diste acceso a Daniel Rodríguez','martes']].map(([i2,t2,w])=>
-        `<div class="item"><div class="ico">${i2}</div><div style="flex:1;min-width:0">
+        `<div class="item"><div class="ico">${ico(i2)}</div><div style="flex:1;min-width:0">
           <div style="font-weight:600;font-size:13px">${t2}</div>
           <div class="dim2" style="font-size:11px">${w}</div></div></div>`).join('')}
       <div class="dim2" style="font-size:11px;margin-top:10px">
@@ -4319,7 +4380,7 @@ function vSocios(){return `<div class="fade">
       ${[['✅','Socia Dos','Alta de socia · plan full'],['💳','Socio Seis','Cuota vencida · 42 días','red'],
          ['📉','Socio Cuatro','Handicap 22 → 20.4'],['🚫','Socio Siete','No-show domingo · multa aplicada','red'],
          ['⛳','Socia Ocho','Primera tarjeta cargada']].map(([i,n,s,c])=>
-        `<div class="item"><div class="ico">${i}</div><div style="flex:1;min-width:0">
+        `<div class="item"><div class="ico">${ico(i)}</div><div style="flex:1;min-width:0">
           <div style="font-weight:700">${n}</div><div class="${c==='red'?'red':'dim'}" style="font-size:12px">${s}</div></div></div>`).join('')}
     </div>
     <div class="card" style="margin-bottom:24px"><h3>Riesgo de baja</h3>
@@ -4388,7 +4449,7 @@ function vTorneo(){return `<div class="fade">
     <div class="card" style="margin-bottom:24px"><h3>Próximos</h3>
       ${[['🏆',CLUB.torneo.n,CLUB.torneo.fecha],['⛳','Abierto de Profesionales de General Pico','Tour de Profesionales'],
          ['👫','Matchplay parejas','A programar'],['🎄','Cierre de temporada','Diciembre']].map(([i,t,s])=>
-        `<div class="item"><div class="ico">${i}</div><div style="flex:1;min-width:0">
+        `<div class="item"><div class="ico">${ico(i)}</div><div style="flex:1;min-width:0">
           <div style="font-weight:700">${t}</div><div class="dim" style="font-size:12px">${s}</div></div>
           <span class="dim2">›</span></div>`).join('')}
       <button class="btn sm" style="margin-top:12px" onclick="toast('Nuevo torneo creado')">+ Crear torneo</button>
@@ -5746,7 +5807,7 @@ function pillNube(){
 function tarjetaGrupo(){
   if(!hayNube()) return `
     <div class="card">
-      <div class="row" style="align-items:flex-start"><div class="ico">👥</div>
+      <div class="row" style="align-items:flex-start"><div class="ico">${ico('👥')}</div>
         <div style="min-width:0"><div style="font-weight:700;font-size:14px">Jugar con el grupo</div>
         <div class="dim" style="font-size:12px">Para que la tarjeta se vea entre los teléfonos hace falta
         conectar el servidor. Está todo listo: faltan dos datos en el código.</div></div></div>
@@ -5757,7 +5818,7 @@ function tarjetaGrupo(){
       <div class="between" style="margin-bottom:11px">
         <div><div class="lbl">Jugar con el grupo</div>
           <div class="dim" style="font-size:12px">Uno abre la ronda y los demás entran con el código.</div></div>
-        <div class="ico" style="width:40px;height:40px;font-size:19px">👥</div>
+        <div class="ico" style="width:40px;height:40px;font-size:19px">${ico('👥')}</div>
       </div>
       <button class="btn" onclick="crearRonda()" ${S.uniendo?'disabled':''}>
         ${S.uniendo ? 'Abriendo…' : 'Abrir una ronda'}</button>
@@ -5882,7 +5943,7 @@ function vCopia(){
          ['⛳','Ronda en curso', r.hoyos ? `${r.hoyos} hoyo${r.hoyos===1?'':'s'} anotados` : 'ninguna'],
          ['📡','Ronda del grupo', r.ronda || 'ninguna'],
          ['🧪','Modo prueba', r.prueba ? `${r.prueba} mediciones` : 'sin datos']].map(([i,t,v])=>
-        `<div class="item"><div class="ico">${i}</div><div style="flex:1;min-width:0">
+        `<div class="item"><div class="ico">${ico(i)}</div><div style="flex:1;min-width:0">
           <div style="font-weight:600">${t}</div></div>
           <div class="dim" style="font-size:12.5px;text-align:right">${v}</div></div>`).join('')}
     </div>
@@ -5932,7 +5993,7 @@ function vCopia(){
     </div>
 
     ${hayDeshacer() ? `<div class="card" style="border-color:var(--avisoLn);margin-bottom:24px">
-      <div class="row" style="align-items:flex-start"><div class="ico">↩️</div>
+      <div class="row" style="align-items:flex-start"><div class="ico">${ico('↩️')}</div>
       <div style="min-width:0"><div style="font-weight:700;font-size:13px">Se importó una copia</div>
       <div class="dim" style="font-size:12px">Guardamos cómo estaba este teléfono antes.
       Podés volver a eso mientras no borres los datos.</div></div></div>

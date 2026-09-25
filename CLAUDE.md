@@ -66,7 +66,7 @@ queda publicada igual, pero no la carga nadie).
 No es opcional: es lo que le avisa a los teléfonos que ya tienen la app que hay algo nuevo.
 Si no se toca, pueden seguir abriendo la versión vieja para siempre.
 
-Va en `trisquelia-vN`. Al día de hoy: **v16**.
+Va en `trisquelia-vN`. Al día de hoy: **v17**.
 
 ---
 
@@ -107,6 +107,15 @@ un club puede confiar en esto. No la pierdas por rellenar un hueco.
 ---
 
 ## 5. Las trampas
+
+**Los íconos se dibujan, no se ponen con emoji.** Un emoji se ve distinto en cada teléfono —el
+trofeo de un Samsung no es el de un iPhone—, es una caricatura de color al lado de un escudo
+serio, y no se puede teñir. Desde la v17 las baldosas (`.ico`) llevan un SVG de trazo:
+`TRAZO` tiene los dibujos y `ico(e)` los devuelve. **Recibe el emoji que ya estaba en los datos**,
+así el código se sigue leyendo de un vistazo (`ic:'🏆'`) y, si todavía no dibujamos ese, devuelve
+el emoji tal cual y no se rompe nada — se van agregando de a uno. Si agregás una baldosa, escribila
+`<div class="ico">${ico(x)}</div>`, nunca con el emoji pelado. El dibujo toma el color del texto que
+lo rodea (`stroke:currentColor`), por eso el mismo sirve en la baldosa verde y en la de un aviso.
 
 **En la pantalla de jugar, el plano ES la pantalla.** Desde la v16: `vPlay` devuelve una
 columna (`.jugar`) con el plano (`.mapa`) quedándose con todo el alto que sobra, y encima flotan
