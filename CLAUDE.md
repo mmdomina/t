@@ -66,7 +66,7 @@ queda publicada igual, pero no la carga nadie).
 No es opcional: es lo que le avisa a los teléfonos que ya tienen la app que hay algo nuevo.
 Si no se toca, pueden seguir abriendo la versión vieja para siempre.
 
-Va en `trisquelia-vN`. Al día de hoy: **v15**.
+Va en `trisquelia-vN`. Al día de hoy: **v16**.
 
 ---
 
@@ -107,6 +107,18 @@ un club puede confiar en esto. No la pierdas por rellenar un hueco.
 ---
 
 ## 5. Las trampas
+
+**En la pantalla de jugar, el plano ES la pantalla.** Desde la v16: `vPlay` devuelve una
+columna (`.jugar`) con el plano (`.mapa`) quedándose con todo el alto que sobra, y encima flotan
+la chapa del hoyo, la distancia colgada del borde de arriba (`.dists`, con `#dMid` grande y
+`#dUnid` afuera de la tarjeta blanca), el riel de botones (`.riel`) y el palo sugerido
+(`.palo.flota`). Abajo, `.barraJugar` con el score y el botón que se toca en cada hoyo. Lo que
+antes se apilaba en tarjetas se fue a hojas: **registrar el palo es `HOJAS.golpes`** y **cerrar
+la vuelta vive al final de `HOJAS.tarjeta`**. Tres reglas al tocar esto: el SVG del hoyo escala
+—si agregás texto adentro usá tamaños de 4 a 5, no de 7, o al estirarse queda enorme—; los
+avisos que piden respuesta (tee, cruce, index, prueba) van ARRIBA del plano y lo empujan, porque
+tapan menos que un cartel encima; y `playtest` mide `.mapa` arriba de todo, `.dists` dentro de la
+ventana y `#dMid` de 50px para arriba.
 
 **La app es CLARA, y el color se toca en un solo lado.** Hasta la v14 era azul oscura en todas
 las pantallas; la primera prueba en cancha (24/9/2026) dejó un solo reclamo y fue ése —

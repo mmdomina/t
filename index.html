@@ -214,46 +214,93 @@ td.name{text-align:left;font-weight:600;font-size:13px}
 .medida .u{font-size:11px;color:var(--dim2);flex:0 0 auto}
 
 /* ---------- PANTALLA DE JUGAR ----------
-   Referente: Hole19. Manda el mapa, las distancias son enormes, y la
-   navegación del hoyo vive en una barra fija abajo. Todo lo que no se
-   usa con la bola adelante —salida, tarjetas, estacas— sale del camino
-   y se abre en una hoja. */
+   Referente: Hole19, mirado de verdad en un teléfono el 25/9/2026.
 
-/* el mapa, con las cosas encima.
-   El dibujo del hoyo es angosto y alto (es un hoyo visto desde arriba), así que
-   el fondo del contenedor va del mismo verde oscuro que el dibujo: si no, quedan
-   dos barras negras a los costados y parece un error. */
+   Lo que se aprendió: el plano NO es una ilustración adentro de una tarjeta.
+   ES EL FONDO DE LA PANTALLA, de borde a borde, y todo lo demás flota encima:
+   la distancia colgada del borde de arriba, los botones en una columna al
+   costado, el palo abajo. Esa es la mitad del efecto. La otra mitad es que no
+   haya nada más compitiendo: lo que no se usa con la bola adelante —salida,
+   tarjetas, estacas, registrar el palo— sale del camino y se abre en una hoja.
+
+   Hasta la v15 el plano vivía apretado en 214 píxeles entre cinco tarjetas
+   apiladas, y para llegar a "terminar el hoyo" había que bajar toda la
+   pantalla. Ahora el plano se queda con todo lo que sobra y el botón que se
+   toca en cada hoyo está siempre abajo, al alcance del pulgar. */
+
+.jugar{height:100%;display:flex;flex-direction:column}
+
+/* el plano se queda con todo el alto que sobra.
+   El dibujo es angosto y alto (un hoyo visto desde arriba) y el contenedor es
+   más ancho, así que el fondo del contenedor va del mismo verde que el rough:
+   el dibujo se centra y los costados siguen siendo cancha, sin barras. */
 .mapa{position:relative;background:#7e9f60;overflow:hidden}
+.jugar .mapa{flex:1 1 auto;min-height:190px}
+.jugar .mapa svg{width:100%;height:100%;display:block}
 .mapa .over{position:absolute;display:flex;gap:6px;z-index:2}
-.mapa .over.tl{top:10px;left:12px}
-.mapa .over.tr{top:10px;right:12px}
+.mapa .over.tl{top:10px;left:12px;flex-direction:column;align-items:flex-start;gap:5px}
+.mapa .over.tr{top:0;right:0}
 
-/* las tres distancias: el centro manda */
-.dists{display:flex;align-items:flex-end;justify-content:space-between;gap:10px;
-  padding:16px 6px 4px}
-.dists .d{flex:1 1 0;text-align:center;min-width:0}
-.dists .d .k{font-size:10px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;
-  color:var(--dim2);margin-bottom:1px}
-.dists .d .v{font-weight:800;letter-spacing:-.03em;line-height:1;
-  font-variant-numeric:tabular-nums;font-size:30px;color:var(--dim)}
-.dists .d.c .v{font-size:66px;color:var(--txt)}
-.dists .d.c .k{color:var(--acc);font-size:11px}
-.dists .u{text-align:center;font-size:11px;color:var(--dim2);padding-bottom:4px}
+/* la chapita de arriba a la izquierda: qué hoyo estás jugando */
+.chapa{background:var(--card);border-radius:12px;padding:6px 11px;font-size:12.5px;
+  font-weight:600;color:var(--txt);box-shadow:0 2px 9px rgba(16,35,26,.18);white-space:nowrap}
+.chapa b{font-weight:800}
+.chapa.suave{font-size:11.5px;color:var(--dim);font-weight:700}
 
-/* el palo sugerido, una sola línea que se puede tocar */
+/* LA distancia, colgada del borde de arriba */
+.dists{flex-direction:column;align-items:flex-end;gap:0;background:var(--card);
+  border-radius:0 0 0 20px;padding:9px 15px 10px 19px;box-shadow:0 2px 14px rgba(16,35,26,.2)}
+.dists .k{font-size:10px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;
+  color:var(--acc)}
+.dists .v{font-weight:800;letter-spacing:-.035em;line-height:.95;font-size:56px;
+  font-variant-numeric:tabular-nums;color:var(--txt)}
+.dists .fb{display:flex;gap:13px;font-size:11.5px;font-weight:600;color:var(--dim);margin-top:3px}
+.dists .fb b{font-weight:800;color:var(--txt);font-variant-numeric:tabular-nums}
+
+/* la columna de botones, como el riel de Hole19 */
+/* anclado ABAJO y no al medio: arriba se le montaba encima al número, que es
+   lo único que el jugador mira de verdad. */
+.riel{position:absolute;right:12px;bottom:44px;z-index:2;
+  display:flex;flex-direction:column;gap:7px}
+.riel button{width:52px;min-height:52px;border-radius:15px;border:0;background:var(--card);
+  box-shadow:0 2px 10px rgba(16,35,26,.2);color:var(--txt);font-family:inherit;font-size:9px;
+  font-weight:800;letter-spacing:.02em;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;gap:3px;cursor:pointer;padding:5px 2px}
+.riel button svg{width:19px;height:19px;stroke:var(--acc);fill:none;stroke-width:1.9;
+  stroke-linecap:round;stroke-linejoin:round}
+
+/* el palo sugerido, flotando abajo a la izquierda */
 .palo{display:flex;align-items:center;gap:11px;width:100%;text-align:left;
   background:var(--tint);border:1px solid var(--line);border-radius:var(--r);
   padding:13px 15px;cursor:pointer;font-family:inherit;color:var(--txt)}
 .palo .cual{font-size:19px;font-weight:800;letter-spacing:-.01em;flex:0 0 auto}
 .palo .det{flex:1;min-width:0;font-size:12px;line-height:1.35;color:var(--dim)}
 .palo .fl{color:var(--dim2);font-size:17px;flex:0 0 auto}
+.palo.flota{position:absolute;left:12px;bottom:26px;z-index:2;width:auto;max-width:58%;
+  background:var(--card);border-color:transparent;padding:10px 13px;
+  box-shadow:0 2px 12px rgba(16,35,26,.2)}
+.palo.flota .cual{font-size:17px}
+.palo.flota .det{font-size:11.5px}
 
-/* fila de accesos a las hojas */
-.accesos{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-top:12px}
-.accesos button{background:var(--card);border:1px solid var(--line);border-radius:13px;
-  padding:11px 3px;font-family:inherit;font-size:10.5px;font-weight:700;color:var(--dim);
-  cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px}
-.accesos button .i{font-size:16px}
+/* de dónde sale el número: el renglón que nunca miente. Va pegado al número y
+   no al pie del plano, que ya tiene su propia aclaración sobre el dibujo. */
+.over.tr{flex-direction:column;align-items:flex-end}
+.over.tr .u{max-width:190px;text-align:right;padding:6px 15px 0 0;font-size:10.5px;
+  font-weight:700;line-height:1.35;color:#1d3016}
+
+/* la barra de abajo: el score del hoyo y el botón que se toca en cada hoyo */
+.barraJugar{flex:0 0 auto;display:flex;align-items:center;gap:12px;background:var(--card);
+  border-top:1px solid var(--line);padding:9px 14px 10px}
+.barraJugar .sc{flex:0 0 auto;text-align:center;min-width:58px}
+.barraJugar .sc .k{font-size:9px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--dim2)}
+.barraJugar .sc .v{font-size:32px;font-weight:800;line-height:1.05;letter-spacing:-.03em}
+.barraJugar .btn{margin:0;flex:1 1 auto}
+/* el aviso del GPS, pegado abajo del plano: es lo que separa una distancia
+   medida de una estimada, y no puede quedar escondido */
+.avisoGps{flex:0 0 auto;font-size:12px;line-height:1.45;padding:9px 14px;
+  background:var(--avisoBg);border-top:1px solid var(--avisoLn)}
+.avisoGps.calmo{background:var(--tint);border-top-color:var(--line);color:var(--dim)}
 
 /* barra fija del hoyo, entre la pantalla y el menú */
 #barra{flex:0 0 auto;display:none;align-items:stretch;background:var(--nav);
@@ -1682,7 +1729,7 @@ function holeSVG(h){
   const yPos = d => yTee - (d/largoRef)*(base-gy);      // yardas desde el tee
   const lado = (l,y) => 100 + c.dog*32*(1-Math.abs((y-gy)/(base-gy))*.6) + l*anc*1.15;
 
-  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:214px;display:block">
+  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:100%;min-height:190px;display:block">
     <defs>
       <linearGradient id="fw${h}" x1="0" y1="1" x2="0" y2="0">
         <stop offset="0" stop-color="#aed086"/><stop offset="1" stop-color="#bedd95"/></linearGradient>
@@ -1707,7 +1754,7 @@ function holeSVG(h){
     ${c.camino?`<path d="M${W-10} ${gy} L${W-16} ${H}" stroke="#cbb894" stroke-width="4" opacity=".6"/>`:''}
     ${c.ob?`<line x1="8" y1="${gy-19}" x2="${W-8}" y2="${gy-19}" stroke="#ffffff"
        stroke-width="1" stroke-dasharray="2 4" opacity=".8"/>
-      <text x="${W-10}" y="${gy-23}" fill="#3f5540" font-size="7" text-anchor="end"
+      <text x="${W-10}" y="${gy-23}" fill="#3f5540" font-size="4" text-anchor="end"
        font-family="sans-serif">fuera de límites</text>`:''}
 
     <!-- obstáculos, ubicados por yardas desde el tee -->
@@ -1741,7 +1788,7 @@ function holeSVG(h){
         <rect x="${100-(act?11:8)}" y="${y}" width="${act?22:16}" height="${act?7:5}" rx="2.5"
               fill="${col}" stroke="#24331f80" stroke-width=".6"/>
         <text x="${100+(act?16:13)}" y="${y+(act?6:5)}" fill="${act?'#12220f':'#2b3f24'}"
-              font-size="${act?8:7}" font-family="sans-serif" font-weight="${act?'700':'400'}">
+              font-size="${act?4.6:4}" font-family="sans-serif" font-weight="${act?'700':'400'}">
           ${nom} ${v}</text></g>`;}).join('')}
 
     <!-- la estaca de 150 -->
@@ -1749,9 +1796,9 @@ function holeSVG(h){
       return `<line x1="${lado(-1,y)}" y1="${y}" x2="${lado(1,y)}" y2="${y}"
         stroke="#ffffff" stroke-width=".8" stroke-dasharray="3 3" opacity=".5"/>
       <circle cx="${lado(1,y)}" cy="${y}" r="2.6" fill="#ffffff" opacity=".95"/>
-      <text x="${lado(1,y)+6}" y="${y+3}" fill="#12220f" font-size="7" font-family="sans-serif">150</text>`;})():''}
+      <text x="${lado(1,y)+6}" y="${y+3}" fill="#12220f" font-size="4.2" font-family="sans-serif">150</text>`;})():''}
 
-    <text x="8" y="${H-8}" fill="#2f4429" font-size="7.5" font-family="sans-serif">
+    <text x="8" y="${H-8}" fill="#2f4429" font-size="4.4" font-family="sans-serif">
       cancha ${CLUB.fisico[h-1]} · distancias reales · forma aproximada</text>
   </svg>`;
 }
@@ -2011,101 +2058,98 @@ function panelMarcador(){
    Todo lo demás (salida, tarjetas, estacas) se abre en una hoja y no
    ocupa lugar en el camino.
    ============================================================ */
+/* Los íconos del riel van dibujados, no en emoji: un emoji se ve distinto en
+   cada teléfono y al lado del escudo del club queda de juguete. */
+const ICO = {
+  golpe:'<circle cx="12" cy="12" r="8"/><path d="M12 8.5v7M8.5 12h7"/>',
+  grupo:'<path d="M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm-6 8a6 6 0 0 1 12 0m3-11a3 3 0 0 1 0 6m4 5a6 6 0 0 0-4-5.6"/>',
+  tarjeta:'<path d="M6 3h8.5L19 7.5V21H6Z"/><path d="M14 3v5h5"/><path d="M9 12h7M9 16h5"/>',
+  salida:'<path d="M6 21V4"/><path d="M6 4h11l-2.5 4L17 12H6"/>',
+  cancha:'<path d="M12 21s7-6.2 7-11a7 7 0 1 0-14 0c0 4.8 7 11 7 11Z"/><circle cx="12" cy="10" r="2.2"/>'
+};
+const iconoRiel = k => `<svg viewBox="0 0 24 24" aria-hidden="true">${ICO[k]}</svg>`;
+
 function vPlay(){
   if(S.cerrando) return panelCierre();
   const h = S.hole, p = par(h), g = gps(h), rec = clubFor(g.mid), sc = R.scores[h];
   const conf = rec ? confianza(rec) : null;
 
-  return `<div class="fade">
+  /* Lo único que puede empujar al plano hacia abajo son los avisos que piden
+     una respuesta: el tee al que llegaste, el cruce que no coincide, el index
+     viejo y la prueba grabando. Todos son raros y todos se responden y se van. */
+  return `<div class="fade jugar">
 
   <div id="avisoTee">${avisoTeeHTML()}</div>
+  ${avisoCruce(h) ? `<div class="pad">${avisoCruce(h)}</div>` : ''}
+  ${(indexViejo() && !S.chequeoRonda)?`
+  <div class="pad"><div class="card" style="background:var(--avisoBg);border-color:var(--avisoLn);margin-bottom:8px">
+    <div class="row" style="align-items:flex-start"><div class="ico" style="background:var(--avisoIco)">🏅</div>
+      <div style="min-width:0"><div style="font-weight:700;font-size:14px">¿Controlaste tu index?</div>
+        <div class="dim" style="font-size:12px">Lo actualizaste hace ${diasIndex()} días y el handicap
+        cambia los jueves. Con index ${verIndex(S.user.hcp)} salís
+        ${verHcp(hcpCancha(S.user.hcp))} de ${tee().n.toLowerCase()}.</div></div></div>
+    <div class="grid2" style="margin-top:11px">
+      <button class="chip" onclick="go('handicap')">Actualizarlo</button>
+      <button class="chip" onclick="S.chequeoRonda=true;render();toast('Listo, seguimos')">Está al día</button>
+    </div>
+  </div></div>`:''}
+  ${panelPrueba() ? `<div class="pad">${panelPrueba()}</div>` : ''}
 
   <div class="mapa">
     ${holeSVG(h)}
-    <div class="over tl"><span class="pill ${g.real?'':'gold'}" id="gpsPill">${
-      g.real ? `GPS ±${g.acc} m` : (POS_ERR || 'Buscando señal…')}</span></div>
-    ${rec?`<div class="over tr"><span class="pill blue">🎯 ${etiq(rec)}</span></div>`:''}
-  </div>
 
-  <div class="pad">
-    <div class="card" style="padding:6px 10px 12px">
-      <div class="dists">
-        <div class="d"><div class="k">Frente</div><div class="v" id="dFront">${g.front ?? '—'}</div></div>
-        <div class="d c"><div class="k">Al centro</div><div class="v" id="dMid">${g.mid ?? '—'}</div></div>
-        <div class="d"><div class="k">Fondo</div><div class="v" id="dBack">${g.back ?? '—'}</div></div>
-      </div>
-      <div class="u" id="dUnid">${textoUnidad(g)}</div>
-      ${g.esperandoGPS && !POS_ERR?`<div class="dim" style="background:var(--tint);border-radius:11px;
-        padding:9px 12px;margin-top:8px;font-size:12px">
-        Buscando el GPS. Mientras tanto es una estimación con el largo del hoyo;
-        en cuanto enganche pasan a ser tu distancia real.</div>`:''}
-      ${!g.real && POS_ERR?`<div style="background:var(--avisoBg);border:1px solid var(--avisoLn);border-radius:11px;
-        padding:10px 12px;margin-top:8px;font-size:12px">
-        <b class="gold">Se perdió la ubicación</b>
-        <div class="dim" style="margin-top:3px;line-height:1.5">${POS_ERR}
-        Las distancias de arriba son estimadas. Tu tarjeta se sigue anotando igual.</div></div>`:''}
-      ${g.sinMedir?`<div class="dim" style="background:var(--tint);border-radius:11px;
-        padding:9px 12px;margin-top:8px;font-size:12px">
-        Sin distancias en este hoyo: falta la medición y el GPS todavía no enganchó.</div>`:''}
+    <div class="over tl">
+      <span class="chapa"><b>Hoyo ${h}</b> · par ${p} · val ${COURSE.holes[h-1].hcp}</span>
+      <button class="chapa suave" onclick="abrirHoja('salida')"
+        style="border:0;font-family:inherit;cursor:pointer">${yards(h) ?? '—'} yds · ${teeDelHoyo(h)} ›</button>
+      <span class="pill ${g.real?'':'gold'}" id="gpsPill">${
+        g.real ? `GPS ±${g.acc} m` : (POS_ERR || 'Buscando señal…')}</span>
     </div>
 
-    ${rec ? `<button class="palo" onclick="go('bag')">
+    <div class="over tr">
+     <div class="dists">
+      <div class="k">Al centro</div>
+      <div class="v" id="dMid">${g.mid ?? '—'}</div>
+      <div class="fb"><span>frente <b id="dFront">${g.front ?? '—'}</b></span>
+        <span>fondo <b id="dBack">${g.back ?? '—'}</b></span></div>
+     </div>
+     <div class="u" id="dUnid">${textoUnidad(g)}</div>
+    </div>
+
+    <div class="riel">
+      <button onclick="abrirHoja('golpes')" aria-label="Registrar el palo">${iconoRiel('golpe')}Golpe</button>
+      <button onclick="abrirHoja('grupo')" aria-label="La tarjeta del grupo">${iconoRiel('grupo')}Grupo</button>
+      <button onclick="abrirHoja('tarjeta')" aria-label="Mi tarjeta">${iconoRiel('tarjeta')}Tarjeta</button>
+      <button onclick="abrirHoja('cancha')" aria-label="Estacas y banderas">${iconoRiel('cancha')}Cancha</button>
+    </div>
+
+    ${rec ? `<button class="palo flota" onclick="go('bag')">
       <span class="cual">${etiq(rec)}</span>
       <span class="det"><b style="color:var(--txt)">${media(rec)} yds</b> de media ·
-        <span class="${conf.clase}">${conf.txt}</span>${
-        conf.nivel==='tuyo' ? ` · dispersión ±${disp(rec)}` : ''}</span>
+        <span class="${conf.clase}">${conf.txt}</span></span>
       <span class="fl">›</span></button>`
-    : `<button class="palo" onclick="go('bag')">
-      <span class="cual">🎒</span>
-      <span class="det">Armá tu bolsa y te digo con qué palo pegar en cada distancia.</span>
+    : `<button class="palo flota" onclick="go('bag')">
+      <span class="det">Armá tu bolsa y te digo con qué palo pegar.</span>
       <span class="fl">›</span></button>`}
 
-    <div style="height:12px"></div>
-    ${shotPanel(h)}
+  </div>
 
-    ${avisoCruce(h)}
+  ${g.esperandoGPS && !POS_ERR?`<div class="avisoGps calmo">
+    Buscando el GPS. Mientras tanto es una estimación con el largo del hoyo;
+    en cuanto enganche pasan a ser tu distancia real.</div>`:''}
+  ${!g.real && POS_ERR?`<div class="avisoGps">
+    <b class="gold">Se perdió la ubicación</b> · <span class="dim">${POS_ERR}
+    Las distancias son estimadas. Tu tarjeta se sigue anotando igual.</span></div>`:''}
+  ${g.sinMedir?`<div class="avisoGps calmo">
+    Sin distancias en este hoyo: falta la medición y el GPS todavía no enganchó.</div>`:''}
 
-    <div class="card" style="border-color:var(--acc2)">
-      <div class="between" style="margin-bottom:10px">
-        <div><div class="lbl">Tu score en el hoyo ${h}</div>
-          <div class="big ${sc!==undefined?'acc':''}" style="font-size:32px">${sc ?? '–'}</div></div>
-        <div style="text-align:right">
-          <div class="lbl">Putts</div>
-          <div style="font-weight:800;font-size:19px">${R.putts[h] ?? '–'}</div></div>
-      </div>
-      <button class="btn" onclick="abrirCierre(${h})">
-        ${sc!==undefined ? 'Corregir el hoyo' : 'Terminar el hoyo'}</button>
-      <div class="dim2" style="font-size:11px;text-align:center;margin-top:7px">
-        Ahí cargás golpes, putts, bunker, penalidades y dónde quedó tu salida.</div>
-    </div>
-
-    ${(indexViejo() && !S.chequeoRonda)?`
-    <div class="card" style="background:var(--avisoBg);border-color:var(--avisoLn)">
-      <div class="row" style="align-items:flex-start"><div class="ico" style="background:var(--avisoIco)">🏅</div>
-        <div style="min-width:0"><div style="font-weight:700;font-size:14px">¿Controlaste tu index?</div>
-          <div class="dim" style="font-size:12px">Lo actualizaste hace ${diasIndex()} días y el handicap
-          cambia los jueves. Con index ${verIndex(S.user.hcp)} salís
-          ${verHcp(hcpCancha(S.user.hcp))} de ${tee().n.toLowerCase()}.</div></div></div>
-      <div class="grid2" style="margin-top:11px">
-        <button class="chip" onclick="go('handicap')">Actualizarlo</button>
-        <button class="chip" onclick="S.chequeoRonda=true;render();toast('Listo, seguimos')">Está al día</button>
-      </div>
-    </div>`:''}
-
-    ${panelPrueba()}
-
-    <div class="accesos">
-      <button onclick="abrirHoja('salida')"><span class="i">⛳</span>Salida</button>
-      <button onclick="abrirHoja('grupo')"><span class="i">👥</span>Grupo</button>
-      <button onclick="abrirHoja('tarjeta')"><span class="i">📋</span>Tarjeta</button>
-      <button onclick="abrirHoja('cancha')"><span class="i">🚩</span>Cancha</button>
-    </div>
-
-    <div style="margin:18px 0 24px">
-      <button class="btn ghost" onclick="finish()">
-        ${S.torneo?'Cerrar y firmar la tarjeta':'Guardar la tarjeta'}</button>
-    </div>
-  </div></div>`;
+  <div class="barraJugar">
+    <div class="sc"><div class="k">Tu score</div>
+      <div class="v ${sc!==undefined?'acc':''}">${sc ?? '–'}</div></div>
+    <button class="btn" onclick="abrirCierre(${h})">
+      ${sc!==undefined ? 'Corregir el hoyo' : 'Terminar el hoyo'}</button>
+  </div>
+  </div>`;
 }
 
 /* ---------- LA BARRA FIJA DEL HOYO ----------
@@ -2213,6 +2257,11 @@ const HOJAS = {
       Estos scores son de ejemplo. Para ver los de verdad, abrí una ronda con el grupo
       desde <b>Empezar la ronda</b>: cada uno entra con el mismo código y se ven entre todos.</div>` },
 
+  /* Registrar con qué palo pegaste. Antes estaba apilado en la pantalla de
+     jugar, entre las distancias y el score; ahora se abre desde el riel, que
+     es como lo resuelve Hole19 y deja el plano limpio. */
+  golpes: { t:'Registrar el palo', c: () => shotPanel(S.hole) },
+
   tarjeta: { t:'Mi tarjeta', c: () => {
     const fila = (desde, hasta, rot) => `
       <table style="min-width:100%"><thead><tr><th style="text-align:left">H</th>
@@ -2237,8 +2286,10 @@ const HOJAS = {
           class="${toPar()<=0?'acc':''}">${played().length?fmtPar(toPar()):'–'}</div></div>
         <div><div class="lbl">Hoyos</div><div style="font-weight:800;font-size:20px">${played().length}</div></div>
       </div>
-      <button class="btn ghost sm" style="margin:14px 0 4px"
-        onclick="cerrarHoja();go('tarjeta')">Ver la tarjeta oficial completa</button>`; } },
+      <button class="btn ghost sm" style="margin:14px 0 8px"
+        onclick="cerrarHoja();go('tarjeta')">Ver la tarjeta oficial completa</button>
+      <button class="btn" style="margin-bottom:4px" onclick="cerrarHoja();finish()">
+        ${S.torneo?'Cerrar y firmar la tarjeta':'Guardar la tarjeta'}</button>`; } },
 
   cancha: { t:'Estacas y banderas', c: () => `
     <div class="grid2">
