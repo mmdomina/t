@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="theme-color" content="#070e18">
+<meta name="theme-color" content="#f4f6f2">
 <meta name="description" content="La app del Trisquelia Golf Club: tu tarjeta, tus distancias, los torneos y los resultados.">
 <title>Trisquelia Golf Club</title>
 
@@ -18,17 +18,27 @@
 <link rel="apple-touch-icon" href="./apple-touch-icon.png">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Trisquelia">
-<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <style>
 :root{
-  --bg:#0b1710; --bg2:#0f2018; --card:#132a20; --card2:#18342767;
-  --line:#1f3d2e; --txt:#eaf5ee; --dim:#8fae9c; --dim2:#5f7d6c;
-  --acc:#4d9de0; --acc2:#2b7cc4; --gold:#e9c46a; --red:#f87171; --blue:#60a5fa;
-  --ink:#02101f; --tint:#14304e; --nav:#0a1727; --hair:#1a2f4a; --rojo:#c8202e;
+  /* ── PALETA CLARA (v15) ──────────────────────────────────────────
+     La app era azul oscura en todas las pantallas y se sentía cargada:
+     todo con fondo oscuro, todo con borde, nada que respire. Se juega
+     al aire libre y con sol de frente, donde el blanco se lee mejor.
+     `--ink` es el color del TEXTO SOBRE el acento, no un fondo. */
+  --bg:#f4f6f2; --bg2:#eaeee7; --card:#ffffff; --card2:#ffffffcc;
+  --line:#dde4dc; --txt:#10231a; --dim:#4a5d51; --dim2:#667a6f;
+  --acc:#1e6b47; --acc2:#17563a; --gold:#a97a06; --red:#c0392b; --blue:#1f5fa9;
+  --ink:#ffffff; --tint:#e5efe8; --nav:#ffffff; --hair:#eaefe8; --rojo:#c8202e;
+  /* los cuatro avisos, cada uno con su fondo, su borde y su ícono */
+  --avisoBg:#fdf6e3; --avisoLn:#e6d49b; --avisoIco:#f1e3b4;
+  --malBg:#fdeceb; --malLn:#f0bbb4;
+  --ojoBg:#fdf1e7; --ojoLn:#eec9a4; --ojoIco:#f8dfc6;
+  --okBg:#e7f4ec; --okLn:#a2d5b8;
   --r:18px;
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-html,body{margin:0;padding:0;background:#07100b;color:var(--txt);
+html,body{margin:0;padding:0;background:#e6eae2;color:var(--txt);
   font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",sans-serif;
   font-size:15px;line-height:1.4;-webkit-font-smoothing:antialiased}
 body{display:flex;align-items:center;justify-content:center;min-height:100vh;min-height:100dvh;padding:0}
@@ -40,13 +50,13 @@ body{display:flex;align-items:center;justify-content:center;min-height:100vh;min
    `100vh` queda primero como respaldo para navegadores viejos. */
 #frame{width:100%;height:100vh;height:100dvh;background:var(--bg);
   position:relative;overflow:hidden;display:flex;flex-direction:column;
-  box-shadow:0 30px 80px rgba(0,0,0,.6)}
+  box-shadow:0 20px 60px rgba(16,35,26,.16)}
 /* El marco con bordes redondeados es solo para mirarla en una computadora, asi
    que pide pantalla ancha Y ALTA. Antes pedia solo ancho, y un telefono
    apaisado mide mas de 520px: le clavaba 844px de alto en una ventana de 390 y
    la barra de navegacion quedaba entera fuera de pantalla. */
 @media(min-width:520px) and (min-height:900px){
-  #frame{max-width:412px;height:844px;border-radius:38px;border:1px solid #1d3529}}
+  #frame{max-width:412px;height:844px;border-radius:38px;border:1px solid var(--line)}}
 
 #status{height:30px;display:flex;align-items:center;justify-content:center;
   padding:0 22px;font-size:12px;font-weight:700;letter-spacing:.06em;
@@ -84,9 +94,9 @@ p{margin:0 0 8px;color:var(--dim)}
 .lbl{font-size:11px;color:var(--dim2);font-weight:600;text-transform:uppercase;letter-spacing:.07em}
 .pill{display:inline-block;padding:4px 10px;border-radius:99px;font-size:11px;font-weight:700;
   background:var(--tint);color:var(--acc)}
-.pill.gold{background:#3a3117;color:var(--gold)}
-.pill.blue{background:#16304d;color:var(--blue)}
-.pill.red{background:#3d1e1e;color:var(--red)}
+.pill.gold{background:var(--avisoBg);color:var(--gold);border:1px solid var(--avisoLn)}
+.pill.blue{background:#e6eff9;color:var(--blue)}
+.pill.red{background:var(--malBg);color:var(--red)}
 .btn{display:block;width:100%;padding:15px;border-radius:14px;border:0;cursor:pointer;
   font-family:inherit;font-size:15px;font-weight:700;background:var(--acc2);color:var(--ink);
   transition:transform .1s,filter .15s}
@@ -130,9 +140,9 @@ td.name{text-align:left;font-weight:600;font-size:13px}
 .sq{display:inline-flex;width:22px;height:22px;align-items:center;justify-content:center;
   border-radius:6px;font-weight:800}
 .eagle{background:#e9c46a;color:#2a2005;border-radius:50%}
-.birdie{background:#4d9de033;color:var(--acc);border-radius:50%;border:1px solid var(--acc)}
-.bogey{background:#f8717122;color:#fca5a5}
-.dbogey{background:#f8717144;color:var(--red)}
+.birdie{background:#1e6b4714;color:var(--acc);border-radius:50%;border:1px solid var(--acc)}
+.bogey{background:#fbe9e7;color:#a83f32}
+.dbogey{background:#f7d5d0;color:var(--red)}
 
 /* ---------- misc ---------- */
 .slot{padding:11px 8px;border-radius:11px;border:1px solid var(--line);background:var(--card);
@@ -142,7 +152,7 @@ td.name{text-align:left;font-weight:600;font-size:13px}
 .slot.mine{background:var(--acc2);color:var(--ink);border-color:var(--acc2)}
 .bar{height:7px;border-radius:99px;background:var(--tint);overflow:hidden}
 .bar i{display:block;height:100%;border-radius:99px;background:var(--acc)}
-.toast{position:absolute;left:50%;transform:translateX(-50%);bottom:96px;background:#eaf2fb;color:var(--ink);
+.toast{position:absolute;left:50%;transform:translateX(-50%);bottom:96px;background:var(--txt);color:#ffffff;
   padding:11px 18px;border-radius:99px;font-size:13px;font-weight:700;z-index:50;opacity:0;
   transition:opacity .25s,bottom .25s;pointer-events:none;white-space:nowrap;max-width:90%}
 .toast.on{opacity:1;bottom:110px}
@@ -156,7 +166,7 @@ td.name{text-align:left;font-weight:600;font-size:13px}
   color:var(--dim);font-size:13px;font-weight:700;white-space:nowrap;cursor:pointer;font-family:inherit;
   min-height:44px}
 .tab.on{background:var(--txt);color:var(--ink);border-color:var(--txt)}
-.modeban{background:linear-gradient(135deg,#3a3117,#241d0d);border:1px solid #5c4a1f}
+.modeban{background:linear-gradient(135deg,var(--avisoBg),#f7edd4);border:1px solid var(--avisoLn)}
 /* ---------- cerrar el hoyo ----------
    El socio no anota en el green: anota parado en el tee siguiente, para no
    frenar la cancha. O sea que esta pantalla tiene un presupuesto de veinte
@@ -185,8 +195,8 @@ td.name{text-align:left;font-weight:600;font-size:13px}
 .luz{width:8px;height:8px;border-radius:50%;flex:0 0 auto;background:var(--dim2)}
 .luz.si{background:var(--ok, #3ddc84);box-shadow:0 0 8px #3ddc8470}
 .luz.no{background:var(--gold)}
-.cruce{background:#3a3117;border:1px solid #5c4a1f;border-radius:13px;padding:12px 14px}
-.cruce.ok{background:#12301f;border-color:#2b6b47}
+.cruce{background:var(--avisoBg);border:1px solid var(--avisoLn);border-radius:13px;padding:12px 14px}
+.cruce.ok{background:var(--okBg);border-color:var(--okLn)}
 
 /* ---------- MODO PRUEBA ----------
    Un punto rojo arriba mientras está grabando, para que nunca te olvides
@@ -213,7 +223,7 @@ td.name{text-align:left;font-weight:600;font-size:13px}
    El dibujo del hoyo es angosto y alto (es un hoyo visto desde arriba), así que
    el fondo del contenedor va del mismo verde oscuro que el dibujo: si no, quedan
    dos barras negras a los costados y parece un error. */
-.mapa{position:relative;background:#0f2318;overflow:hidden}
+.mapa{position:relative;background:#7e9f60;overflow:hidden}
 .mapa .over{position:absolute;display:flex;gap:6px;z-index:2}
 .mapa .over.tl{top:10px;left:12px}
 .mapa .over.tr{top:10px;right:12px}
@@ -260,7 +270,7 @@ td.name{text-align:left;font-weight:600;font-size:13px}
 /* las hojas que se abren desde la pantalla de jugar */
 #hoja{position:absolute;inset:0;z-index:60;display:none}
 #hoja.on{display:block}
-#hoja .fondo{position:absolute;inset:0;background:#000a;backdrop-filter:blur(2px)}
+#hoja .fondo{position:absolute;inset:0;background:#10231a80;backdrop-filter:blur(2px)}
 #hoja .panel{position:absolute;left:0;right:0;bottom:0;max-height:86%;
   background:var(--bg);border-top:1px solid var(--line);
   border-radius:22px 22px 0 0;display:flex;flex-direction:column;
@@ -568,9 +578,9 @@ const CLUBS_DB = {
 
     /* --- identidad visual (colores a confirmar contra el logo oficial) --- */
     /* tomados del logo: azul del trisquel, azul oscuro del wordmark, rojo del grip */
-    theme:{ p:'#4d9de0', p2:'#2b7cc4', bg:'#070e18', bg2:'#0b1626', card:'#101f33',
-            line:'#1e3552', dim:'#93a9c4', dim2:'#61758f', gold:'#e9c46a',
-            ink:'#02101f', tint:'#14304e', nav:'#0a1727', hair:'#1a2f4a',
+    theme:{ p:'#1e6b47', p2:'#17563a', bg:'#f4f6f2', bg2:'#eaeee7', card:'#ffffff',
+            line:'#dde4dc', dim:'#4a5d51', dim2:'#667a6f', gold:'#a97a06',
+            ink:'#ffffff', tint:'#e5efe8', nav:'#ffffff', hair:'#eaefe8',
             azul:'#1f5fa9', azulOsc:'#173a72', rojo:'#c8202e' },
     crest:'trisquel',
 
@@ -897,14 +907,14 @@ const LOGO_FULL = "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAMCAg
 const LOGO_MARK = "data:image/jpeg;base64,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";
 function crest(size=44){
   const r=Math.max(8,Math.round(size*0.26));
-  return `<div style="width:${size}px;height:${size}px;border-radius:${r}px;background:#fff;
+  return `<div style="width:${size}px;height:${size}px;border-radius:${r}px;background:#fff;border:1px solid var(--line);
     display:flex;align-items:center;justify-content:center;flex:0 0 auto;overflow:hidden;
     box-shadow:0 1px 0 rgba(255,255,255,.12)">
     <img src="${LOGO_MARK}" alt="Trisquelia" style="width:${Math.round(size*0.86)}px;
       height:${Math.round(size*0.86)}px;object-fit:contain;display:block"></div>`;
 }
 function crestWord(){
-  return `<div style="background:#fff;border-radius:22px;padding:20px 24px;display:inline-block">
+  return `<div style="background:#fff;border:1px solid var(--line);border-radius:22px;padding:20px 24px;display:inline-block">
     <img src="${LOGO_FULL}" alt="Campo de golf Trisquelia" style="width:250px;display:block"></div>`;
 }
 /* --- aplica los colores del club a toda la interfaz --- */
@@ -1675,17 +1685,17 @@ function holeSVG(h){
   return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:214px;display:block">
     <defs>
       <linearGradient id="fw${h}" x1="0" y1="1" x2="0" y2="0">
-        <stop offset="0" stop-color="#1c4d32"/><stop offset="1" stop-color="#2f7a4f"/></linearGradient>
-      <radialGradient id="gr${h}"><stop offset="0" stop-color="#63e79a"/><stop offset="1" stop-color="#3ab96d"/></radialGradient>
+        <stop offset="0" stop-color="#aed086"/><stop offset="1" stop-color="#bedd95"/></linearGradient>
+      <radialGradient id="gr${h}"><stop offset="0" stop-color="#e2f4b4"/><stop offset="1" stop-color="#cfe89f"/></radialGradient>
       <linearGradient id="ag${h}" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0" stop-color="#2f6fd0"/><stop offset="1" stop-color="#1d4a95"/></linearGradient>
+        <stop offset="0" stop-color="#8fc3e0"/><stop offset="1" stop-color="#6ba3c9"/></linearGradient>
     </defs>
-    <rect width="${W}" height="${H}" fill="#0f2318"/>
+    <rect width="${W}" height="${H}" fill="#7e9f60"/>
 
     <!-- rough -->
     <path d="M${100-anc-15} ${base+18} Q ${cx-anc-21} ${(base+gy)/2} ${100-anc-7} ${gy+16}
              L ${100+anc+7} ${gy+16} Q ${cx+anc+21} ${(base+gy)/2} ${100+anc+15} ${base+18} Z"
-          fill="#173f28" opacity=".7"/>
+          fill="#6d8e51" opacity=".85"/>
     <!-- fairway -->
     <path d="M${100-anc} ${base+10} Q ${cx-anc} ${(base+gy)/2} ${100-anc*0.72} ${gy+20}
              L ${100+anc*0.72} ${gy+20} Q ${cx+anc} ${(base+gy)/2} ${100+anc} ${base+10} Z"
@@ -1693,11 +1703,11 @@ function holeSVG(h){
 
     ${c.casas?`<g opacity=".5">${[0,1,2,3,4].map(k=>{
       const y=gy+26+k*40, x=c.casas==='der'?W-13:6;
-      return `<rect x="${x}" y="${y}" width="9" height="7" rx="1.4" fill="#8d8377"/>`;}).join('')}</g>`:''}
-    ${c.camino?`<path d="M${W-10} ${gy} L${W-16} ${H}" stroke="#a08f76" stroke-width="4" opacity=".6"/>`:''}
-    ${c.ob?`<line x1="8" y1="${gy-19}" x2="${W-8}" y2="${gy-19}" stroke="#e0e0e0"
+      return `<rect x="${x}" y="${y}" width="9" height="7" rx="1.4" fill="#b3a99c"/>`;}).join('')}</g>`:''}
+    ${c.camino?`<path d="M${W-10} ${gy} L${W-16} ${H}" stroke="#cbb894" stroke-width="4" opacity=".6"/>`:''}
+    ${c.ob?`<line x1="8" y1="${gy-19}" x2="${W-8}" y2="${gy-19}" stroke="#ffffff"
        stroke-width="1" stroke-dasharray="2 4" opacity=".8"/>
-      <text x="${W-10}" y="${gy-23}" fill="#cfd8de" font-size="7" text-anchor="end"
+      <text x="${W-10}" y="${gy-23}" fill="#3f5540" font-size="7" text-anchor="end"
        font-family="sans-serif">fuera de límites</text>`:''}
 
     <!-- obstáculos, ubicados por yardas desde el tee -->
@@ -1705,21 +1715,21 @@ function holeSVG(h){
       const y=yPos(z.d), x=lado(z.lado*0.72, y);
       return z.t==='a'
         ? `<ellipse cx="${x}" cy="${y}" rx="${z.w}" ry="${z.w*0.62}" fill="url(#ag${h})"/>
-           <ellipse cx="${x}" cy="${y}" rx="${z.w}" ry="${z.w*0.62}" fill="none" stroke="#7fb2ef" stroke-width=".6" opacity=".7"/>`
-        : `<ellipse cx="${x}" cy="${y}" rx="${z.w}" ry="${z.w*0.6}" fill="#e6d9bb"/>`;
+           <ellipse cx="${x}" cy="${y}" rx="${z.w}" ry="${z.w*0.62}" fill="none" stroke="#4d87ae" stroke-width=".6" opacity=".7"/>`
+        : `<ellipse cx="${x}" cy="${y}" rx="${z.w}" ry="${z.w*0.6}" fill="#e0cda0"/>`;
     }).join('')}
 
     <!-- bunkers del green -->
     ${(c.gb||[]).map(g=>{
       const a=g.a*Math.PI/180, rx=(p===3?26:31)+7;
       return `<ellipse cx="${100+rx*Math.cos(a)*0.92}" cy="${gy+(p===3?18:22)*Math.sin(a)*1.15}"
-        rx="${8*g.r}" ry="${5.4*g.r}" fill="#e6d9bb"/>`;}).join('')}
+        rx="${8*g.r}" ry="${5.4*g.r}" fill="#e0cda0"/>`;}).join('')}
 
     <!-- green -->
     <ellipse cx="100" cy="${gy}" rx="${p===3?25:30}" ry="${p===3?18:22}" fill="url(#gr${h})"/>
     <ellipse cx="100" cy="${gy}" rx="${p===3?25:30}" ry="${p===3?18:22}" fill="none"
-             stroke="#9ff5c2" stroke-width=".7" opacity=".45"/>
-    <circle cx="100" cy="${gy+2}" r="2.4" fill="#0b1710"/>
+             stroke="#7fbb8e" stroke-width=".7" opacity=".45"/>
+    <circle cx="100" cy="${gy+2}" r="2.4" fill="#24331f"/>
     <path d="M100 ${gy+2} v-17 l10 4.5 -10 4.5" fill="#c8202e" stroke="#c8202e" stroke-width="1"/>
 
     <!-- las salidas, cada una a su distancia real -->
@@ -1729,19 +1739,19 @@ function holeSVG(h){
       const col = t.id==='mixta' ? (h<=9?'#f5f5f5':'#3b82f6') : t.c;
       return `<g opacity="${act?1:.5}">
         <rect x="${100-(act?11:8)}" y="${y}" width="${act?22:16}" height="${act?7:5}" rx="2.5"
-              fill="${col}" stroke="#0008" stroke-width=".6"/>
-        <text x="${100+(act?16:13)}" y="${y+(act?6:5)}" fill="${act?'#e8eef6':'#93a9c4'}"
+              fill="${col}" stroke="#24331f80" stroke-width=".6"/>
+        <text x="${100+(act?16:13)}" y="${y+(act?6:5)}" fill="${act?'#12220f':'#2b3f24'}"
               font-size="${act?8:7}" font-family="sans-serif" font-weight="${act?'700':'400'}">
           ${nom} ${v}</text></g>`;}).join('')}
 
     <!-- la estaca de 150 -->
     ${largo>170?(()=>{const y=yPos(largo-150);
       return `<line x1="${lado(-1,y)}" y1="${y}" x2="${lado(1,y)}" y2="${y}"
-        stroke="#f5f5f5" stroke-width=".8" stroke-dasharray="3 3" opacity=".5"/>
-      <circle cx="${lado(1,y)}" cy="${y}" r="2.6" fill="#f5f5f5" opacity=".85"/>
-      <text x="${lado(1,y)+6}" y="${y+3}" fill="#dbe7f0" font-size="7" font-family="sans-serif">150</text>`;})():''}
+        stroke="#ffffff" stroke-width=".8" stroke-dasharray="3 3" opacity=".5"/>
+      <circle cx="${lado(1,y)}" cy="${y}" r="2.6" fill="#ffffff" opacity=".95"/>
+      <text x="${lado(1,y)+6}" y="${y+3}" fill="#12220f" font-size="7" font-family="sans-serif">150</text>`;})():''}
 
-    <text x="8" y="${H-8}" fill="#5f7d90" font-size="7.5" font-family="sans-serif">
+    <text x="8" y="${H-8}" fill="#2f4429" font-size="7.5" font-family="sans-serif">
       cancha ${CLUB.fisico[h-1]} · distancias reales · forma aproximada</text>
   </svg>`;
 }
@@ -2029,7 +2039,7 @@ function vPlay(){
         padding:9px 12px;margin-top:8px;font-size:12px">
         Buscando el GPS. Mientras tanto es una estimación con el largo del hoyo;
         en cuanto enganche pasan a ser tu distancia real.</div>`:''}
-      ${!g.real && POS_ERR?`<div style="background:#3a3117;border:1px solid #5c4a1f;border-radius:11px;
+      ${!g.real && POS_ERR?`<div style="background:var(--avisoBg);border:1px solid var(--avisoLn);border-radius:11px;
         padding:10px 12px;margin-top:8px;font-size:12px">
         <b class="gold">Se perdió la ubicación</b>
         <div class="dim" style="margin-top:3px;line-height:1.5">${POS_ERR}
@@ -2070,8 +2080,8 @@ function vPlay(){
     </div>
 
     ${(indexViejo() && !S.chequeoRonda)?`
-    <div class="card" style="background:#3a3117;border-color:#5c4a1f">
-      <div class="row" style="align-items:flex-start"><div class="ico" style="background:#5c4a1f">🏅</div>
+    <div class="card" style="background:var(--avisoBg);border-color:var(--avisoLn)">
+      <div class="row" style="align-items:flex-start"><div class="ico" style="background:var(--avisoIco)">🏅</div>
         <div style="min-width:0"><div style="font-weight:700;font-size:14px">¿Controlaste tu index?</div>
           <div class="dim" style="font-size:12px">Lo actualizaste hace ${diasIndex()} días y el handicap
           cambia los jueves. Con index ${verIndex(S.user.hcp)} salís
@@ -2170,8 +2180,8 @@ const HOJAS = {
         ${bolita(t)}${t.n}</button>`).join('')}
     </div>
     ${tee().nota?`<div class="dim2" style="font-size:11.5px;margin-top:10px">${tee().nota}</div>`:''}
-    ${homologada(tee())?'':`<div class="aviso" style="margin-top:12px;background:#3a3117;
-      border:1px solid #5c4a1f;border-radius:13px;padding:11px 13px">
+    ${homologada(tee())?'':`<div class="aviso" style="margin-top:12px;background:var(--avisoBg);
+      border:1px solid var(--avisoLn);border-radius:13px;padding:11px 13px">
       <div style="font-size:12.5px;font-weight:700;color:var(--gold)">${tee().n}: sin homologar</div>
       <div class="dim" style="font-size:11.5px;line-height:1.55;margin-top:3px">
         Las yardas son reales, pero esta salida todavía no tiene rating ni slope oficiales,
@@ -2279,9 +2289,9 @@ function statGeneral(){
     ['Rondas','23','este año']])}
   <div class="card"><h3>Evolución del handicap</h3>
     <svg viewBox="0 0 300 80" style="width:100%;height:90px">
-      <polyline points="${pts}" fill="none" stroke="#4ade80" stroke-width="2.5"
+      <polyline points="${pts}" fill="none" stroke="#1e6b47" stroke-width="2.5"
         stroke-linecap="round" stroke-linejoin="round"/>
-      ${d.map((v,i)=>`<circle cx="${i*(300/(d.length-1))}" cy="${70-((v-mn)/(mx-mn))*60}" r="2.5" fill="#4ade80"/>`).join('')}
+      ${d.map((v,i)=>`<circle cx="${i*(300/(d.length-1))}" cy="${70-((v-mn)/(mx-mn))*60}" r="2.5" fill="#1e6b47"/>`).join('')}
     </svg>
     <div class="between dim2" style="font-size:11px"><span>oct</span><span>hoy</span></div>
   </div>
@@ -2353,11 +2363,11 @@ function statJuego(){const dr=BAG.find(b=>b.c==='Dr');
   ['Dispersión','23%','tirás a la derecha','red']])}
   <div class="card" style="margin-bottom:24px"><h3>Patrón del driver</h3>
     <svg viewBox="0 0 200 130" style="width:100%;height:170px">
-      <path d="M60 125 L20 15 h160 L140 125 Z" fill="#1b4a30"/>
-      <path d="M78 125 L58 15 h84 L122 125 Z" fill="#2f7a4f"/>
+      <path d="M60 125 L20 15 h160 L140 125 Z" fill="#cfe0c3"/>
+      <path d="M78 125 L58 15 h84 L122 125 Z" fill="#a7c97e"/>
       ${[[118,42],[132,55],[104,38],[126,68],[95,50],[140,60],[112,30],[128,80],[100,72],[136,45],[121,95],[108,58]]
-        .map(([x,y])=>`<circle cx="${x}" cy="${y}" r="3.4" fill="#e9c46a" opacity=".85"/>`).join('')}
-      <line x1="100" y1="125" x2="100" y2="15" stroke="#4ade80" stroke-dasharray="4 4" stroke-width="1"/>
+        .map(([x,y])=>`<circle cx="${x}" cy="${y}" r="3.4" fill="#a97a06" opacity=".9"/>`).join('')}
+      <line x1="100" y1="125" x2="100" y2="15" stroke="#1e6b47" stroke-dasharray="4 4" stroke-width="1"/>
     </svg>
     <div class="dim" style="font-size:12px">Centro de dispersión 11 yds a la derecha. Apuntá al borde izquierdo del fairway.</div>
   </div>`;}
@@ -2410,8 +2420,8 @@ function bolita(t){
 }
 function bannerCambio(){
   if(!CLUB.torneo.cambio) return '';
-  return `<div class="card" style="background:#3d2418;border-color:#7a4a2a;margin-bottom:12px">
-    <div class="row"><div class="ico" style="background:#5c3520">⚠️</div>
+  return `<div class="card" style="background:var(--ojoBg);border-color:var(--ojoLn);margin-bottom:12px">
+    <div class="row"><div class="ico" style="background:var(--ojoIco)">⚠️</div>
       <div style="min-width:0"><div style="font-weight:700;font-size:14px">Cambió la modalidad de salida</div>
       <div class="dim" style="font-size:12px">${CLUB.torneo.cambio}</div></div></div></div>`;
 }
@@ -2501,7 +2511,7 @@ function clubTee(){
   </div>
 
   <h2>El torneo del fin de semana</h2>
-  ${CLUB.torneo.proshop?`<div class="card" style="background:#3a3117;border-color:#5c4a1f">
+  ${CLUB.torneo.proshop?`<div class="card" style="background:var(--avisoBg);border-color:var(--avisoLn)">
     <div class="between"><div><div style="font-weight:700;font-size:14px" class="gold">Pro shop en premios</div>
       <div class="dim" style="font-size:11px">${CLUB.torneo.proshopNota}</div></div>
       <div class="gold" style="font-weight:800;font-size:22px">${CLUB.torneo.proshop}</div></div>
@@ -2664,7 +2674,7 @@ function clubResultados(){
 }
 
 function clubTorneo(){return `
-  <div class="card" style="background:linear-gradient(135deg,#3a3117,#241d0d);border-color:#5c4a1f">
+  <div class="card" style="background:linear-gradient(135deg,var(--avisoBg),#f7edd4);border-color:var(--avisoLn);border-width:1px;border-style:solid;--x:#5c4a1f">
     <div class="between"><span class="pill gold">Inscripción abierta</span>
       <span class="dim" style="font-size:12px">${CLUB.torneo.cupo-CLUB.torneo.inscriptos} lugares</span></div>
     <div style="font-weight:800;font-size:19px;margin:9px 0 4px">🏆 ${CLUB.torneo.n}</div>
@@ -2805,7 +2815,7 @@ function vHandicap(){
         <div style="text-align:right"><div class="lbl">Matrícula</div>
           <div style="font-weight:700">${S.mat||'—'}</div></div>
       </div>
-      ${indexViejo()?`<div style="margin-top:12px;background:#3a3117;border:1px solid #5c4a1f;border-radius:11px;padding:10px 12px">
+      ${indexViejo()?`<div style="margin-top:12px;background:var(--avisoBg);border:1px solid var(--avisoLn);border-radius:11px;padding:10px 12px">
         <div style="font-size:12px;font-weight:700" class="gold">El handicap cambió el jueves</div>
         <div class="dim" style="font-size:11px">Entrá a la federación, mirá el tuyo y actualizalo acá abajo.</div></div>`:''}
 
@@ -2904,7 +2914,7 @@ function vBag(){
       ${b.on&&!b.putter&&b.shots.length?`
       <div style="display:flex;gap:2px;align-items:flex-end;height:34px;margin-top:11px">
         ${b.shots.slice(-24).map(s=>{const m=avg(b),h=Math.max(4,Math.min(34,17+(s-m)*1.1));
-          return `<div style="flex:1;height:${h}px;background:${s>m?'var(--acc)':'#2f7a4f'};border-radius:2px"></div>`}).join('')}
+          return `<div style="flex:1;height:${h}px;background:${s>m?'var(--acc)':'#c3d8ca'};border-radius:2px"></div>`}).join('')}
       </div>
       <div class="dim2" style="font-size:10px;margin-top:4px">Tus últimos ${Math.min(24,b.shots.length)} golpes con este palo</div>`:''}
     </div>`).join('')}`).join('')}
@@ -3307,7 +3317,7 @@ function vFirma(){
       </tbody></table>
 
       ${d.length?`
-      <div style="background:#3d1e1e;border:1px solid #7a3a3a;border-radius:12px;padding:12px;margin-top:12px">
+      <div style="background:var(--malBg);border:1px solid var(--malLn);border-radius:12px;padding:12px;margin-top:12px">
         <div style="font-weight:700;font-size:13px" class="red">No coincide en ${d.length} hoyo${d.length>1?'s':''}</div>
         <div class="dim" style="font-size:11px;margin-bottom:8px">
           Resolvelo con ${mio.n} antes de certificar. En papel esto termina en descalificación.</div>
@@ -3324,8 +3334,8 @@ function vFirma(){
       </div>`}
 
       ${S.presento===false?`
-      <div class="row" style="background:#3a3117;border:1px solid #5c4a1f;border-radius:11px;padding:11px 13px;margin-top:12px">
-        <div class="ico" style="background:#5c4a1f;width:32px;height:32px;font-size:15px">🚫</div>
+      <div class="row" style="background:var(--avisoBg);border:1px solid var(--avisoLn);border-radius:11px;padding:11px 13px;margin-top:12px">
+        <div class="ico" style="background:var(--avisoIco);width:32px;height:32px;font-size:15px">🚫</div>
         <div style="min-width:0"><div style="font-weight:700;font-size:13px" class="gold">No presentás esta tarjeta</div>
         <div class="dim" style="font-size:11px">No cuenta para el Invierno ni va al club.
         Igual te queda guardada para vos, con los palos y las distancias que cargaste.</div></div>
@@ -3531,8 +3541,8 @@ function vOnboard(){
   /* ---- 2. buscarte en el padrón y verificar que sos vos ---- */
   if(S.onb===2){
     const est = S.padronEstado, p = S.hallado;
-    const aviso = (ic,tit,txt) => `<div style="background:#3a3117;border:1px solid #5c4a1f;border-radius:12px;padding:13px">
-      <div class="row" style="align-items:flex-start"><div class="ico" style="background:#5c4a1f">${ic}</div>
+    const aviso = (ic,tit,txt) => `<div style="background:var(--avisoBg);border:1px solid var(--avisoLn);border-radius:12px;padding:13px">
+      <div class="row" style="align-items:flex-start"><div class="ico" style="background:var(--avisoIco)">${ic}</div>
         <div style="min-width:0"><div style="font-weight:700;font-size:14px" class="gold">${tit}</div>
         <div class="dim" style="font-size:12px">${txt}</div></div></div></div>`;
 
@@ -3573,7 +3583,7 @@ function vOnboard(){
 
       ${est==='verificado'? (p.deMentira ? `
       <div class="sep"></div>
-      <div class="card" style="background:#3a3117;border-color:#5c4a1f;margin:0">
+      <div class="card" style="background:var(--avisoBg);border-color:var(--avisoLn);margin:0">
         <div style="font-weight:700;font-size:13px" class="gold">Modo prueba</div>
         <div class="dim" style="font-size:12px;margin-top:3px;line-height:1.5">
           Todavía no está conectado el padrón del club, así que no podemos confirmar
@@ -3842,7 +3852,7 @@ function vMe(){
         <span></span><span style="display:flex;gap:14px"><span>socio</span><span style="min-width:64px;text-align:right">invitado</span></span></div>
     </div>
 
-    <div class="card" style="border-color:#5c4a1f">
+    <div class="card" style="border-color:var(--avisoLn)">
       <div class="row" style="align-items:flex-start"><div class="ico">🧪</div>
       <div style="min-width:0">
         <div style="font-weight:700;font-size:13px">Estás probando la app</div>
@@ -3856,7 +3866,7 @@ function vMe(){
       <div style="font-weight:700">Panel del club</div>
       <div class="dim" style="font-size:12px">Figurás en la comisión de ${CLUB.corto}:
       ${ROLES[quien().rol].n}. Este panel no lo ve el resto de los socios.</div>
-      <button class="btn sm" style="margin-top:10px;background:var(--gold);color:#2a2005"
+      <button class="btn sm" style="margin-top:10px;background:var(--gold);color:#ffffff"
         onclick="S.mode='club';S.tab='dash';render()">Abrir panel del club</button>
     </div>`:''}
 
@@ -4063,7 +4073,7 @@ function vDash(){
       </div>
       <div class="bar"><i style="width:${Math.round(CLUB.torneo.inscriptos/CLUB.torneo.cupo*100)}%"></i></div>
       <div class="sep"></div>
-      <div class="between" style="background:#3a3117;border:1px solid #5c4a1f;border-radius:11px;padding:10px 12px;margin-bottom:12px">
+      <div class="between" style="background:var(--avisoBg);border:1px solid var(--avisoLn);border-radius:11px;padding:10px 12px;margin-bottom:12px">
         <div style="min-width:0"><div style="font-size:12px;font-weight:700" class="gold">Pro shop de este torneo</div>
           <div class="dim2" style="font-size:11px">Se carga en cada torneo. Con sponsor sube.</div></div>
         <div class="gold" style="font-weight:800;font-size:19px">${CLUB.torneo.proshop}</div>
@@ -4236,7 +4246,7 @@ function vTees(){return `<div class="fade">
          ['08:00','Comisión','4','Pendiente'],['08:10','Libre','–','—']].map(([h,j,c,e])=>
         `<tr><td class="name">${h}</td><td class="name dim" style="font-weight:400">${j}</td>
          <td class="dim">${c}</td><td><span class="pill ${e==='Salió'?'':e==='Libre'||e==='—'?'gold':'blue'}"
-         style="${e==='—'?'background:#1f3d2e;color:#5f7d6c':''}">${e}</span></td></tr>`).join('')}
+         style="${e==='—'?'background:var(--bg2);color:var(--dim2)':''}">${e}</span></td></tr>`).join('')}
       </tbody></table>
     </div>
     <div class="card" style="margin-bottom:24px"><h3>Reglas de reserva</h3>
@@ -4384,7 +4394,7 @@ function textoEstadoGps(){
 function bloqueSalir(texto){
   const listo = gpsVivo();
   return `
-    <div class="card" style="${listo?'':'border-color:#5c4a1f'}">
+    <div class="card" style="${listo?'':'border-color:var(--avisoLn)'}">
       <div class="between"><div style="min-width:0">
         <div style="font-weight:700;font-size:13px">Ubicación</div>
         <div class="dim" style="font-size:12px" id="estadoGps">${textoEstadoGps()}</div>
@@ -5870,7 +5880,7 @@ function vCopia(){
         sacalo antes. Dos teléfonos no pueden llevar la misma tarjeta.</div>
     </div>
 
-    ${hayDeshacer() ? `<div class="card" style="border-color:#5c4a1f;margin-bottom:24px">
+    ${hayDeshacer() ? `<div class="card" style="border-color:var(--avisoLn);margin-bottom:24px">
       <div class="row" style="align-items:flex-start"><div class="ico">↩️</div>
       <div style="min-width:0"><div style="font-weight:700;font-size:13px">Se importó una copia</div>
       <div class="dim" style="font-size:12px">Guardamos cómo estaba este teléfono antes.

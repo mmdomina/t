@@ -66,7 +66,7 @@ queda publicada igual, pero no la carga nadie).
 No es opcional: es lo que le avisa a los teléfonos que ya tienen la app que hay algo nuevo.
 Si no se toca, pueden seguir abriendo la versión vieja para siempre.
 
-Va en `trisquelia-vN`. Al día de hoy: **v14**.
+Va en `trisquelia-vN`. Al día de hoy: **v15**.
 
 ---
 
@@ -107,6 +107,18 @@ un club puede confiar en esto. No la pierdas por rellenar un hueco.
 ---
 
 ## 5. Las trampas
+
+**La app es CLARA, y el color se toca en un solo lado.** Hasta la v14 era azul oscura en todas
+las pantallas; la primera prueba en cancha (24/9/2026) dejó un solo reclamo y fue ése —
+"estéticamente no me gusta"—, con todo lo funcional aprobado. La referencia es Hole19, que es
+clara en todo salvo los botones que flotan sobre el plano. **Los colores viven en las variables
+CSS de `:root` y en `CLUB.theme`, y hay que tocar los dos**: `applyTheme()` pisa nueve tokens con
+los del club al arrancar, pero `--txt`, `--red`, `--blue` y los cuatro avisos salen sólo de
+`:root`. Si escribís un color a mano en una pantalla, la paleta deja de ser una sola cosa: usá
+`var(--...)`. Los cuatro avisos de color tienen sus propios tokens —`--avisoBg/Ln/Ico` (dorado),
+`--malBg/Ln` (rojo), `--ojoBg/Ln/Ico` (naranja), `--okBg/Ln` (verde)— porque estaban repetidos a
+mano en más de veinte lugares. `--ink` **no es un fondo**: es el color del texto SOBRE el acento,
+y en claro vale blanco. El plano del hoyo tiene su propia paleta de día adentro de `holeSVG()`.
 
 **La app no arranca siendo nadie, y no hay nombres de persona escritos a mano.** `S.user`
 empieza con `name`, `ini` y `hcp` en `null`, y `S.tipo` también: la app no supone que sos socio
