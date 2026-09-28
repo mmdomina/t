@@ -1779,15 +1779,91 @@ const CANCHA = {
      haz:[{t:'a',d:120,lado:-1,w:15},{t:'b',d:280,lado:1,w:9}],
      gb:[{a:180,r:1},{a:0,r:1.15}]}
 };
+/* ---------- LA FORMA MEDIDA DE CADA HOYO ----------
+   Hasta la v17 el dibujo salía de tres parámetros puestos a ojo por hoyo. Pero
+   la cancha está medida a pie: de cada green tenemos el frente, el centro y el
+   fondo, y de cada salida su coordenada. De ahí salen tres cosas que antes eran
+   inventadas y ahora son REALES:
+
+     · cuánto mide el green de frente a fondo — 18 yardas en el 6, 29 en el 7
+     · en qué ángulo está cruzado respecto de la línea de juego — de −41° en el
+       7 a +44° en el 9, que es lo que hace que un hoyo se reconozca de un
+       vistazo y que entrarle de frente no sea lo mismo que entrarle en diagonal
+     · dónde cae cada salida: no sólo a qué distancia, también cuánto corrida
+       del eje (el azul del 9 está 138 yardas adelante y 21 a la derecha)
+
+   Lo que sigue siendo a ojo, y lo dice el pie del dibujo: el ANCHO del green,
+   el contorno del fairway y dónde caen bunkers y lagunas. Eso se arregla
+   caminando la cancha con medir.html, no escribiendo código.
+
+   Si un club todavía no tiene coordenadas, esto devuelve null y el dibujo cae
+   al esquema de siempre. */
+
+/* Qué coordenada le toca a esta salida en este hoyo. Un hoyo físico se juega
+   dos veces: blancas en la ida y azules en la vuelta, y en el 4 y el 9 las
+   negras tienen un segundo tee propio. */
+function puntoTee(t, h){
+  const T = CLUB.geo && CLUB.geo.tees && CLUB.geo.tees[CLUB.fisico[h-1]];
+  if(!T) return null;
+  if(t.id === 'mixta')  return h<=9 ? T.blancas : T.azules;
+  if(t.id === 'damas')  return T.damas;
+  if(t.id === 'negras') return (!repiteTeeDe(t,h) && T.negras2) ? T.negras2 : T.negras;
+  return T[t.id] || null;
+}
+const repiteTeeDe = (t,h) => !t.mismoTee || t.mismoTee[CLUB.fisico[h-1]-1] !== false || h<=9;
+
+const YARDA = 1.0936133;
+function formaHoyo(h){
+  const g = CLUB.geo, fis = CLUB.fisico[h-1];
+  const G = g && g.greens && g.greens[fis];
+  const O = puntoTee(tee(), h);
+  if(!G || !O) return null;
+  /* Coordenadas planas en metros desde la salida de hoy. A esta escala —menos
+     de un kilómetro— la Tierra es plana y el error no llega al centímetro. */
+  const xy = q => { const la = (q[0]+O[0])*Math.PI/360;
+    return [ (q[1]-O[1])*Math.PI/180*6371000*Math.cos(la),
+             (q[0]-O[0])*Math.PI/180*6371000 ]; };
+  const c = xy(G.c), largoM = Math.hypot(c[0], c[1]);
+  if(!(largoM > 1)) return null;
+  const ux = c[0]/largoM, uy = c[1]/largoM;         // hacia el green
+  /* `a` avanza hacia el green, `l` es cuánto se corre a la derecha de la línea. */
+  const proy = q => { const v = xy(q);
+    return { a:(v[0]*ux + v[1]*uy)*YARDA, l:(v[0]*uy - v[1]*ux)*YARDA }; };
+  const f = proy(G.f), b = proy(G.b);
+  return {
+    largo: largoM*YARDA,
+    green: { largo: Math.hypot(b.a-f.a, b.l-f.l), da: b.a-f.a, dl: b.l-f.l },
+    tees: CLUB.tees.map(t => { const q = puntoTee(t, h);
+            return q ? Object.assign({id:t.id}, proy(q)) : null; }).filter(Boolean)
+  };
+}
+
 function holeSVG(h){
   const c   = CANCHA[CLUB.fisico[h-1]] || {dog:0,ancho:1,haz:[],gb:[]};
   const p   = par(h), W=200, H=312, base=272, gy=54;
-  const largoRef = 545;
-  const yDe = v => base - (v/largoRef)*(base-gy);
-  const tAct = tee(), largo = largoDibujo(h), yTee = yDe(largo);
+  const tAct = tee(), F = formaHoyo(h);
+  const LARGO = F ? F.largo : largoDibujo(h);
+  /* El alto del dibujo va a escala: entra desde la salida más atrasada hasta el
+     centro del green. El ANCHO va exagerado —1,3 px por yarda— porque a escala
+     real un hoyo de 400 yardas es un hilo de tres píxeles. Todo plano de golf
+     hace lo mismo. */
+  const aMin = F ? Math.min(0, ...F.tees.map(t=>t.a)) : 0;
+  const tope = Math.max(60, LARGO - aMin);
+  const yA = a => base - ((a - aMin)/tope)*(base-gy);   // yardas avanzadas desde la salida
+  const yDe = v => yA(LARGO - v);                       // yardas que FALTAN al green
+  const yTee = yA(0), KL = 1.3, xL = l => 100 + l*KL;
+  /* El green se dibuja con su largo real —más grande el del 7 que el del 6— pero
+     agrandado para que se lea, y con su inclinación medida. El ancho es el único
+     dato que no tenemos: se asume. */
+  const glargo = F ? F.green.largo : 22;
+  /* Alargado 1,6 a 1: un green redondo esconde la inclinación, que es
+     justamente el dato que medimos y el que cambia cómo se le entra. */
+  const ryG = Math.max(15, 20 + (glargo-22)*0.7), rxG = ryG*0.62;
+  const girG = F ? Math.atan2(F.green.dl*KL, F.green.da*(base-gy)/tope)*180/Math.PI : 0;
+  const rotG = `rotate(${girG.toFixed(1)} 100 ${gy})`;
   // el fairway va del tee al green, curvado según el dogleg
   const cx  = 100 + c.dog*32, anc = 25*c.ancho;
-  const yPos = d => yTee - (d/largoRef)*(base-gy);      // yardas desde el tee
+  const yPos = d => yA(d);                              // yardas desde el tee
   const lado = (l,y) => 100 + c.dog*32*(1-Math.abs((y-gy)/(base-gy))*.6) + l*anc*1.15;
 
   return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:100%;min-height:190px;display:block">
@@ -1819,7 +1895,7 @@ function holeSVG(h){
        font-family="sans-serif">fuera de límites</text>`:''}
 
     <!-- obstáculos, ubicados por yardas desde el tee -->
-    ${(c.haz||[]).filter(z=>z.d<largo).map(z=>{
+    ${(c.haz||[]).filter(z=>z.d<LARGO).map(z=>{
       const y=yPos(z.d), x=lado(z.lado*0.72, y);
       return z.t==='a'
         ? `<ellipse cx="${x}" cy="${y}" rx="${z.w}" ry="${z.w*0.62}" fill="url(#ag${h})"/>
@@ -1829,38 +1905,42 @@ function holeSVG(h){
 
     <!-- bunkers del green -->
     ${(c.gb||[]).map(g=>{
-      const a=g.a*Math.PI/180, rx=(p===3?26:31)+7;
-      return `<ellipse cx="${100+rx*Math.cos(a)*0.92}" cy="${gy+(p===3?18:22)*Math.sin(a)*1.15}"
+      const a=g.a*Math.PI/180;
+      return `<ellipse cx="${(100+(rxG+9)*Math.cos(a)).toFixed(1)}" cy="${(gy+(ryG+6)*Math.sin(a)).toFixed(1)}"
         rx="${8*g.r}" ry="${5.4*g.r}" fill="#e0cda0"/>`;}).join('')}
 
     <!-- green -->
-    <ellipse cx="100" cy="${gy}" rx="${p===3?25:30}" ry="${p===3?18:22}" fill="url(#gr${h})"/>
-    <ellipse cx="100" cy="${gy}" rx="${p===3?25:30}" ry="${p===3?18:22}" fill="none"
-             stroke="#7fbb8e" stroke-width=".7" opacity=".45"/>
+    <ellipse cx="100" cy="${gy}" rx="${rxG.toFixed(1)}" ry="${ryG.toFixed(1)}"
+             transform="${rotG}" fill="url(#gr${h})"/>
+    <ellipse cx="100" cy="${gy}" rx="${rxG.toFixed(1)}" ry="${ryG.toFixed(1)}"
+             transform="${rotG}" fill="none" stroke="#7fbb8e" stroke-width=".7" opacity=".45"/>
     <circle cx="100" cy="${gy+2}" r="2.4" fill="#24331f"/>
     <path d="M100 ${gy+2} v-17 l10 4.5 -10 4.5" fill="#c8202e" stroke="#c8202e" stroke-width="1"/>
 
     <!-- las salidas, cada una a su distancia real -->
     ${CLUB.tees.filter(t=>yardaDe(t,h)!=null).map(t=>{
-      const v=yardaDe(t,h), y=yDe(v), act=t.id===tAct.id;
+      const v=yardaDe(t,h), act=t.id===tAct.id;
+      const m = F && F.tees.find(x=>x.id===t.id);
+      const y = m ? yA(m.a) : yDe(v), x = m ? xL(m.l) : 100;
       const nom = t.id==='mixta' ? (h<=9?'Blancas':'Azules') : t.n;
       const col = t.id==='mixta' ? (h<=9?'#f5f5f5':'#3b82f6') : t.c;
       return `<g opacity="${act?1:.5}">
-        <rect x="${100-(act?11:8)}" y="${y}" width="${act?22:16}" height="${act?7:5}" rx="2.5"
+        <rect x="${(x-(act?11:8)).toFixed(1)}" y="${y.toFixed(1)}" width="${act?22:16}" height="${act?7:5}" rx="2.5"
               fill="${col}" stroke="#24331f80" stroke-width=".6"/>
-        <text x="${100+(act?16:13)}" y="${y+(act?6:5)}" fill="${act?'#12220f':'#2b3f24'}"
+        <text x="${(x+(act?16:13)).toFixed(1)}" y="${(y+(act?6:5)).toFixed(1)}" fill="${act?'#12220f':'#2b3f24'}"
               font-size="${act?4.6:4}" font-family="sans-serif" font-weight="${act?'700':'400'}">
           ${nom} ${v}</text></g>`;}).join('')}
 
     <!-- la estaca de 150 -->
-    ${largo>170?(()=>{const y=yPos(largo-150);
+    ${LARGO>170?(()=>{const y=yPos(LARGO-150);
       return `<line x1="${lado(-1,y)}" y1="${y}" x2="${lado(1,y)}" y2="${y}"
         stroke="#ffffff" stroke-width=".8" stroke-dasharray="3 3" opacity=".5"/>
       <circle cx="${lado(1,y)}" cy="${y}" r="2.6" fill="#ffffff" opacity=".95"/>
       <text x="${lado(1,y)+6}" y="${y+3}" fill="#12220f" font-size="4.2" font-family="sans-serif">150</text>`;})():''}
 
     <text x="8" y="${H-8}" fill="#2f4429" font-size="4.4" font-family="sans-serif">
-      cancha ${CLUB.fisico[h-1]} · distancias reales · forma aproximada</text>
+      cancha ${CLUB.fisico[h-1]} · ${F ? 'largo, green y salidas medidos' : 'forma aproximada'} ·
+      ancho y obstáculos a ojo</text>
   </svg>`;
 }
 

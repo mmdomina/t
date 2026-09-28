@@ -39,7 +39,8 @@ Son ~6.170 líneas. Los números se corren al editar; buscá el texto, no la lí
 | `function ratingDe` (~1090) | Con qué rating y slope se calcula: 18 hoyos o ese nueve |
 | `function hcpCancha` (~1062) | Handicap de cancha, fórmula del WHS y regla 6.1b |
 | `function gps(` (~1154) | Distancia al frente, centro y fondo del green |
-| `function holeSVG` (~1339) | El dibujo del hoyo |
+| `function formaHoyo` (~1780) | **La forma medida del hoyo**: largo, green e inclinación desde las coordenadas |
+| `function holeSVG` (~1845) | El dibujo del hoyo |
 | `function panelCierre` (~1552) | Cerrar el hoyo |
 | `function vPlay` (~1640) | **La pantalla de jugar** (referente: Hole19) |
 | `const HOJAS` (~1771) | Las hojas que se abren desde jugar |
@@ -66,7 +67,7 @@ queda publicada igual, pero no la carga nadie).
 No es opcional: es lo que le avisa a los teléfonos que ya tienen la app que hay algo nuevo.
 Si no se toca, pueden seguir abriendo la versión vieja para siempre.
 
-Va en `trisquelia-vN`. Al día de hoy: **v17**.
+Va en `trisquelia-vN`. Al día de hoy: **v18**.
 
 ---
 
@@ -107,6 +108,19 @@ un club puede confiar en esto. No la pierdas por rellenar un hueco.
 ---
 
 ## 5. Las trampas
+
+**La forma del hoyo sale de la cancha medida, no de parámetros a ojo.** Desde la v18 `formaHoyo(h)`
+proyecta las coordenadas del 5/8/2026 a un plano local con la salida de HOY en el origen y el eje
+apuntando al green, y de ahí salen el largo real, el largo del green de frente a fondo, su
+inclinación respecto de la línea de juego (de −41° en el 7 a +44° en el 9) y dónde cae cada salida,
+**lateral incluido**. `puntoTee(t,h)` elige la coordenada correcta: blancas en la ida y azules en la
+vuelta, y el segundo tee de negras en el 13 y el 18. Tres cosas para no romper: el dibujo va **a
+escala en el largo y exagerado 1,3 px por yarda en el ancho** —a escala real un hoyo de 400 yardas
+es un hilo—, así que el giro dibujado sale más marcado que el real y está bien; el green se dibuja
+alargado (1,6 a 1) porque uno redondo esconde la inclinación, que es el dato que medimos; y si un
+club no tiene `CLUB.geo`, `formaHoyo` devuelve null y el dibujo cae al esquema de siempre — eso está
+probado en `formatest`, y es lo que mantiene la app replicable a otro club. Lo que sigue siendo a
+ojo, y lo dice el pie del dibujo: el ancho del green, el contorno del fairway y los obstáculos.
 
 **Los íconos se dibujan, no se ponen con emoji.** Un emoji se ve distinto en cada teléfono —el
 trofeo de un Samsung no es el de un iPhone—, es una caricatura de color al lado de un escudo
@@ -322,6 +336,7 @@ node pruebas/cierretest.js            # cerrar el hoyo                 (43 ✓)
 node pruebas/teetest.js                # el aviso al llegar al tee      (21 ✓)
 node pruebas/canchatest.js             # la tarjeta y el handicap       (78 ✓)
 node pruebas/identidadtest.js          # quién sos: nombre e identidad  (44 ✓)
+node pruebas/formatest.js              # la forma medida de los hoyos   (29 ✓)
 ```
 
 El esquema del servidor se prueba aparte, contra un Postgres de verdad — no
@@ -350,9 +365,16 @@ teléfono nuevo, prueba los tres atajos que antes dejaban entrar sin nombre, bar
 pantallas del jugador buscando un nombre de persona escrito a mano, y comprueba que a una ronda
 compartida no se entre con nombre prestado.
 
-Entre las once suites son **361 comprobaciones**, más las **61** del esquema: 422 en total. Si
+`formatest` es el control cruzado de la cancha medida: la app calcula con una proyección plana y
+la suite recalcula **todo con haversine**, que es otra matemática; si los dos caminos dan lo mismo,
+el error no está en la cuenta. Tiene además un ancla externa —del tee de blancas al centro del
+green del 7 nuestras coordenadas dan 403 yardas y la captura de Hole19 marcaba 402— y al final
+**imprime qué greens habría que volver a medir** (hoy el 1, el 6 y el 8), que no es un error del
+código sino una tarea de cancha.
+
+Entre las doce suites son **390 comprobaciones**, más las **61** del esquema: 451 en total. Si
 alguna se pone en rojo después de un cambio tuyo, es un bug tuyo: estaban todas en verde el
-24/9/2026 (las 61 del esquema, ese mismo día, ya con los roles de Neon).
+25/9/2026 (las 61 del esquema, el 24/9, ya con los roles de Neon).
 
 Si Playwright no encuentra Chromium solo, pásale la ruta en `CHROME_PATH`.
 
@@ -402,6 +424,11 @@ proyecto de Claude.
    (el papel y la app coinciden) y el corte para salir de negras es **por index, hasta 10.3**.
    De la cancha no queda nada abierto con el club.
 6. Medir el tee de damas del 18 con `medir.html`: es el único punto de la cancha sin medir.
+7. **Volver a medir los greens 1, 6 y 8.** Los tres tienen el punto del centro sospechoso: en el 1
+   y el 6 está empujado contra el fondo (13 y 14 yardas del frente contra 7 y 5 del fondo, cuando
+   en los demás está partido al medio) y en el 8 está corrido 3,1 yardas al costado del eje
+   frente-fondo. El del 6 lo confirmó la prueba en cancha del 24/9: la app dijo 163 donde la estaca
+   decía 150. `formatest` los lista al final cada vez que corre.
 
 **Personas:** Mauro Domina (admin), Félix Córdoba (pro y oficial de reglas; salidas y
 resultados), Chelo Caballero (avisos, cancha, padrón, cuotas), Daniel Rodríguez (torneos).
