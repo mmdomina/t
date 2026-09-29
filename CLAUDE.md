@@ -245,10 +245,10 @@ ser el último index que jugaba con 10 de cancha en la tabla vieja —con la nue
 ocupa el 11.2—, pero la regla del club es por index, así que `CORTE_NEGRAS` no se recalcula
 cuando la federación revalúa la cancha. No lo "arregles" a 11.2.
 
-**El cruce son dos filas, no una.** Por cada jugador y hoyo puede haber dos anotaciones: la
-suya y la de su marcador (`de` y `por`). Por eso dos teléfonos nunca escriben la misma fila y
-no hay conflictos que resolver. Si alguna vez te tienta "unificar" eso en una sola fila,
-estarías rompiendo lo mejor del diseño.
+**El cruce son dos filas, no una** (dibujado en la sección 6). Por cada jugador y hoyo puede
+haber dos anotaciones: la suya y la de su marcador (`de` y `por`). Por eso dos teléfonos nunca
+escriben la misma fila y no hay conflictos que resolver. Si alguna vez te tienta "unificar" eso
+en una sola fila, estarías rompiendo lo mejor del diseño.
 
 **Nada se borra con `delete`.** Las tres tablas tienen `borrado_en`: borrar es ponerle fecha.
 Una tarjeta es la prueba de una vuelta y tiene que poder volver (`restaurar_ronda`). El único
@@ -317,7 +317,99 @@ una clave nueva a `localStorage`, decidí a conciencia si va en `COPIA_CLAVES` o
 
 ---
 
-## 6. Las pruebas
+## 6. El servidor en un diagrama
+
+Tres tablas, y las dos decisiones que sostienen la ronda compartida se ven acá mejor que
+leyendo `esquema.sql`. **Línea llena = clave foránea declarada. Línea punteada = la relación
+existe, pero no como restricción de la base.**
+
+```mermaid
+erDiagram
+    RONDAS ||--o{ JUGADORES : "el código que se dicta en el tee"
+    RONDAS ||--o{ ANOTACIONES : "todo cuelga de la ronda"
+    JUGADORES ||..o{ ANOTACIONES : "de · el score es suyo"
+    JUGADORES ||..o{ ANOTACIONES : "por · éste lo anotó"
+    JUGADORES |o..o| JUGADORES : "marca_a · le lleva la tarjeta"
+
+    RONDAS {
+        text codigo PK "seis letras, se dictan en voz alta"
+        text club
+        text cancha
+        int vuelta "9 o 18"
+        boolean torneo "en torneo se cruza la tarjeta"
+        date fecha
+        timestamptz creada
+        boolean cerrada "sólo alguien del grupo puede cerrar"
+        timestamptz borrado_en "null = viva"
+    }
+
+    JUGADORES {
+        text id PK "lo arma el teléfono"
+        text ronda FK "rondas.codigo · on delete cascade"
+        text nombre "sin apellido ni DNI: no hay datos personales"
+        text iniciales
+        numeric index_hcp
+        int hcp_cancha
+        text salida "negras, mixta o damas"
+        text marca_a "jugadores.id, sin FK: lo valida marcar_a()"
+        timestamptz visto
+        text llave "el secreto de ESE teléfono, nunca sale en ronda_estado"
+        timestamptz borrado_en "null = vivo"
+    }
+
+    ANOTACIONES {
+        text ronda PK,FK "rondas.codigo · on delete cascade"
+        text de PK "de quién es el score"
+        text por PK "quién lo anotó: por esto son DOS filas"
+        int hoyo PK "1 a 18"
+        int golpes "1 a 20"
+        int putts "0 a 15"
+        int bunker "0 a 9"
+        int penal "0 a 9"
+        text salida_fw "dónde quedó el drive"
+        timestamptz actualizado "el reloj de la sincronización"
+        timestamptz borrado_en "null = vale"
+    }
+```
+
+**La clave primaria de `anotaciones` son cuatro campos, y `por` es uno.** Eso es la regla del
+papel escrita en SQL: por cada jugador y cada hoyo puede haber dos filas, la suya y la de su
+marcador, y como el dueño es distinto **dos teléfonos nunca escriben la misma fila**. No hay
+conflictos que resolver ni "quién ganó" que decidir; el `on conflict (ronda, de, por, hoyo)`
+de `anotar()` sólo pisa lo que uno mismo escribió antes. Ahí está el valor del diseño: si
+alguien alguna vez propone una fila por jugador y hoyo, se pierde el cruce Y se gana el
+problema de sincronización que hoy no existe.
+
+**Las líneas punteadas son relaciones que la base NO hace cumplir.** `anotaciones.de`,
+`anotaciones.por` y `jugadores.marca_a` apuntan a `jugadores.id` sin `references`. Quien lo
+garantiza hoy son las funciones: `anotar()` corta con "ese jugador no está en la ronda" antes
+de insertar, y `marcar_a()` hace lo mismo con el marcador. Alcanza **porque a las tablas no
+llega nadie más** (ver abajo). Si algún día se abre otra puerta de escritura, esto se decide de
+nuevo a conciencia; no lo "arregles" de pasada.
+
+**A las tablas no se entra.** Tienen `row level security` prendida y **ninguna política** —que
+en Neon significa todo bloqueado— más un `revoke all` para `anonymous` y `authenticated`: un
+`select` directo rebota por permisos, no devuelve una lista vacía. De las trece funciones, la
+app sólo puede llamar seis, todas `security definer`: `ronda_abrir`, `ronda_unirse`,
+`ronda_estado`, `anotar`, `marcar_a` y `ronda_cerrar`. Las otras siete están revocadas y se
+dividen en dos: `entrar_jugador`, `llave_nueva` y `recortar` son ayudantes internos que llaman
+las de arriba, y `borrar_ronda`, `restaurar_ronda`, `limpiar_rondas_viejas` y `purgar_borradas`
+se corren a mano desde el editor de Neon. **Una función nueva nace abierta** (Postgres le da
+`execute` a `public`): si no es para la app, hay que revocarla en el mismo commit.
+
+**`llave` está en el diagrama para que se vea que existe, no para que viaje.** Es lo único que
+prueba quién sos, y `ronda_estado()` arma el JSON campo por campo justamente para no mandarla.
+Si agregás una columna a `jugadores`, la pregunta es si tiene que salir o no.
+
+**Las tres tablas terminan en `borrado_en`.** Borrar es ponerle fecha; el único `delete` de
+verdad vive en `purgar_borradas()`. Los dos índices acompañan esa idea:
+`jugadores_por_ronda` es parcial (`where borrado_en is null`) y `anotaciones_por_ronda` es
+`(ronda, actualizado)`, que es exactamente la pregunta que hace la app cada seis segundos:
+*qué cambió en esta ronda desde tal hora*.
+
+---
+
+## 7. Las pruebas
 
 En `pruebas/`. Necesitan Node, Playwright y la app servida en `http://localhost:8000`:
 
@@ -380,7 +472,7 @@ Si Playwright no encuentra Chromium solo, pásale la ruta en `CHROME_PATH`.
 
 ---
 
-## 7. Dónde está el resto del contexto
+## 8. Dónde está el resto del contexto
 
 - **El acta de las decisiones del club** está adentro de `index.html`, en el bloque de
   comentarios de arriba de `CLUBS_DB`. Reglamento, tarjeta, salidas, personas, qué está
@@ -392,7 +484,7 @@ Si Playwright no encuentra Chromium solo, pásale la ruta en `CHROME_PATH`.
 
 ---
 
-## 8. Estado y qué sigue
+## 9. Estado y qué sigue
 
 **Anda de verdad:** la cancha de la recategorización oficial de la AAG (septiembre de 2026)
 cargada y verificada —las tres salidas con yardas, rating y slope, y la valuación nueva—, las

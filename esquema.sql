@@ -28,12 +28,24 @@
 --  si todavía no existen.
 --
 --  POR QUÉ `anonymous`
---  La app entra SIN autenticarse: no hay cuentas, el código de la ronda se
---  dicta en voz alta en el tee. La Data API atiende con el rol `anonymous`
---  las peticiones que llegan sin header `Authorization`, y eso es justo lo
---  que necesitamos. No hay ninguna clave pública en el código de la app.
+--  La app entra SIN cuentas: el código de la ronda se dicta en voz alta en
+--  el tee y con eso alcanza. El rol que atiende esas llamadas es `anonymous`.
+--
+--  OJO, QUE ACÁ DECÍA CUALQUIER COSA: la Data API **pide un token SIEMPRE**,
+--  también para lo anónimo. "Anónimo" no es entrar sin credencial: es un
+--  token de una hora que cualquiera pide en `GET <auth>/token/anonymous`,
+--  sin registrarse, y que adentro dice `"role":"anonymous"`. Sin el header
+--  `Authorization` la Data API responde 401 y nada más. Por eso `NUBE`, en
+--  la app, tiene DOS direcciones y no una. La documentación de Neon se
+--  contradice sola; manda lo comprobado contra el servidor real.
+--
+--  Igual no hay ninguna clave secreta en el código: las dos direcciones son
+--  públicas y el token lo puede pedir cualquiera. Lo que protege la ronda no
+--  es el token, es la `llave` de cada teléfono más los permisos de abajo.
 --  (Antes esto estaba escrito para Supabase, donde ese rol se llama `anon`.
 --  Es el único cambio de fondo entre las dos plataformas.)
+--
+--  EL DIBUJO DE LAS TRES TABLAS está en `CLAUDE.md`, sección 6.
 -- ============================================================
 
 -- ---------- los dos roles de la Data API ----------
@@ -148,9 +160,14 @@ create index if not exists anotaciones_por_ronda on anotaciones (ronda, actualiz
 
 -- ---------- quién puede tocar qué ----------
 --  Las tablas quedan cerradas con llave. Nadie las lee ni las escribe
---  directamente: se entra sólo por las funciones de abajo, y todas
---  piden el código de la ronda. Así el código ES la llave, y nadie
---  puede listar las rondas de los demás.
+--  directamente: se entra sólo por las funciones de abajo, y todas piden el
+--  código de la ronda, así que nadie puede listar las rondas de los demás.
+--
+--  Pero el código NO alcanza para escribir. El código es una dirección —se
+--  dicta en voz alta en el tee—, y para anotar, marcar o cerrar hay que
+--  presentar además la `llave` de ESE teléfono. Ver el bloque de la llave,
+--  más arriba: sin eso, cualquiera que escuchara el código anotaba en la
+--  tarjeta ajena.
 
 alter table rondas      enable row level security;
 alter table jugadores   enable row level security;
