@@ -5501,21 +5501,35 @@ function vPrueba(){
    el teléfono y sin compartir nada. Con la dirección puesta aparece sola la
    opción de jugar con el grupo.
 
-   Es la URL de la Data API de Neon, tal como la muestra la consola del
-   proyecto. Antes acá iban DOS datos, porque Supabase pedía además una clave
-   pública; la Data API de Neon atiende sin ninguna clave a las peticiones que
-   llegan sin `Authorization`, y las resuelve con el rol `anonymous`, que sólo
-   puede llamar a las seis funciones de la ronda. Una clave menos dando vueltas
-   en un repositorio público.
+   Son DOS direcciones, las dos tal como las muestra la consola del proyecto:
+   la de los datos y la de autenticación. Y son dos, no una, porque **la Data
+   API pide un token SIEMPRE**, también para lo anónimo: sin header
+   `Authorization` contesta 401 y nada más. Lo que Neon llama "anónimo" no es
+   entrar sin credencial, es un token de una hora que cualquiera pide sin
+   registrarse en `<auth>/token/anonymous` y que adentro dice
+   `"role":"anonymous"`, el rol que sólo puede llamar a las seis funciones de
+   la ronda. Si alguna vez leés en la documentación de Neon que el rol anónimo
+   atiende "las peticiones sin header Authorization", está mal: lo probamos
+   contra el servidor real y no es así.
+
+   Lo que NO hay acá es una clave secreta. Con Supabase hacía falta además una
+   clave pública; con esto, no. Las dos direcciones son públicas a propósito.
 
    Que esta dirección sea pública es parte del diseño, igual que el código de
    seis letras: lo que protege la tarjeta es la llave propia de cada teléfono y
    que las tablas estén cerradas. Está todo en `esquema.sql`. */
+/* Proyecto `trisquelia` (`mute-darkness-79549796`), rama `production`, región
+   AWS US East 1 · Virginia. Se mudó desde São Paulo el 29/9/2026: allá la base
+   andaba perfecto, pero las Functions y el Object Storage de Neon todavía no
+   existen en esa región, y son las dos piezas que faltan para el alta de
+   socios (mandar el mail del código) y para la tarjeta firmada. Se mudó cuando
+   la base estaba vacía a propósito: con los 123 socios cargados, esto habría
+   sido una migración de datos personales en vez de un botón. */
 const NUBE = {
-  url : 'https://ep-withered-sky-b604798p.apirest.c-2.sa-east-1.aws.neon.tech/neondb/rest/v1',
+  url : 'https://ep-calm-salad-b8bd5cxb.apirest.c-14.us-east-1.aws.neon.tech/neondb/rest/v1',
   /* La dirección de autenticación, que sale del JWKS que muestra la consola.
      Se puede pegar entera —con `/.well-known/jwks.json` al final— o cortada. */
-  auth: 'https://ep-withered-sky-b604798p.neonauth.c-2.sa-east-1.aws.neon.tech/neondb/auth'
+  auth: 'https://ep-calm-salad-b8bd5cxb.neonauth.c-14.us-east-1.aws.neon.tech/neondb/auth'
 };
 const hayNube = () => !!(NUBE.url && NUBE.auth);
 /* La URL de Neon ya termina en /rest/v1. Aceptamos las dos formas —con esa

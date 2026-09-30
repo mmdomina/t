@@ -53,7 +53,8 @@ Son ~6.170 líneas. Los números se corren al editar; buscá el texto, no la lí
 | `function render()` (~5164) | El render |
 
 Otros archivos: `sw.js` (offline), `manifest.webmanifest` (instalación), `medir.html`
-(herramienta GPS para medir la cancha), `esquema.sql` (el servidor), `pruebas/`.
+(herramienta GPS para medir la cancha), `esquema.sql` (la ronda compartida en el servidor),
+`padron.sql` (el alta de socios, se instala después del anterior), `pruebas/`.
 
 ---
 
@@ -67,7 +68,7 @@ queda publicada igual, pero no la carga nadie).
 No es opcional: es lo que le avisa a los teléfonos que ya tienen la app que hay algo nuevo.
 Si no se toca, pueden seguir abriendo la versión vieja para siempre.
 
-Va en `trisquelia-vN`. Al día de hoy: **v18**.
+Va en `trisquelia-vN`. Al día de hoy: **v19**.
 
 ---
 
@@ -182,6 +183,17 @@ que *"anonymous access still uses a JWT"*—; manda la segunda, comprobado contr
 real. `tokenAnonimo()` lo pide, lo guarda en memoria con dos minutos de colchón y lo renueva
 solo; si igual llega un 401, `rpc()` pide otro y reintenta **una** vez. Una vuelta dura cuatro
 horas y el token una: esto se ejercita varias veces por partido, y `nubetest` lo prueba.
+
+**Al habilitar la Data API, la consola de Neon ofrece abrir todas las tablas. Hay que decir que
+no.** Son dos casillas, las dos tildadas por omisión. **"Use Neon Auth" va tildada**: es lo que
+emite el token anónimo, sin eso la app no entra. **"Grant public schema access" va DESTILDADA**:
+le da lectura y escritura sobre todo el esquema público a cualquier usuario autenticado, y en la
+misma pantalla Neon avisa que *"cualquiera en la web puede registrarse en tu app"*. Las dos
+juntas significan que un desconocido se registra y lee el padrón entero — 123 personas con
+nombre, DNI y mail. Nuestro diseño hace lo contrario: RLS sin políticas más `revoke all`, y se
+entra sólo por funciones. `esquema.sql` y `padron.sql` revocan esos permisos igual, por las
+suyas, pero eso es el segundo cerrojo, no una razón para dejar la puerta abierta. Esto no estaba
+documentado porque la consola vieja, en São Paulo, no ofrecía esas casillas.
 
 **No redibujes la pantalla entera con cada posición del GPS.** El teléfono manda una por
 segundo, y la animación de entrada (`.fade`) se reinicia en cada `render()`: la pantalla de
@@ -436,11 +448,17 @@ alcanza con el mock, porque los permisos y la migración sólo existen en
 Postgres:
 
 ```bash
-createdb t && psql -d t -c 'create role anon' -c 'create role authenticated'
+createdb t
 psql -d t -f esquema.sql
 psql -d t -f esquema.sql                    # otra vez: tiene que ser idempotente
-psql -d t -f pruebas/esquematest.sql       # borrado, identidad, permisos (61 ✓)
+psql -d t -f pruebas/esquematest.sql        # borrado, identidad, permisos  (61 ✓)
+psql -d t -f padron.sql
+psql -d t -f padron.sql                     # el alta también es idempotente
+psql -d t -f pruebas/altatest.sql           # el alta de socios              (69 ✓)
 ```
+
+Los roles los crea el propio `esquema.sql` si faltan, así que no hay que crearlos a mano.
+`padron.sql` va **después** de `esquema.sql` porque le usa `recortar()`.
 
 `bugs.js` es el más barato y el que más encuentra: renderiza cada pantalla en una matriz de
 estados (tres salidas × ronda vacía/jugando/terminada, cada solapa, el panel de cierre hoyo por
@@ -464,7 +482,15 @@ green del 7 nuestras coordenadas dan 403 yardas y la captura de Hole19 marcaba 4
 **imprime qué greens habría que volver a medir** (hoy el 1, el 6 y el 8), que no es un error del
 código sino una tarea de cancha.
 
-Entre las doce suites son **390 comprobaciones**, más las **61** del esquema: 451 en total. Si
+`altatest` es el control del alta de socios, y su sección adversaria es la que importa: se pone
+del lado del que quiere la lista de socios del club. Comprueba que al cuarto pedido del mismo DNI
+la puerta conteste **exactamente lo mismo** que para un DNI inventado, que sesenta pedidos en una
+hora corten para todos, y que un DNI que existe y uno que no **tarden igual** — el `crypt()` se
+corre siempre, incluso cuando el código se tira a la basura, porque si sólo se corriera para los
+socios de verdad la demora sería, de hecho, la respuesta.
+
+Entre las doce suites son **390 comprobaciones**, más las **61** del esquema y las **69** del
+alta: 520 en total. Si
 alguna se pone en rojo después de un cambio tuyo, es un bug tuyo: estaban todas en verde el
 25/9/2026 (las 61 del esquema, el 24/9, ya con los roles de Neon).
 
@@ -492,11 +518,20 @@ distancias por GPS con coordenadas medidas a pie, el handicap de cancha en 18 y 
 bolsa que se autocorrige, el registro de golpes, la app instalable que funciona sin señal, el
 modo prueba, y la ronda compartida entre teléfonos con el cruce de tarjetas.
 
-**El servidor es Neon**, no Supabase: proyecto `icy-unit-62393285`, rama `production`, con la
-Data API prendida y `esquema.sql` corriendo adentro. Las dos direcciones ya están en `const
-NUBE`. Si alguna vez quedan vacías, la app funciona igual que siempre, todo local. El porqué del
-cambio y lo que costó —la Data API pide token hasta para lo público— está en `neon.md`, en el
-proyecto de Claude.
+**El servidor es Neon**, no Supabase: proyecto `trisquelia` (`mute-darkness-79549796`), rama
+`production`, **región AWS US East 1 · Virginia**, con la Data API prendida y `esquema.sql`
+corriendo adentro. Las dos direcciones ya están en `const NUBE`. Si alguna vez quedan vacías, la
+app funciona igual que siempre, todo local. El porqué del cambio a Neon y lo que costó —la Data
+API pide token hasta para lo público— está en `neon.md`, en el proyecto de Claude.
+
+**Por qué Virginia y no São Paulo**, que es la región de acá: el proyecto vivió en São Paulo
+hasta el 29/9/2026 y la base andaba perfecto, pero **las Functions y el Object Storage de Neon no
+existen en esa región** — sólo en Ohio, Virginia, Frankfurt y Singapur. Y son justo las dos
+piezas que faltan: una Function es lo único que puede mandar el mail del código del alta (Postgres
+no manda mails y Neon no tiene `pg_net`), y el Object Storage es donde va a vivir la tarjeta
+firmada. Se mudó con la base vacía a propósito: con los 123 socios cargados habría sido una
+migración de datos personales en vez de un botón. Se pierden unos 100 ms de distancia, que en una
+app que juega sin señal y sincroniza cada seis segundos no se notan.
 
 **Lo próximo, en orden:**
 
