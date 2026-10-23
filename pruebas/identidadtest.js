@@ -274,7 +274,83 @@ const pantalla = p => p.evaluate(() =>
   ok(delPadron.nombre === 'Daniel Rodríguez' && delPadron.ini === 'DR' && delPadron.socio === '118',
      'con padrón de verdad, el nombre verificado se copia solo: nadie lo escribe dos veces');
 
-  await t1.ctx.close(); await t2.ctx.close(); await t3.ctx.close();
+  /* ══ 8 · Vacío no es "coincide" ═════════════════════════════════════
+     Hasta la v21, la pantalla de firma leía "el marcador no anotó nada" como
+     "el marcador está de acuerdo": decía "Lo que anotó MD coincide con tus
+     golpes en los 18 hoyos" sin un solo número del otro lado, y el total de la
+     fila del marcador sumaba los golpes del jugador. Lo encontró la revisión
+     del PDF para la comisión, el 23/10/2026. Es de la misma familia que el
+     neto inventado sin index: una confirmación que nadie dio. */
+  console.log('\n8. Vacío no es "coincide"');
+  const t4 = await telefono(b, { v:1, onboarded:true, tipo:'socio', tee:'mixta', vuelta:18,
+    hole:4, playing:true, torneo:true,
+    R:{ scores:{1:4,2:5,3:3}, putts:{}, fw:{}, gir:{}, shots:{}, bunker:{}, penal:{} },
+    user:{ name:'Socio Prueba', ini:'SP', hcp:12.4, socio:'—', club:'Trisquelia Golf Club', cat:'cab' } });
+  errores.push(...t4.errores);
+  const firma = async () => { await t4.p.evaluate(() => { S.tab = 'firma'; render(); });
+    await t4.p.waitForTimeout(400); return pantalla(t4.p); };
+
+  const vacia = await firma();
+  ok(!/coincide con tus golpes/i.test(vacia),
+     'sin nada del marcador, NO dice que coincide');
+  ok(/todavía no anotó nada/i.test(vacia),
+     'dice que el marcador todavía no anotó');
+  const filaMarca = await t4.p.evaluate(() => {
+    const tr = [...document.querySelectorAll('#screen tr')].find(r => /anotó/.test(r.innerText));
+    return tr ? tr.lastElementChild.innerText.trim() : null;
+  });
+  ok(filaMarca === '–', `el total del marcador es una raya, no mis golpes (dice "${filaMarca}")`);
+
+  /* Y que el arreglo no rompa el caso bueno: con lo del marcador cargado y
+     de acuerdo, sí tiene que decir que coincide. */
+  const llena = await t4.p.evaluate(() => {
+    MARCA[1] = 4; MARCA[2] = 5; MARCA[3] = 3; S.tab = 'firma'; render();
+    return document.getElementById('screen').innerText.replace(/\s+/g,' ');
+  });
+  ok(/coincide con tus golpes/i.test(llena),
+     'con el marcador de acuerdo en los tres hoyos, sí dice que coincide');
+  const distinta = await t4.p.evaluate(() => {
+    MARCA[2] = 6; S.tab = 'firma'; render();
+    return document.getElementById('screen').innerText.replace(/\s+/g,' ');
+  });
+  ok(/No coincide en 1 hoyo/i.test(distinta),
+     'y si no coincide en uno, lo marca');
+
+  /* ══ 9 · La fecha de la tarjeta es la de la vuelta ═════════════════
+     Hasta la v21 decía "31/07/2026" escrito a mano, para todos y para
+     siempre. En la v22 la fecha se fija al salir al 1 —pero la primera
+     versión del arreglo no la guardaba, y una recarga de Android en el medio
+     de la vuelta la borraba. Acá se simula exactamente eso: una vuelta de
+     hace tres días, el teléfono que recarga, y la tarjeta que tiene que
+     seguir diciendo el día que se jugó, no el de hoy. */
+  console.log('\n9. La fecha de la tarjeta es la de la vuelta');
+  const hace3 = await t4.p.evaluate(() => {
+    const d = new Date(); d.setDate(d.getDate() - 3);
+    S.fecha = d.toISOString().slice(0,10); guardarTodo();
+    return fechaTarjeta();
+  });
+  /* NO con `t4.p.reload()`: `telefono()` siembra el localStorage con un
+     `addInitScript`, que corre en CADA carga de esa página, y la recarga
+     pisaría lo que la app guardó — la prueba daría rojo por la razón
+     equivocada. Una página nueva en el mismo contexto comparte el
+     localStorage y no tiene la semilla: es lo que ve el teléfono cuando
+     Android le recarga la pestaña. */
+  const p2 = await t4.ctx.newPage();
+  p2.on('pageerror', e => errores.push(e.message));
+  await p2.goto(APP, { waitUntil:'load' });
+  await p2.waitForTimeout(1200);
+  const trasRecargar = await p2.evaluate(() => ({ f: fechaTarjeta(), hoy: (() => {
+    const d = new Date(); return String(d.getDate()).padStart(2,'0') + '/' +
+      String(d.getMonth()+1).padStart(2,'0') + '/' + d.getFullYear(); })() }));
+  ok(trasRecargar.f === hace3,
+     `después de una recarga sigue diciendo el día de la vuelta (${hace3}, dice ${trasRecargar.f})`);
+  ok(trasRecargar.f !== trasRecargar.hoy,
+     'y no la cambia por la de hoy');
+  ok(!/31\/07\/2026/.test(await p2.evaluate(() => { S.tab='tarjeta'; render();
+       return document.getElementById('screen').innerText; })),
+     'la fecha vieja escrita a mano no aparece más');
+
+  await t1.ctx.close(); await t2.ctx.close(); await t3.ctx.close(); await t4.ctx.close();
   console.log(`\n${pasaron} bien · ${fallaron} mal`);
   console.log('Errores de JavaScript:', errores.length ? errores : 'ninguno');
   await b.close();
