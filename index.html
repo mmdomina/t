@@ -923,53 +923,68 @@ function ponerNombre(n){
   return true;
 }
 
-const EQUIPO = [
-  {n:'Mauro Domina',     i:'MD', rol:'admin',   vos:true},
-  {n:'Félix Córdoba',    i:'FC', rol:'salidas'},
-  {n:'Chelo Caballero',  i:'CC', rol:'avisos'},
-  {n:'Daniel Rodríguez', i:'DR', rol:'torneos'}
-];
-/* ¿Esta persona es de la comisión? Todavía no hay login, así que lo único con
-   qué reconocerla es el nombre que cargó. Alcanza para lo que hace falta hoy:
-   que el panel del club no se le abra a cualquiera que baja la app, y que el
-   que sí entra lo haga con SU rol y no como administrador. Cuando haya cuentas
-   de verdad, el rol lo dice el servidor y esto se cae solo. */
-const enComision = () => EQUIPO.findIndex(m =>
-  hayNombre() && m.n.toLowerCase() === String(S.user.name).trim().toLowerCase());
-const esComision = () => enComision() >= 0;
-/* quién está mirando el panel — el selector de "ver como" manda si lo usaron
+/* ============================================================
+   QUIÉN SOS PARA EL CLUB — y lo decide el servidor
+   ============================================================
+   Hasta la v20 esto era una lista de cuatro nombres escrita acá abajo, y
+   la app te reconocía comparando el nombre que habías tecleado. Eso tenía
+   dos problemas y los dos se arreglan juntos.
 
-   OJO CON EL `Math.max(0, ...)` QUE HABÍA ACÁ. Cuando la persona no figuraba
-   en la comisión, `enComision()` devuelve -1 y ese `Math.max` lo convertía en
-   0: la app te trataba como el PRIMERO del equipo, que es el administrador.
-   Junto con el acceso directo de la URL, cualquiera que hubiera escrito un
-   nombre abría `?ir=permisos` y veía el panel entero diciéndole "sos el
-   administrador". Comprobado el 22/10/2026 y cerrado el mismo día. Si no sos
-   de la comisión no sos nadie acá: devuelve null, y `puede()` dice que no. */
-const quienK = () => {
-  const yo = enComision();
-  if(yo < 0) return -1;
-  /* "Ver como" es un simulador para mirar el panel con los ojos de otro, no
-     una puerta: sólo vale si la persona de verdad está en la comisión. */
-  return (S.comoQuien != null && EQUIPO[S.comoQuien]) ? S.comoQuien : yo;
-};
-const quien  = () => EQUIPO[quienK()] || null;
+   UNO: un servidor no le puede creer a un nombre. Cualquiera escribe
+   "Chelo Caballero". Alcanzaba mientras el panel no escribía nada en
+   ningún lado, pero el panel ahora publica avisos a nombre del club.
+
+   DOS: eran cuatro nombres de personas reales en un repositorio público.
+   Era el último lugar donde quedaba uno, y estaba anotado como pendiente
+   desde la v14.
+
+   Ahora: cada PUESTO de la comisión tiene una llave que da el servidor.
+   La persona la pega una vez (`entrarComision()`), el servidor contesta
+   quién es y qué puede hacer, y el teléfono se lo guarda. La lista de
+   permisos viene de allá, no de acá: si viviera en los dos lados algún
+   día dejarían de coincidir y mandaría el equivocado.
+
+   Y la llave es del PUESTO, no de la persona. Cuando el profesional de la
+   cancha cambia, el club corre un renglón y la llave sigue sirviendo. Por
+   eso acá nunca hay un nombre escrito a mano. */
+const LLAVE_CLUB = 'trisquelia_comision';
+let COMISION = null;        // {llave, puesto, persona, rol, permisos:[]}
+
+function cargarComision(){
+  try{ COMISION = JSON.parse(localStorage.getItem(LLAVE_CLUB) || 'null'); }catch(e){ COMISION = null; }
+  /* Una credencial a medias no sirve y confunde: o está entera o no está. */
+  if(COMISION && !(COMISION.llave && Array.isArray(COMISION.permisos))) COMISION = null;
+}
+function guardarComision(){
+  try{ COMISION ? localStorage.setItem(LLAVE_CLUB, JSON.stringify(COMISION))
+                : localStorage.removeItem(LLAVE_CLUB); }catch(e){}
+}
+
+const esComision = () => !!COMISION;
+const quien = () => COMISION;
+/* Con qué nombre se lo ve en el panel: la persona si el club la cargó, y
+   si el puesto está vacante, el puesto. Nunca vacío. */
+const quienNombre = () => !COMISION ? null : (COMISION.persona || COMISION.puesto);
+
 /* Qué es público y qué es solo para socios.
    Los resultados van abiertos: ya son públicos en la federación y son
    la mejor carta de presentación del club. Lo de plata, no. */
 const SOLO_SOCIOS = ['cuota','padron','avisosInternos','ranking','precioSocio'];
 const esSocio = () => S.tipo==='socio';
-const puede  = k => { const q = quien(); return !!q && ROLES[q.rol].p.includes(k); };
+/* La lista de permisos la mandó el servidor al entrar. `ROLES` sigue
+   existiendo más arriba, pero sólo para poner el nombre lindo del rol en
+   pantalla: para dejar pasar o no, manda esto. */
+const puede = k => !!COMISION && COMISION.permisos.indexOf(k) >= 0;
 
 /* ---------- LA ÚNICA PUERTA AL PANEL ----------
    Todo lo que pueda terminar dibujando una pantalla del club pregunta por
    acá: el botón de Perfil, el nav, el acceso directo de la URL y el render.
    Una sola puerta y no cuatro es justamente lo que evita que se abra una
-   mientras las otras siguen cerradas, que es lo que pasó. */
+   mientras las otras siguen cerradas, que es lo que pasó en la v19. */
 const PANTALLAS_CLUB = ['dash','tees','socios','torneo','permisos','cargaaag'];
 const esPantallaClub = t => PANTALLAS_CLUB.indexOf(t) >= 0;
-/* Estar en la lista no alcanza: el rol `sin` existe y no abre nada. */
-const puedeEntrarAlPanel = () => { const q = quien(); return !!q && ROLES[q.rol].p.length > 0; };
+/* Tener llave no alcanza: el rol `sin` existe y no abre nada. */
+const puedeEntrarAlPanel = () => !!COMISION && COMISION.permisos.length > 0;
 const puedePantalla = t => !esPantallaClub(t) || (puedeEntrarAlPanel() && puedeVer(t));
 
 let CLUB = CLUBS_DB.trisquelia;             // ← el club de esta instalación
@@ -1192,7 +1207,11 @@ function gaps(){const l=inBag().slice().sort((a,b)=>media(b)-media(a));
   return l.map((b,i)=> i<l.length-1 ? {a:b, b:l[i+1], g:media(b)-media(l[i+1])} : null).filter(Boolean);}
 
 /* derivados de la config del club */
-const FEED = () => CLUB.feed;
+/* Las novedades salen del servidor, no del código. Si el club no publicó
+   nada, la lista va vacía y la pantalla lo dice — no se rellena con avisos
+   de ejemplo, que es la forma más fácil de que un socio crea que algo pasó
+   cuando no pasó nada. */
+const FEED = () => CLUB_VIVO.avisos.filter(a => !a.borrado_en);
 const SHOP = () => CLUB.shop;
 function TIMES(){
   const h=CLUB.horarios, out=[];
@@ -1418,7 +1437,54 @@ const CLIMA = {temp:null, ic:'', dir:'', kmh:null};
 /* Estado de la cancha. Lo carga quien tenga el permiso 'cancha' — hoy Chelo.
    Es un dato que siempre es cierto porque lo pone una persona, no se deduce
    de cuánta gente usa la app. */
-const CANCHA_ESTADO = {abierta:true, nota:'', porQuien:null, desde:null};
+/* ============================================================
+   LO QUE EL CLUB LE DICE A LOS SOCIOS — y lo dice el servidor
+   ============================================================
+   Hasta la v20 el estado de la cancha vivía en el teléfono de cada uno:
+   si Chelo la cerraba en su aparato, el resto del club no se enteraba.
+   Un sábado de lluvia, 123 socios veían 123 respuestas distintas y
+   ninguna era la del club. Y las novedades eran una lista escrita en el
+   código, igual para siempre.
+
+   Ahora las dos salen de `club_estado()`. Lo que llega se guarda en el
+   teléfono, así que sin señal se sigue viendo lo último que se supo —
+   la app es offline primero y eso no se negocia.
+
+   Y si NUNCA llegó nada, el estado es `null` y la pantalla lo dice. Antes
+   el valor por omisión era "abierta", que es exactamente la clase de
+   número inventado que esta app no muestra: alguien podía manejar hasta
+   la cancha un domingo de tormenta porque el teléfono le dijo que estaba
+   abierta sin haberle preguntado a nadie. */
+const CLUB_VIVO = { cancha:null, avisos:[], desde:null };
+
+const canchaAbierta = () => CLUB_VIVO.cancha ? !!CLUB_VIVO.cancha.abierta : null;
+const canchaTxt     = () => CLUB_VIVO.cancha ? (CLUB_VIVO.cancha.abierta ? 'Abierta' : 'Cerrada')
+                                             : 'Sin datos';
+const canchaClase   = () => CLUB_VIVO.cancha ? (CLUB_VIVO.cancha.abierta ? 'acc' : 'gold') : 'dim';
+/* La nota, y debajo quién la publicó y cuándo. Un socio que lee "cerrada"
+   un sábado a la mañana tiene derecho a saber quién lo dijo. */
+const canchaNota = () => {
+  const c = CLUB_VIVO.cancha;
+  if(!c) return 'El club todavía no publicó el estado';
+  return c.nota || 'Sin novedades';
+};
+const canchaFirma = () => {
+  const c = CLUB_VIVO.cancha;
+  if(!c || !c.por) return '';
+  return c.por + (c.desde ? ' · ' + hace(c.desde) : '');
+};
+/* "hace 20 minutos" dice más que una fecha: lo que importa de un estado
+   de cancha es si es de hoy o de la semana pasada. */
+function hace(iso){
+  const t = Date.parse(iso); if(!t) return '';
+  const m = Math.round((Date.now() - t) / 60000);
+  if(m < 2)    return 'recién';
+  if(m < 60)   return 'hace ' + m + ' min';
+  const h = Math.round(m/60);
+  if(h < 24)   return 'hace ' + h + (h===1?' hora':' horas');
+  const d = Math.round(h/24);
+  return d === 1 ? 'ayer' : 'hace ' + d + ' días';
+}
 const PROF_GREEN = 12;          // sólo se usa si no hay GPS ni coordenadas
 
 /* ---------- dónde está el jugador ---------- */
@@ -1738,8 +1804,9 @@ function vHome(){
       <div class="card" style="margin:0">
         <div class="lbl">Estado de la cancha</div>
         <div style="font-size:20px;font-weight:800;margin-top:4px"
-          class="${CANCHA_ESTADO.abierta?'acc':'gold'}">${CANCHA_ESTADO.abierta?'Abierta':'Cerrada'}</div>
-        <div class="dim" style="font-size:12px">${CANCHA_ESTADO.nota||'Sin novedades'}</div>
+          class="${canchaClase()}">${canchaTxt()}</div>
+        <div class="dim" style="font-size:12px">${esc(canchaNota())}</div>
+        ${canchaFirma()?`<div class="dim2" style="font-size:11px;margin-top:2px">${esc(canchaFirma())}</div>`:''}
       </div>
       <div class="card" style="margin:0">
         <div class="lbl">Clima en cancha</div>
@@ -1755,9 +1822,14 @@ function vHome(){
 
     <h2>Novedades del club</h2>
     <div class="card">
-      ${FEED().filter(f=>!f.socios||esSocio()).map(f=>`<div class="item"><div class="ico">${ico(f.ic)}</div>
-        <div style="min-width:0"><div style="font-weight:700;font-size:14px">${f.t}</div>
-        <div class="dim" style="font-size:12px">${f.s}</div></div></div>`).join('')}
+      ${FEED().length ? FEED().filter(f=>!f.socios||esSocio()).map(f=>`<div class="item"><div class="ico">${ico(f.ic)}</div>
+        <div style="min-width:0"><div style="font-weight:700;font-size:14px">${esc(f.titulo)}</div>
+        ${f.detalle?`<div class="dim" style="font-size:12px">${esc(f.detalle)}</div>`:''}
+        <div class="dim2" style="font-size:11px">${esc(f.por||'')}${f.creado?' · '+hace(f.creado):''}</div>
+        </div></div>`).join('')
+        : `<div class="dim" style="font-size:13px">${NUBE_ESTADO.conectado
+             ? 'El club no publicó novedades.'
+             : 'Todavía no se pudieron traer las novedades del club.'}</div>`}
     </div>
 
     <h2>Accesos rápidos</h2>
@@ -2475,9 +2547,9 @@ const HOJAS = {
       Con eso y las tres distancias de arriba tenés el número exacto al palo.</div>
     <div class="sep"></div>
     <div class="lbl" style="margin-bottom:6px">Estado de la cancha</div>
-    <div style="font-weight:700;font-size:15px" class="${CANCHA_ESTADO.abierta?'acc':'gold'}">
-      ${CANCHA_ESTADO.abierta?'Abierta':'Cerrada'}</div>
-    <div class="dim" style="font-size:12px;margin-bottom:8px">${CANCHA_ESTADO.nota||'Sin novedades'}</div>` }
+    <div style="font-weight:700;font-size:15px" class="${canchaClase()}">
+      ${canchaTxt()}</div>
+    <div class="dim" style="font-size:12px;margin-bottom:8px">${esc(canchaNota())}</div>` }
 };
 
 function vStats(){
@@ -4074,18 +4146,26 @@ function vMe(){
       <div style="min-width:0">
         <div style="font-weight:700;font-size:13px">Estás probando la app</div>
         <div class="dim" style="font-size:12px">Todo lo que cargues se guarda en este teléfono
-        y no sale a ningún lado. Todavía no hay servidor: a Félix no le llega nada.</div></div></div>
+        y no sale a ningún lado: la tarjeta no le llega al club.</div></div></div>
       <button class="btn ghost sm" style="margin-top:11px" onclick="borrarTodoLocal()">
         Borrar todo y empezar de nuevo</button>
     </div>
 
     ${puedeEntrarAlPanel()?`<div class="card modeban">
       <div style="font-weight:700">Panel del club</div>
-      <div class="dim" style="font-size:12px">Figurás en la comisión de ${CLUB.corto}:
-      ${ROLES[quien().rol].n}. Este panel no lo ve el resto de los socios.</div>
+      <div class="dim" style="font-size:12px">${esc(quien().puesto||'')}${quien().persona?' · '+esc(quien().persona):''}.
+      Este panel no lo ve el resto de los socios.</div>
       <button class="btn sm" style="margin-top:10px;background:var(--gold);color:#ffffff"
         onclick="S.mode='club';S.tab='dash';render()">Abrir panel del club</button>
-    </div>`:''}
+    </div>`:`<div class="card">
+      <div style="font-weight:700">¿Sos de la comisión?</div>
+      <div class="dim" style="font-size:12px;line-height:1.6">El club te da una llave para tu
+      puesto. Se pega una sola vez y queda guardada en este teléfono.</div>
+      <input id="llaveIn" placeholder="Pegá acá la llave que te dieron" autocomplete="off"
+        style="width:100%;margin-top:10px;padding:13px;border-radius:12px;background:var(--nav);
+        border:1px solid var(--line);color:var(--txt);font-family:inherit;font-size:13px">
+      <button class="btn ghost sm" style="margin-top:9px" onclick="entrarComision()">Entrar al panel</button>
+    </div>`}
 
     <h2>Mis rondas</h2>
     <div class="card">
@@ -4123,32 +4203,20 @@ function vMe(){
 /* ============================================================
    PANTALLAS — CLUB (admin)
    ============================================================ */
-function selectorQuien(){
-  const q = quien();
-  if(!q) return '';
-  /* El simulador es del administrador: el resto se ve sólo a sí mismo y no
-     tiene por qué poder mirar el panel con los ojos de otro. */
-  if(!puede('admin')) return '';
-  return `<div class="card" style="padding:12px">
-    <div class="lbl" style="margin-bottom:8px">Estás viendo el panel como</div>
-    <div class="grid4">${EQUIPO.map((e,k)=>
-      `<button class="chip ${quienK()===k?'on':''}" style="padding:9px 3px;font-size:11px"
-        onclick="S.comoQuien=${k};S.tab='dash';render()">${e.n.split(' ')[0]}
-        <div class="dim2" style="font-size:9px;font-weight:500">${ROLES[e.rol].n}</div></button>`).join('')}</div>
-    ${!q.vos?`<div class="dim2" style="font-size:11px;margin-top:9px">
-      Así ve el panel ${q.n}. Solo aparece lo que le habilitaste.</div>`:''}
-  </div>`;
-}
+/* El selector de "ver el panel como otro" se fue en la v21. Era de la
+   maqueta: la app tenía la lista de las cuatro personas escrita adentro y
+   el administrador podía ponerse los ojos de cualquiera. Ahora cada uno
+   entra con su propia llave y la app no conoce a los demás — la lista la
+   tiene el servidor, que es donde corresponde. */
 
 function vDash(){
   const q = quien();
   if(!q) return vHome();          // el portón de `render()` ya devolvió a casa
   return `<div class="fade">
   <div class="hdr"><div class="row" style="gap:11px">${crest(38)}
-    <div><div class="lbl">Panel · ${CLUB.corto}</div><h1 style="font-size:23px">${q.vos?'Hoy':q.n.split(' ')[0]}</h1></div></div>
+    <div><div class="lbl">Panel · ${CLUB.corto}</div><h1 style="font-size:23px">${esc(String(quienNombre()).split(' ')[0])}</h1></div></div>
     <button class="chip" onclick="S.mode='player';S.tab='home';render()">Salir</button></div>
   <div class="pad">
-    ${selectorQuien()}
 
     <div class="card">
       <div class="between"><div><div class="lbl">Tu rol</div>
@@ -4247,7 +4315,26 @@ function vDash(){
           `<button class="chip" style="padding:14px 6px" onclick="avisar('${t2}')">
             <div style="font-size:18px">${i2}</div>${t2}</button>`).join('')}
       </div>
-      <button class="btn sm" style="margin-top:11px" onclick="avisar('Aviso del club')">Escribir otro aviso</button>
+      <div class="lbl" style="margin:15px 0 5px">O escribilo vos</div>
+      <input id="avisoIn" placeholder="Ej: la cancha abre a las 8 el domingo" autocomplete="off"
+        style="width:100%;padding:13px;border-radius:12px;background:var(--nav);
+        border:1px solid var(--line);color:var(--txt);font-family:inherit;font-size:14px">
+      <label class="row" style="gap:8px;margin-top:9px;font-size:12.5px;cursor:pointer">
+        <input type="checkbox" id="avisoSocios"> No mostrarlo a quien no sea socio</label>
+      <div class="dim2" style="font-size:11px;margin-top:5px;line-height:1.5">
+        Eso decide qué se muestra, no qué se puede averiguar: hasta que los socios tengan
+        cuenta, dalo por público. No pongas acá nada que no quieras que se lea.</div>
+      <button class="btn sm" style="margin-top:9px" onclick="avisarEscrito()">Publicar aviso</button>
+
+      ${FEED().length?`
+      <div class="lbl" style="margin:17px 0 5px">Avisos en pantalla</div>
+      ${FEED().map(a=>`<div class="between" style="padding:9px 0;border-bottom:1px solid var(--hair)">
+        <div class="row" style="min-width:0;flex:1;gap:9px"><div class="ico">${ico(a.ic)}</div>
+          <div style="min-width:0"><div style="font-weight:600;font-size:13px">${esc(a.titulo)}</div>
+          <div class="dim2" style="font-size:11px">${esc(a.por||'')}${a.creado?' · '+hace(a.creado):''}${a.socios?' · sólo socios':''}</div></div></div>
+        <button class="chip" style="padding:6px 11px;font-size:12px" onclick="bajarAviso(${a.id})">Bajar</button>
+      </div>`).join('')}`:`
+      <div class="dim2" style="font-size:11.5px;margin-top:13px">No hay ningún aviso publicado.</div>`}
     </div>`:''}
 
     ${puede('cancha')?`
@@ -4265,22 +4352,20 @@ function vDash(){
   </div>
   <div class="card"><h3>¿La cancha está abierta?</h3>
       <div class="dim" style="font-size:12px;margin-bottom:11px">
-        Es lo primero que ve el socio al abrir la app. Lo que pongas acá lo ven los 123.</div>
+        Es lo primero que ve el socio al abrir la app. Lo que pongas acá lo ven todos.</div>
       <div class="grid2">
-        <button class="chip ${CANCHA_ESTADO.abierta?'on':''}" style="padding:15px 6px;font-size:14px"
+        <button class="chip ${canchaEditando()===true?'on':''}" style="padding:15px 6px;font-size:14px"
           onclick="setCancha(true)">Abierta</button>
-        <button class="chip ${CANCHA_ESTADO.abierta?'':'on'}" style="padding:15px 6px;font-size:14px"
+        <button class="chip ${canchaEditando()===false?'on':''}" style="padding:15px 6px;font-size:14px"
           onclick="setCancha(false)">Cerrada</button>
       </div>
       <div class="lbl" style="margin:14px 0 5px">Aclaración, si hace falta</div>
-      <input value="${CANCHA_ESTADO.nota||''}" placeholder="Ej: aireación de greens hasta el viernes"
-        oninput="CANCHA_ESTADO.nota=this.value"
+      <input id="notaCancha" value="${esc((CLUB_VIVO.cancha&&CLUB_VIVO.cancha.nota)||'')}"
+        placeholder="Ej: aireación de greens hasta el viernes"
         style="width:100%;padding:13px;border-radius:12px;background:var(--nav);
         border:1px solid var(--line);color:var(--txt);font-family:inherit;font-size:14px">
       <div class="dim2" style="font-size:11px;margin-top:7px">
-        ${CANCHA_ESTADO.porQuien
-          ? 'Última vez: '+CANCHA_ESTADO.porQuien+', '+CANCHA_ESTADO.desde
-          : 'Nadie lo tocó todavía'}</div>
+        ${canchaFirma() ? 'Última vez: '+esc(canchaFirma()) : 'Nadie lo publicó todavía'}</div>
       <button class="btn sm" style="margin-top:11px" onclick="publicarCancha()">
         Guardar y avisar a los socios</button>
     </div>`:''}
@@ -4359,7 +4444,7 @@ function vDash(){
         <span class="pill gold">2</span></div>
       <div class="between" style="background:var(--tint);border-radius:11px;padding:9px 11px;margin-bottom:11px">
         <span style="font-size:12px;font-weight:600">Pueden habilitar</span>
-        <span class="dim" style="font-size:12px">${EQUIPO.filter(e=>ROLES[e.rol].p.includes('padron')).map(e=>e.n.split(' ')[0]).join(' y ')}</span>
+        <span class="dim" style="font-size:12px">Quien tenga el permiso de padrón</span>
       </div>
       ${[['Socio Sin Mail','DNI 20.456.789 · figura en el padrón, sin contacto'],
          ['Persona Nueva','DNI 41.222.333 · no figura en el padrón']].map(([n,d])=>
@@ -4385,74 +4470,63 @@ function vDash(){
     ${puede('admin')?`
     <h2>Accesos</h2>
     <div class="card">
-      ${EQUIPO.filter(e=>!e.vos).map(e=>`<div class="item">
-        <div class="avatar">${e.i}</div>
-        <div style="flex:1;min-width:0"><div style="font-weight:700;font-size:14px">${e.n}</div>
-          <div class="dim" style="font-size:12px">${ROLES[e.rol].p.map(k=>PERMISOS[k].n).join(' · ')||'sin permisos'}</div></div>
-        <span class="pill ${ROLES[e.rol].c}">${ROLES[e.rol].n}</span></div>`).join('')}
-      <button class="btn sm" style="margin-top:11px" onclick="go('permisos')">Administrar permisos</button>
+      <div class="dim" style="font-size:13px;line-height:1.6">Cada puesto de la comisión tiene su
+      propia llave. La app no guarda la lista: la tiene el servidor, que es lo único que no se
+      puede falsificar desde un teléfono.</div>
+      <button class="btn sm" style="margin-top:11px" onclick="go('permisos')">Ver mi acceso</button>
     </div>`:''}
 
     <div style="height:24px"></div>
   </div></div>`;
 }
 
+/* Antes esto administraba al equipo: listaba las cuatro personas y dejaba
+   cambiarles el rol. Los dos lados eran mentira — la lista estaba escrita
+   en el código y el cambio de rol se perdía al recargar. Ahora muestra lo
+   único que la app sabe con certeza: tu propio acceso, tal como te lo
+   contestó el servidor cuando pegaste la llave. Dar y quitar permisos lo
+   hace el club en el servidor; cuando haya una pantalla para eso, va a
+   escribir ahí y no en una constante. */
 function vPermisos(){
-  const sel = EQUIPO[S.persona||0], rol = ROLES[sel.rol];
+  const q = quien();
+  if(!q) return vHome();
+  const rol = ROLES[q.rol] || {n:q.rol, c:'', p:q.permisos};
   return `<div class="fade">
   <div class="hdr"><div class="row"><button class="arrow" onclick="go('dash')">‹</button>
-    <div><div class="lbl">Panel · ${CLUB.corto}</div><h1 style="font-size:22px">Quién puede qué</h1></div></div></div>
+    <div><div class="lbl">Panel · ${CLUB.corto}</div><h1 style="font-size:22px">Tu acceso</h1></div></div></div>
   <div class="pad">
     <div class="card" style="background:linear-gradient(135deg,var(--tint),var(--card));border-color:var(--acc2)">
-      <div class="dim" style="font-size:13px">Sos el administrador. Habilitás a quien quieras y cada uno
-      entra solo a lo suyo: en su celular no aparece lo que no le corresponde.</div>
+      <div class="lbl">Puesto</div>
+      <div style="font-weight:800;font-size:18px">${esc(q.puesto||'—')}</div>
+      ${q.persona?`<div class="dim" style="font-size:13px;margin-top:2px">Lo ocupa ${esc(q.persona)}</div>`:
+        `<div class="dim" style="font-size:13px;margin-top:2px">Sin titular cargado</div>`}
+      <div class="sep"></div>
+      <div class="between"><div><div class="lbl">Rol</div>
+        <div style="font-weight:700;font-size:15px">${rol.n}</div></div>
+        <span class="pill ${rol.c||''}">${q.permisos.length} permiso${q.permisos.length===1?'':'s'}</span></div>
     </div>
 
-    <h3>El equipo</h3>
-    <div class="card" style="padding:12px">
-      ${EQUIPO.map((e,k)=>{const r=ROLES[e.rol];
-        return `<div class="item" style="cursor:pointer;${k===(S.persona||0)?'background:var(--tint);border-radius:12px;padding:11px 10px':''}"
-          onclick="S.persona=${k};render()">
-          <div class="avatar">${e.i}</div>
-          <div style="flex:1;min-width:0"><div style="font-weight:700;font-size:14px">${e.n}${e.vos?' <span class="dim2" style="font-weight:500">· vos</span>':''}</div>
-            <div class="dim" style="font-size:12px">${r.p.map(x=>PERMISOS[x].n).join(' · ')||'sin permisos'}</div></div>
-          <span class="pill ${r.c}">${r.n}</span></div>`}).join('')}
-      <button class="btn sm" style="margin-top:11px" onclick="toast('Invitación enviada · entra con su número de socio')">
-        + Dar acceso a alguien</button>
-    </div>
-
-    <h3>${sel.n}</h3>
+    <h3>Qué podés hacer</h3>
     <div class="card">
-      <div class="lbl" style="margin-bottom:9px">Rol</div>
-      <div class="grid2" style="margin-bottom:14px">
-        ${Object.entries(ROLES).map(([k,r])=>
-          `<button class="chip ${sel.rol===k?'on':''}" style="padding:11px 4px;font-size:12px"
-            onclick="setRol(${S.persona||0},'${k}')">${r.n}</button>`).join('')}
-      </div>
-      <div class="lbl" style="margin-bottom:8px">Qué puede hacer</div>
-      ${Object.entries(PERMISOS).map(([k,pm])=>{const t2=rol.p.includes(k);
+      ${Object.entries(PERMISOS).map(([k,pm])=>{const t2=q.permisos.indexOf(k)>=0;
         return `<div class="between" style="padding:10px 0;border-bottom:1px solid var(--hair)">
           <div class="row" style="min-width:0;flex:1;gap:10px">
             <span class="ico" style="width:26px;height:26px;flex:0 0 auto;${t2?'':'opacity:.3'}">${ico(pm.ic)}</span>
             <div style="min-width:0"><div style="font-weight:600;font-size:13px;${t2?'':'opacity:.45'}">${pm.n}</div>
               <div class="dim2" style="font-size:11px;${t2?'':'opacity:.5'}">${pm.d}</div></div></div>
           <span style="font-size:16px;color:${t2?'var(--acc)':'var(--dim2)'}">${t2?'✓':'—'}</span></div>`}).join('')}
-      ${sel.vos?'<div class="dim2" style="font-size:11px;margin-top:11px">No podés sacarte a vos mismo el rol de administrador.</div>'
-        :`<div class="grid2" style="margin-top:12px">
-           <button class="btn ghost sm" onclick="S.comoQuien=${S.persona||0};go('dash')">Ver su panel</button>
-           <button class="btn ghost sm" onclick="setRol(${S.persona||0},'sin')">Quitar acceso</button></div>`}
+      <div class="dim2" style="font-size:11px;margin-top:11px;line-height:1.6">
+        Esta lista la manda el servidor cada vez que entrás. No se puede cambiar desde el
+        teléfono: si hiciera falta, no serviría de nada como permiso.</div>
     </div>
 
-    <div class="card" style="margin-bottom:24px"><h3>Registro de cambios</h3>
-      ${[['🕐','Félix pasó el torneo a tiro simultáneo','hoy 09:14'],
-         ['📣','Chelo avisó aireación de greens','ayer 18:40'],
-         ['🏆','Daniel abrió la inscripción del sábado','ayer 11:02'],
-         ['🔑','Le diste acceso a Daniel Rodríguez','martes']].map(([i2,t2,w])=>
-        `<div class="item"><div class="ico">${ico(i2)}</div><div style="flex:1;min-width:0">
-          <div style="font-weight:600;font-size:13px">${t2}</div>
-          <div class="dim2" style="font-size:11px">${w}</div></div></div>`).join('')}
-      <div class="dim2" style="font-size:11px;margin-top:10px">
-        Todo lo que se toca queda registrado con nombre y hora.</div>
+    <div class="card" style="margin-bottom:24px">
+      <h3>La llave de este teléfono</h3>
+      <div class="dim" style="font-size:13px;line-height:1.6">Está guardada acá y no viaja en la
+      copia de seguridad: es tuya, no de la app. Si prestás o cambiás el teléfono, salí del panel
+      para borrarla.</div>
+      <button class="btn ghost sm" style="margin-top:11px" onclick="salirComision()">
+        Salir del panel y borrar la llave</button>
     </div>
   </div></div>`;
 }
@@ -4528,7 +4602,7 @@ function vTorneo(){return `<div class="fade">
         Cambia según el fin de semana y el clima. Lo que elijas acá les llega a todos los socios al instante.</div>
       <div class="between" style="background:var(--tint);border-radius:11px;padding:9px 11px;margin-bottom:11px">
         <span style="font-size:12px;font-weight:600">Lo pueden cambiar</span>
-        <span class="dim" style="font-size:12px">${EQUIPO.filter(e=>ROLES[e.rol].p.includes('salidas')).length} personas
+        <span class="dim" style="font-size:12px">Quien tenga el permiso de salidas
           <button class="chip" style="padding:4px 9px;font-size:11px;margin-left:6px" onclick="go('permisos')">Ver</button></span>
       </div>
       <div class="grid2">
@@ -4809,7 +4883,57 @@ function guardarIndex(){
   render();
 }
 function actualizarIndex(){ S.editHcp=true; S.hcpIn=null; render(); }
-function avisar(t){ toast(`📣 "${t}" enviado a los ${CLUB.socios} socios`); }
+/* Publicar un aviso. Los seis botones de arriba mandan su título; el
+   campo de abajo manda lo que la persona escriba. En los dos casos lo
+   firma el servidor con quien ocupa el puesto, no con lo que diga el
+   teléfono. */
+async function avisar(t, socios){
+  if(!puede('avisos')){ toast('No tenés permiso para esto'); return; }
+  const titulo = String(t || '').trim();
+  if(titulo.length < 3){ toast('El aviso necesita un título'); return; }
+  try{
+    const r = await rpc('aviso_poner',
+      { p_llave: COMISION.llave, p_ic: avisoIcono(titulo), p_titulo: titulo,
+        p_detalle: null, p_socios: !!socios, p_dias: 0 });
+    if(!r || r.error){ toast(r && r.error ? r.error : 'No se pudo publicar'); return; }
+    await traerClub(true);
+    toast('📣 Publicado · lo ven los socios en Novedades');
+  }catch(e){
+    toast('Sin conexión · no se publicó');
+  }
+  render();
+}
+/* El ícono se deduce del texto para que la comisión no tenga que elegir
+   uno: son tres palabras y el dibujo lo pone la app. */
+function avisoIcono(t){
+  const s = String(t||'').toLowerCase();
+  if(/cuota|pag|plata|precio/.test(s))        return '💳';
+  if(/cancha|green|bunker|aireaci|riego/.test(s)) return '🌱';
+  if(/torneo|copa|campeonato/.test(s))        return '🏆';
+  if(/resultado|ranking|posicion/.test(s))    return '📊';
+  if(/salida|horario|tee/.test(s))            return '🕐';
+  return '📣';
+}
+async function avisarEscrito(){
+  const inp = $('#avisoIn');
+  if(!inp) return;
+  const t = inp.value;
+  const soloSocios = !!($('#avisoSocios') && $('#avisoSocios').checked);
+  await avisar(t, soloSocios);
+  const n = $('#avisoIn'); if(n) n.value = '';
+}
+/* Bajar un aviso que ya no corresponde. Borrado lógico: lo que el club
+   dijo sigue habiendo sido dicho. */
+async function bajarAviso(id){
+  if(!puede('avisos')){ toast('No tenés permiso para esto'); return; }
+  try{
+    const r = await rpc('aviso_bajar', { p_llave: COMISION.llave, p_id: id });
+    if(!r || r.error){ toast(r && r.error ? r.error : 'No se pudo bajar'); return; }
+    await traerClub(true);
+    toast('Aviso dado de baja');
+  }catch(e){ toast('Sin conexión'); }
+  render();
+}
 function publicarResultados(){
   toast(S.resultadosPublicos
     ? '📊 Resultados publicados · notificación a socios e invitados'
@@ -4819,7 +4943,11 @@ function toggleAlcance(){ S.resultadosPublicos=!S.resultadosPublicos; render();
   toast(S.resultadosPublicos?'Los resultados los ve cualquiera con la app':'Los resultados quedan solo para socios'); }
 function setTipo(t){ S.tipo=t; S.tab='home'; render();
   toast(t==='socio'?'Estás viendo la app como socio':'Estás viendo la app como invitado'); }
-function setRol(k,r){ EQUIPO[k].rol=r; render(); toast(`${EQUIPO[k].n}: ${ROLES[r].n}`); }
+/* Cambiar el rol de otra persona ya no se hace desde la app: lo decide el
+   servidor, que es lo único que no se puede falsificar desde un teléfono.
+   Hasta la v20 esto mutaba una constante en memoria y se perdía al
+   recargar — parecía que funcionaba y no hacía nada. */
+function setRol(){ toast('Los permisos los da el club desde el servidor'); }
 function setModo(m){
   CLUB.torneo.modo=m;
   toast(m==='simultanea'
@@ -4895,19 +5023,45 @@ function traer(){
 }
 function setCat(c){ S.user.cat = c; if(S.fedOk) S.fedOk=false; render(); }
 /* El estado de la cancha lo carga una persona, no se deduce de nada.
-   Queda registrado quién lo cambió y cuándo. */
+   Queda registrado quién lo cambió y cuándo — pero eso lo escribe el
+   SERVIDOR, no el teléfono: la hora del aparato se puede cambiar, y una
+   firma que se puede falsificar no es una firma.
+
+   Los dos botones sólo preparan lo que se va a publicar. Mientras no se
+   toque "Guardar y avisar", lo que el socio ve sigue siendo lo anterior:
+   nadie cierra la cancha sin querer por rozar un botón. */
+let CANCHA_BORRADOR = null;      // {abierta} mientras se edita
+
+/* Lo que muestran los botones del panel: el borrador si lo hay, y si no,
+   lo que dice el servidor. */
+const canchaEditando = () => CANCHA_BORRADOR
+  ? CANCHA_BORRADOR.abierta
+  : (CLUB_VIVO.cancha ? !!CLUB_VIVO.cancha.abierta : null);
+
 function setCancha(abierta){
-  CANCHA_ESTADO.abierta = abierta;
+  CANCHA_BORRADOR = { abierta: !!abierta };
   render();
 }
-function publicarCancha(){
-  const q = quien();
-  if(!q) return;
-  CANCHA_ESTADO.porQuien = q.n.split(' ')[0];
-  CANCHA_ESTADO.desde = new Date().toLocaleDateString('es-AR',{day:'numeric',month:'short'})
-                      + ' ' + new Date().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});
-  toast(CANCHA_ESTADO.abierta ? 'Cancha abierta · aviso enviado a los socios'
-                              : 'Cancha cerrada · aviso enviado a los socios');
+async function publicarCancha(){
+  if(!puede('cancha')){ toast('No tenés permiso para esto'); return; }
+  const inp = $('#notaCancha');
+  const nota = inp ? inp.value : ((CLUB_VIVO.cancha&&CLUB_VIVO.cancha.nota)||'');
+  const abierta = canchaEditando();
+  if(abierta === null){ toast('Elegí si está abierta o cerrada'); return; }
+  try{
+    const r = await rpc('cancha_poner',
+      { p_llave: COMISION.llave, p_abierta: abierta, p_nota: nota });
+    /* Un 200 con {error:...} no es un éxito. Ya nos pasó una vez con la
+       cola de anotaciones: la app decía "listo" y el servidor no había
+       guardado nada. */
+    if(!r || r.error){ toast(r && r.error ? r.error : 'No se pudo publicar'); return; }
+    CANCHA_BORRADOR = null;
+    await traerClub(true);
+    toast(abierta ? 'Cancha abierta · lo ven todos los socios'
+                  : 'Cancha cerrada · lo ven todos los socios');
+  }catch(e){
+    toast('Sin conexión · no se publicó');
+  }
   render();
 }
 function togBag(i){
@@ -5666,6 +5820,92 @@ async function rpc(fn, args, reintento){
   return r.json();
 }
 
+/* ============================================================
+   LO QUE DICE EL CLUB — traerlo y publicarlo
+   ============================================================
+   Esto NO late cada seis segundos como la ronda. Un aviso del club no
+   cambia dos veces por minuto, y 123 teléfonos preguntando todo el día
+   es gastarle los datos a la gente para nada. Se pide al abrir la app,
+   al volver a ella, y después de publicar algo. Con eso alcanza.
+
+   `p_desde` pide sólo lo que cambió, igual que `ronda_estado`. La
+   primera vez va en null y trae todo. */
+const CLUB_KEY = 'trisquelia_club';
+
+function guardarClub(){
+  try{ localStorage.setItem(CLUB_KEY, JSON.stringify(CLUB_VIVO)); }catch(e){}
+}
+function cargarClub(){
+  try{
+    const d = JSON.parse(localStorage.getItem(CLUB_KEY) || 'null');
+    if(d && typeof d === 'object'){
+      CLUB_VIVO.cancha = d.cancha || null;
+      CLUB_VIVO.avisos = Array.isArray(d.avisos) ? d.avisos : [];
+      CLUB_VIVO.desde  = d.desde || null;
+    }
+  }catch(e){}
+}
+
+async function traerClub(forzar){
+  if(!hayNube()) return;
+  try{
+    const res = await rpc('club_estado',
+      { p_club: CLUB.id, p_desde: forzar ? null : CLUB_VIVO.desde, p_socio: esSocio() });
+    if(!res || res.error) return;
+
+    if(res.cancha !== undefined) CLUB_VIVO.cancha = res.cancha;
+
+    /* Los avisos llegan como "lo que cambió". Se mezcla con lo que ya
+       había: los que vienen marcados con `borrado_en` se sacan, y los
+       demás pisan al que tenga el mismo id. Si se dejara de mandar el
+       borrado en vez de mandarlo marcado, el aviso quedaría en pantalla
+       para siempre — es la misma lección que está en `esquema.sql`. */
+    const nuevos = Array.isArray(res.avisos) ? res.avisos : [];
+    if(forzar || !CLUB_VIVO.desde){
+      CLUB_VIVO.avisos = nuevos.filter(a => !a.borrado_en);
+    } else {
+      const por = {};
+      CLUB_VIVO.avisos.forEach(a => { por[a.id] = a; });
+      nuevos.forEach(a => { a.borrado_en ? delete por[a.id] : por[a.id] = a; });
+      CLUB_VIVO.avisos = Object.values(por)
+        .sort((x,y) => String(y.creado).localeCompare(String(x.creado)));
+    }
+    CLUB_VIVO.desde = res.ahora || CLUB_VIVO.desde;
+    NUBE_ESTADO.conectado = true;
+    guardarClub();
+  }catch(e){
+    NUBE_ESTADO.conectado = false;
+  }
+}
+
+/* ---------- la llave de la comisión ----------
+   Se pega una sola vez. El servidor contesta qué puesto es, quién lo
+   ocupa y qué permisos tiene, y eso queda guardado en ESTE teléfono.
+   La llave no se manda a ningún otro lado ni viaja en la copia de
+   seguridad: es la credencial de una persona, no un dato de la app. */
+async function entrarComision(){
+  const inp = $('#llaveIn');
+  const ll = (inp ? inp.value : '').trim();
+  if(ll.length < 32){ toast('Esa llave está incompleta'); return; }
+  if(!hayNube()){ toast('Hace falta señal para entrar la primera vez'); return; }
+  try{
+    const r = await rpc('comision_entrar', { p_llave: ll });
+    if(!r || r.error){ toast(r && r.error ? r.error : 'No se pudo entrar'); return; }
+    COMISION = { llave: ll, puesto: r.puesto, persona: r.persona,
+                 rol: r.rol, permisos: Array.isArray(r.permisos) ? r.permisos : [] };
+    guardarComision();
+    toast(`Listo · ${quienNombre()}`);
+    S.mode = 'club'; S.tab = 'dash'; render();
+  }catch(e){
+    toast('Sin conexión · probá de nuevo');
+  }
+}
+function salirComision(){
+  COMISION = null; guardarComision();
+  S.mode = 'player'; S.tab = 'me'; render();
+  toast('Saliste del panel · la llave se borró de este teléfono');
+}
+
 /* ---------- guardar y recuperar ---------- */
 function guardarRonda(){
   try{ RONDA ? localStorage.setItem(RONDA_KEY, JSON.stringify(RONDA))
@@ -6157,7 +6397,7 @@ const GUARDAR = ['user','tee','cat','mat','hcpIn','fedOk','onboarded','tipo','dn
 function guardarTodo(){
   try{
     const d = {v:1, ts:Date.now(), R:{scores:R.scores,putts:R.putts,fw:R.fw,gir:R.gir,shots:R.shots,bunker:R.bunker,penal:R.penal},
-               bag:BAG.map(b=>({c:b.c,on:b.on,shots:b.shots})), cancha:CANCHA_ESTADO};
+               bag:BAG.map(b=>({c:b.c,on:b.on,shots:b.shots}))};
     GUARDAR.forEach(k=> d[k]=S[k]);
     localStorage.setItem(LS_KEY, JSON.stringify(d));
     SIN_LUGAR = false;
@@ -6180,7 +6420,6 @@ function cargarTodo(){
     if(d.R) Object.keys(R).forEach(k=>{ if(d.R[k]) R[k]=d.R[k]; });
     if(d.bag) d.bag.forEach(x=>{ const b=BAG.find(z=>z.c===x.c);
       if(b){ b.on=x.on; if(Array.isArray(x.shots)) b.shots=x.shots; } });
-    if(d.cancha) Object.assign(CANCHA_ESTADO, d.cancha);
     return true;
   }catch(e){ return false; }
 }
@@ -6404,6 +6643,11 @@ function render(){
   pintarGrabando();
 }
 cargarTodo();
+/* Lo que el club dijo y quién sos para él. Primero lo que quedó guardado
+   —así la app abre con algo aunque no haya señal— y recién después se le
+   pregunta al servidor, que es lo que puede tardar. */
+cargarClub();
+cargarComision();
 /* Accesos directos del ícono: si mantenés apretada la app en la pantalla
    del teléfono aparece "Empezar una ronda", y eso abre directo ahí.
 
@@ -6421,6 +6665,11 @@ cargarTodo();
 arrancarGPS();
 cargarPrueba();
 cargarRonda();
+traerClub();
+/* Al volver a la app, y al recuperar la señal, se pregunta de nuevo. Un
+   aviso del club no cambia dos veces por minuto: no hace falta latir. */
+document.addEventListener('visibilitychange', () => { if(!document.hidden) traerClub(); });
+window.addEventListener('online', () => traerClub());
 applyTheme();
 document.getElementById('appname').textContent = CLUB.app;
 render();

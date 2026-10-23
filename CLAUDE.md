@@ -33,7 +33,9 @@ Son ~6.430 líneas. Los números se corren al editar; buscá el texto, no la lí
 | `const CLUBS_DB` (~586) | Todo lo que cambia de un club a otro. Para otro club se copia este bloque y listo |
 | `geo:{` (~692) | Las 65 coordenadas medidas en cancha el 5/8/2026, ±3-4 m |
 | `const PADRON` (~857) | Padrón de prueba, **inventado**. Lo usa el alta del jugador, no el panel |
-| `QUIÉN SOS` (~888) | Nombre e iniciales, y **la única puerta al panel del club**: `quien()`, `puede()`, `puedePantalla()` |
+| `QUIÉN SOS` (~888) | Nombre e iniciales del jugador |
+| `QUIÉN SOS PARA EL CLUB` (~926) | **La única puerta al panel**: la llave de la comisión, `quien()`, `puede()`, `puedePantalla()` |
+| `LO QUE EL CLUB LE DICE` (~1421) | Estado de cancha y avisos, como los manda el servidor |
 | `const BAG` (~1109) | Los 31 palos y la media ponderada |
 | `MEDIDA Y HOMOLOGACIÓN` (~1288) | `homologada()`, `teeDelHcp()`, `ratingTxt()` |
 | `function ratingDe` (~1329) | Con qué rating y slope se calcula: 18 hoyos o ese nueve |
@@ -68,7 +70,7 @@ queda publicada igual, pero no la carga nadie).
 No es opcional: es lo que le avisa a los teléfonos que ya tienen la app que hay algo nuevo.
 Si no se toca, pueden seguir abriendo la versión vieja para siempre.
 
-Va en `trisquelia-vN`. Al día de hoy: **v20**.
+Va en `trisquelia-vN`. Al día de hoy: **v21**.
 
 ---
 
@@ -168,23 +170,54 @@ es la única puerta a la app y **no se abre sin nombre**; `crearRonda()` y `unir
 tampoco. Si agregás una pantalla, usá esos ayudantes: `bugs.js` corre sin nombre cargado y
 `identidadtest` barre las quince pantallas del jugador buscando nombres de persona.
 
-**Al panel del club se entra por UNA puerta, y hay que pasar por ella siempre.** El 22/10/2026 se
-descubrió que no: cualquiera que hubiera escrito un nombre abría `?ir=permisos` y el panel le
-decía *"Sos el administrador"*, con los ocho permisos. No fue un bug, fueron **dos chicos que se
-juntaron mal** — y por eso la lección no es el parche sino la forma. Uno: el acceso directo del
-ícono aceptaba cualquier pantalla que viniera en la dirección, porque el control de permisos
-vivía en otro lado. Dos: `quienK()` hacía `Math.max(0, enComision())`, y ese `Math.max` convertía
-el −1 de "no está en la comisión" en el 0 de "es el primero del equipo", que es el administrador.
-Cada uno por separado parecía inofensivo. Ahora **`quien()` devuelve `null`** al que no está, y
-toda pantalla del club —venga del nav, de la URL o de un `S.tab` viejo guardado en el teléfono—
-pasa por **`puedePantalla()`**, que se chequea en `render()` antes de dibujar nada y **sin mirar
-`S.mode`**: ése era el agujero, que el control viejo sólo corría si `S.mode` ya era `'club'`. Si
-agregás una pantalla de comisión, va en `PANTALLAS_CLUB` y en el mapa de `puedeVer()`, y nada
-más; no inventes un control nuevo al lado. `paneltest` entra por las tres puertas con un socio
-cualquiera y comprueba además que a cada miembro se le abra lo suyo y nada más. Hoy el rol sale
-de comparar el nombre contra `EQUIPO`, que es poco: esto se cae solo el día que el rol lo diga el
-servidor, y **entonces este portón pasa a ser lo que protege los datos del club, no una pantalla
-de mentira**.
+**Al panel del club se entra con una LLAVE, y la puerta es una sola.** Dos problemas que se
+arreglaron juntos en la v21. El primero: hasta la v20 la app te reconocía comparando el nombre
+que habías tecleado contra una lista de cuatro personas escrita en el código, y **un servidor no
+le puede creer a un nombre** — cualquiera escribe "Chelo Caballero". Daba igual mientras el panel
+no escribiera nada; desde la v21 publica avisos a nombre del club. El segundo: eran cuatro
+nombres de personas reales en un repo público, el último lugar donde quedaban. Ahora cada
+**puesto** de la comisión tiene una llave que da el servidor (`comision_alta()` en `club.sql`),
+la persona la pega una vez (`entrarComision()`), y el servidor contesta puesto, persona, rol y
+**la lista de permisos ya resuelta**: `puede()` mira esa lista, no una tabla local, porque si
+viviera en los dos lados algún día mandaría la equivocada. La llave es del PUESTO, no de la
+persona: cuando cambia el profesional de la cancha, el club corre `comision_persona()` y la
+llave sigue valiendo. Y vive en su propia clave de `localStorage`, **fuera de `COPIA_CLAVES`**:
+una copia de seguridad compartida no puede llevarse el panel del club.
+
+**El portón sigue siendo uno solo, y eso no se toca.** En la v19 se descubrió que `?ir=permisos`
+abría el panel entero diciéndole "sos el administrador" a cualquiera: eran **dos cosas chicas que
+se juntaron mal** —el acceso directo de la URL no preguntaba nada, y un `Math.max(0,…)` convertía
+"no está en la comisión" en "es el primero del equipo"—. Por eso ahora toda pantalla de club,
+venga del nav, de la URL o de un `S.tab` viejo guardado, pasa por **`puedePantalla()`**, que se
+chequea en `render()` antes de dibujar y **sin mirar `S.mode`**: ése era el agujero. Si agregás
+una pantalla de comisión, va en `PANTALLAS_CLUB` y en el mapa de `puedeVer()`, y nada más: no
+inventes un control nuevo al lado. `paneltest` entra por las tres puertas y comprueba además que
+**escribir el nombre de alguien de la comisión ya no abre nada**.
+
+**El permiso del teléfono es comodidad; el que protege es el del servidor.** Un socio puede
+falsificar su credencial en `localStorage` y ver el cascarón del panel — lo comprobó un ataque
+dirigido el 23/10/2026. No consigue nada: las tres escrituras (`aviso_poner`, `aviso_bajar`,
+`cancha_poner`) mandan la llave y el servidor la vuelve a verificar con `comision_quien()`. **Si
+alguna vez agregás una acción del panel que escriba, tiene que pedir la llave del lado del
+servidor.** Sin eso, `puede()` no protege nada.
+
+**El estado de la cancha y los avisos los dice el servidor, y si no dijo nada se dice eso.**
+Hasta la v20 el estado vivía en cada teléfono: un sábado de lluvia, 123 socios veían 123
+respuestas y ninguna era la del club. Ahora salen de `club_estado()`, se guardan para funcionar
+sin señal, y **si nunca llegó nada la pantalla dice "Sin datos"** en vez del viejo valor por
+omisión "abierta" — que era exactamente la clase de número inventado que esta app no muestra:
+alguien podía manejar hasta la cancha un domingo de tormenta porque el teléfono se lo dijo sin
+preguntarle a nadie. Esto **no late cada seis segundos** como la ronda: se pide al abrir, al
+volver a la app y después de publicar. Y los avisos borrados **viajan marcados**, como las
+anotaciones, o quedarían en pantalla para siempre.
+
+**El marcador "sólo para socios" NO es un secreto, y la app lo dice.** Quien decide si sos socio
+es el teléfono, en un argumento de `club_estado()`, y un teléfono miente: cualquiera pide el
+token anónimo —que se da sin registro— y llama con `p_socio => true`. No se puede cerrar hasta
+que los socios tengan cuenta (`padron.sql`). Mientras tanto el casillero decide **qué se muestra,
+no qué se puede averiguar**, y la pantalla de publicar avisa con esas palabras para que nadie
+ponga ahí algo que no quiera que se lea. `clubtest` tiene una comprobación que deja escrita esa
+limitación: el día que haga falta llave, se pone en rojo sola.
 
 **Sin index no se inventan números.** `hcpCancha()` devuelve `null` cuando no hay index, y
 `null` **no es cero**: cero significa "juega scratch" y daba un neto igual al gross y un
@@ -437,6 +470,18 @@ verdad vive en `purgar_borradas()`. Los dos índices acompañan esa idea:
 `(ronda, actualizado)`, que es exactamente la pregunta que hace la app cada seis segundos:
 *qué cambió en esta ronda desde tal hora*.
 
+**Y el servidor ya no son tres tablas: son diez, en tres archivos.** El diagrama de arriba es
+`esquema.sql`, la ronda compartida, que es el corazón. Los otros dos se instalan después y
+siguen exactamente las mismas reglas —RLS sin políticas, `revoke all`, todo por funciones
+`security definer`, borrado lógico— así que no hace falta volver a dibujarlos para entenderlos:
+
+- **`padron.sql`** · `padron`, `cuentas`, `codigos`, `pedidos`. El alta de socios. Construido y
+  probado, esperando que salga el mail del código.
+- **`club.sql`** · `comision`, `cancha`, `avisos`. El panel: quién tiene acceso a qué, el estado
+  de la cancha y las novedades. **Andando desde la v21.**
+
+Los tres comparten `recortar()`, que vive en `esquema.sql`, y por eso ése va siempre primero.
+
 ---
 
 ## 7. Las pruebas
@@ -459,7 +504,7 @@ node pruebas/teetest.js                # el aviso al llegar al tee      (21 ✓)
 node pruebas/canchatest.js             # la tarjeta y el handicap       (78 ✓)
 node pruebas/identidadtest.js          # quién sos: nombre e identidad  (45 ✓)
 node pruebas/formatest.js              # la forma medida de los hoyos   (29 ✓)
-node pruebas/paneltest.js              # el portón del panel del club   (36 ✓)
+node pruebas/paneltest.js              # el portón del panel del club   (40 ✓)
 ```
 
 El esquema del servidor se prueba aparte, contra un Postgres de verdad — no
@@ -474,6 +519,9 @@ psql -d t -f pruebas/esquematest.sql        # borrado, identidad, permisos  (61 
 psql -d t -f padron.sql
 psql -d t -f padron.sql                     # el alta también es idempotente
 psql -d t -f pruebas/altatest.sql           # el alta de socios              (69 ✓)
+psql -d t -f club.sql
+psql -d t -f club.sql                       # el panel también es idempotente
+psql -d t -f pruebas/clubtest.sql           # avisos y estado de cancha      (78 ✓)
 ```
 
 Los roles los crea el propio `esquema.sql` si faltan, así que no hay que crearlos a mano.
@@ -514,8 +562,8 @@ de club que quedó guardada en el teléfono, y el simulador de "ver como" puesto
 tienen que rebotar. Después comprueba lo otro, que es igual de importante: que a Félix se le abran
 las salidas y no los permisos, y a Chelo el padrón y no las salidas.
 
-Entre las trece suites son **427 comprobaciones**, más las **61** del esquema y las **69** del
-alta: 557 en total. Si
+Entre las trece suites son **432 comprobaciones**, más las **61** del esquema, las **69** del
+alta y las **78** del panel: 640 en total. Si
 alguna se pone en rojo después de un cambio tuyo, es un bug tuyo: estaban todas en verde el
 25/9/2026 (las 61 del esquema, el 24/9, ya con los roles de Neon).
 

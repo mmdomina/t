@@ -103,8 +103,23 @@ create table if not exists cancha (
 );
 
 -- ---------- los avisos ----------
---  `socios` separa lo interno de lo público: la cuota y el padrón no
---  los ve cualquiera que abra el link, los resultados sí.
+--  `socios` separa lo interno de lo público: la cuota y el padrón no se
+--  le muestran a cualquiera que abra el link, los resultados sí.
+--
+--  ⚠️ PERO NO ES UN SECRETO, Y HAY QUE DECIRLO. Quien decide si "es
+--  socio" es el teléfono, en el argumento `p_socio` de `club_estado`, y
+--  un teléfono miente: cualquiera pide el token anónimo —que se da sin
+--  registro— y llama a la función con `p_socio => true`. Lo probó un
+--  ataque dirigido el 23/10/2026.
+--
+--  Hoy no se puede hacer mejor: la Data API atiende a cualquiera y
+--  todavía no hay cuentas que distingan a un socio de un desconocido.
+--  Cuando `padron.sql` esté conectado, un socio va a tener su `llave` y
+--  `club_estado` va a poder pedirla para los avisos internos.
+--
+--  Mientras tanto la regla es: **este marcador decide qué se MUESTRA, no
+--  qué se puede averiguar.** La app lo dice con esas palabras al
+--  publicar, para que nadie ponga ahí algo que no quiere que se lea.
 create table if not exists avisos (
   id          bigserial primary key,
   club        text not null,
@@ -306,6 +321,13 @@ begin
 
   --  Un club chico no manda veinte avisos por día. Si aparecen, algo
   --  anda mal: un botón que se toca solo, o alguien probando.
+  --
+  --  Es un `count` y después un `insert`, sin bloqueo, así que veinte
+  --  llamadas simultáneas pueden pasar todas antes de contarse entre
+  --  ellas y meter alguno de más. Queda así a propósito: hace falta una
+  --  llave válida para llegar hasta acá, y el peor caso es ruido en la
+  --  pantalla de novedades, no un daño. Tomar un lock para esto sería
+  --  pagar complejidad por nada.
   if (select count(*) from avisos
        where club = v.club and creado > now() - interval '1 hour') >= 20 then
     return json_build_object('error','demasiados avisos en una hora');
