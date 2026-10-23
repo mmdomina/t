@@ -206,12 +206,18 @@ const pantalla = p => p.evaluate(() =>
   console.log('\n6. El panel del club no se le abre a cualquiera');
   const puertas = await t1.p.evaluate(() => {
     const ver = n => { ponerNombre(n); S.comoQuien = null; S.tipo = 'socio';
+      /* Desde el 22/10/2026 `quien()` devuelve null al que no está en la
+         comisión, en vez de caer en el primero del equipo. Que acá hiciera
+         falta un `?` es justamente la prueba de que antes no era null. */
+      const q = quien();
       return { puerta: /Abrir panel del club/.test(VIEWS.me()),
-               rol: quien().rol, comision: esComision() }; };
+               rol: q ? q.rol : null, comision: esComision() }; };
     return { ana: ver('Ana Gómez'), mauro: ver('Mauro Domina'), felix: ver('Félix Córdoba') };
   });
   ok(!puertas.ana.puerta && !puertas.ana.comision,
      'un socio cualquiera no ve la puerta al panel');
+  ok(puertas.ana.rol === null,
+     'y para la app no tiene NINGÚN rol: no hereda el del primero del equipo');
   ok(puertas.mauro.puerta && puertas.mauro.rol === 'admin',
      'el que está en la comisión sí, y con su rol');
   ok(puertas.felix.puerta && puertas.felix.rol === 'salidas',
