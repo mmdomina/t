@@ -16,11 +16,11 @@
    teléfonos que ya tienen la app pueden seguir con la vieja.
    ============================================================ */
 
-const VERSION = 'trisquelia-v21';
+const VERSION = 'trisquelia-v22';
 
 /* Todo lo que tiene que estar en el teléfono para que la app abra sola.
 
-   Ojo con la tentación de agregar './' acá: la app pesa 321 KB y el
+   Ojo con la tentación de agregar './' acá: index.html pesa unos 400 KB y el
    handler de navegación de más abajo SIEMPRE guarda y busca con la
    clave './index.html', nunca './'. Tenerla en la lista bajaba el
    archivo dos veces y ocupaba el doble en el teléfono, para nada. */

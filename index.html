@@ -372,6 +372,46 @@ td.name{text-align:left;font-weight:600;font-size:13px}
 
 <script>
 /* ============================================================
+   FECHAS QUE NO ENVEJECEN
+   ============================================================
+   Hasta la v21 la pantalla de Inicio decía "Viernes 31 de julio" escrito a
+   mano, y los datos de ejemplo tenían fechas de julio. Quedaron de cuando
+   estas pantallas eran un dibujo. El problema no es la fecha en sí: es que
+   un socio que abre la app en octubre y lee "31 de julio" deja de creerle al
+   resto de lo que ve, incluido el estado de cancha, que sí es de verdad. Una
+   fecha vieja no es un detalle cosmético: es la primera cosa que se lee y
+   decide si el socio le cree a la app. Ahora todo sale del reloj del teléfono.
+
+   Los nombres de mes y día están escritos acá en vez de usar
+   `toLocaleDateString('es-AR')` porque esa función depende de que el teléfono
+   tenga cargados los datos de idioma, y en algunos Android devuelve
+   "Friday 23 October". Dos renglones a mano y siempre está bien.
+
+   VAN PRIMERAS, arriba de todo, y no al lado de `hace()`, que es su pariente
+   natural: `CLUBS_DB` y `PARA_AAG` las usan al construirse. Un `const` que se
+   usa antes de su declaración no queda "todavía sin definir" —corta el script
+   entero y la app no abre—. Me pasó al escribir esto, y por eso está dicho. */
+const MESES = ['enero','febrero','marzo','abril','mayo','junio','julio',
+               'agosto','septiembre','octubre','noviembre','diciembre'];
+const DIAS  = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+const diasAtras  = n => { const d = new Date(); d.setDate(d.getDate() - n); return d; };
+const enDias     = n => diasAtras(-n);        // para lo que todavía no pasó
+const mesHoy     = () => MESES[new Date().getMonth()];
+const hoyTxt     = () => { const d = new Date();
+  return DIAS[d.getDay()] + ' ' + d.getDate() + ' de ' + MESES[d.getMonth()]; };
+const fechaCorta = d => d.getDate() + ' ' + MESES[d.getMonth()].slice(0,3);
+const fechaLarga = d => d.getDate() + ' de ' + MESES[d.getMonth()];
+const fechaBarra = d => String(d.getDate()).padStart(2,'0') + '/' +
+                        String(d.getMonth()+1).padStart(2,'0');
+/* La de la tarjeta lleva el año, porque una tarjeta se guarda y se mira
+   meses después. Sale de `S.fecha`, que se fija al salir al hoyo 1; si no
+   hay ronda empezada —se está mirando la tarjeta de ejemplo— va la de hoy. */
+const fechaTarjeta = () => {
+  const d = S.fecha ? new Date(S.fecha + 'T12:00:00') : new Date();
+  return fechaBarra(d) + '/' + d.getFullYear();
+};
+
+/* ============================================================
    DATOS
    ============================================================ */
 const S = {
@@ -379,6 +419,7 @@ const S = {
   socialTab:'amigos', persona:0, comoQuien:null, tipo:null, resultadosPublicos:true, onb:0, onboarded:false, pickedClub:null,
   mat:'', fedOk:false, indexDias:9, chequeoRonda:false,
   dni:'', nsocio:'', padronOk:false, soloSeguir:false, vA:10, vB:18,
+  fecha:null,           // el día que se salió al 1; lo fija empezarRonda()
   marco:1,              // a quién le llevo la tarjeta yo (índice en el grupo)
   meMarca:2,            // quién lleva la mía
   torneo:true,          // en torneo la tarjeta se cruza y se firma
@@ -799,7 +840,7 @@ const CLUBS_DB = {
       {ic:'🏆',t:'Torneo Ciudad de General Pico',s:'Clásico anual del club · inscripción en secretaría'},
       {ic:'⛳',t:'Abierto de Profesionales de General Pico',s:'Trisquelia recibe al Tour de Profesionales'},
       {ic:'🌱',t:'Estado de la cancha',s:'Greens en buen estado · driving range abierto'},
-      {ic:'💳',t:'Cuota de agosto',s:'$150.000 · pagando del 1 al 10, $130.000',socios:true},
+      {ic:'💳',t:'Cuota de '+mesHoy(),s:'$150.000 · pagando del 1 al 10, $130.000',socios:true},
       {ic:'⚑',t:'Recategorización de la cancha',s:'Yardas, valuación y handicap de cancha nuevos · las tres salidas homologadas'}
     ],
     shop:[ {n:'Docena de pelotas',p:'—',ic:'🥎'},{n:'Guante',p:'—',ic:'🧤'},
@@ -1241,11 +1282,11 @@ const RESULTADOS = [];
 /* Tarjetas que llegaron y todavía hay que pasar a la federación.
    El diferencial lo calcula la app: (113/slope) × (gross − rating). */
 let PARA_AAG = [
-  {n:'Socio Seis',   i:'S6', mat:'104905', fecha:'31/07', gross:84, tee:'mixta', cargada:false},
-  {n:'Socio Uno',    i:'S1', mat:'104211', fecha:'31/07', gross:79, tee:'negras', cargada:false},
-  {n:'Socio Tres',   i:'S3', mat:'110902', fecha:'31/07', gross:88, tee:'mixta', cargada:false},
-  {n:'Socia Dos',    i:'S2', mat:'098554', fecha:'31/07', gross:95, tee:'damas', cargada:false},
-  {n:'Socio Cuatro', i:'S4', mat:'103477', fecha:'30/07', gross:92, tee:'mixta', cargada:true}
+  {n:'Socio Seis',   i:'S6', mat:'104905', fecha:fechaBarra(diasAtras(1)), gross:84, tee:'mixta', cargada:false},
+  {n:'Socio Uno',    i:'S1', mat:'104211', fecha:fechaBarra(diasAtras(1)), gross:79, tee:'negras', cargada:false},
+  {n:'Socio Tres',   i:'S3', mat:'110902', fecha:fechaBarra(diasAtras(1)), gross:88, tee:'mixta', cargada:false},
+  {n:'Socia Dos',    i:'S2', mat:'098554', fecha:fechaBarra(diasAtras(1)), gross:95, tee:'damas', cargada:false},
+  {n:'Socio Cuatro', i:'S4', mat:'103477', fecha:fechaBarra(diasAtras(2)), gross:92, tee:'mixta', cargada:true}
 ];
 /* El diferencial se calcula con la salida de la tarjeta. Si esa salida no
    está homologada —hoy, las negras— se usa la que el club usa en el papel.
@@ -1287,7 +1328,7 @@ const RETOS = [
   {ic:'🎯',t:'Duelo con Javier P.',s:'Match play · 18 hoyos · domingo',st:'Aceptado',c:''},
   {ic:'🔥',t:'Racha de fairways',s:'Pegá 8 fairways en una ronda · vas 6',st:'75%',c:'gold'},
   {ic:'🏅',t:'Reto del club: 100 putts',s:'Menos de 32 putts en 3 rondas · vas 2',st:'2/3',c:'gold'},
-  {ic:'🐦',t:'Primer birdie en par 5',s:'Completado el 24 de julio',st:'Listo',c:''},
+  {ic:'🐦',t:'Primer birdie en par 5',s:'Completado el '+fechaLarga(diasAtras(21)),st:'Listo',c:''},
 ];
 
 const LOGROS = [
@@ -1757,7 +1798,7 @@ function vHome(){
   return `<div class="fade">
   <div class="hdr">
     <div class="row" style="gap:11px">${crest(38)}
-      <div><div class="lbl">Viernes 31 de julio</div><h1 style="font-size:23px">Hola${
+      <div><div class="lbl">${hoyTxt()}</div><h1 style="font-size:23px">Hola${
         hayNombre()?', '+esc(primerNombre()):''}</h1></div></div>
     <div class="row" style="gap:8px">
       <button class="arrow" style="font-size:16px;position:relative"
@@ -2573,7 +2614,7 @@ function statGeneral(){
   const mx=Math.max(...d),mn=Math.min(...d);
   const pts=d.map((v,i)=>`${i*(300/(d.length-1))},${70-((v-mn)/(mx-mn))*60}`).join(' ');
   return `${kpi([['Score promedio','86.4','–1.8 vs. hace 6 meses','acc'],
-    ['Mejor ronda','78',CLUB.corto+' · 12 abr'],
+    ['Mejor ronda','78',CLUB.corto+' · '+fechaCorta(diasAtras(190))],
     ['Handicap','14.2','↓ desde 16.1','acc'],
     ['Rondas','23','este año']])}
   <div class="card"><h3>Evolución del handicap</h3>
@@ -3301,11 +3342,11 @@ function vNotif(){return `<div class="fade">
     <h1 style="font-size:22px">Notificaciones</h1></div></div>
   <div class="pad"><div class="card" style="margin-bottom:24px">
     ${[['⛳','Tu tee time es en 2 horas','Domingo 08:20 · Tee 1 · hacé el check-in','hace 5 min',true],
-       ['🏆','Quedan 11 lugares en la Copa','Cierra la inscripción el 6 de agosto','hace 1 h',true],
+       ['🏆','Quedan 11 lugares en la Copa','Cierra la inscripción el '+fechaLarga(enDias(6)),'hace 1 h',true],
        ['👏','Javier felicitó tu ronda','"Ese birdie en el 6 fue tremendo"','hace 3 h',false],
        ['🏅','Cambió el handicap de la semana','Fijate el tuyo y actualizalo en la app','jueves',true],
        ['🌧️','Alerta de lluvia el domingo','70% de probabilidad entre 10 y 13 hs','ayer',false],
-       ['💳','Cuota de agosto',`${pesos(cuotaSocio().v)} · del 1 al 10, ${pesos(cuotaSocio().b)}`,'hace 2 días',false]].map(([i,t,s,w,nw])=>
+       ['💳','Cuota de '+mesHoy(),`${pesos(cuotaSocio().v)} · del 1 al 10, ${pesos(cuotaSocio().b)}`,'hace 2 días',false]].map(([i,t,s,w,nw])=>
       `<div class="item" style="${nw?'background:var(--tint);border-radius:12px;padding:12px 10px':''}">
         <div class="ico">${ico(i)}</div><div style="flex:1;min-width:0">
         <div style="font-weight:700;font-size:14px">${t}</div>
@@ -3351,7 +3392,7 @@ function vTarjeta(){
 
     <div class="card" style="padding:14px">
       <div class="grid2" style="gap:14px">
-        ${[['Jugador',esc(yoNombre())],['Fecha','31/07/2026'],
+        ${[['Jugador',esc(yoNombre())],['Fecha',fechaTarjeta()],
            ['Salida',tee().n],['Handicap','index '+verIndex(S.user.hcp)+' · cancha '+verHcp(hcpCancha(S.user.hcp))],
            ['Rating / Slope',ratingTxt(tee(), S.vuelta)],['Recorrido',S.vuelta+' hoyos · par '+
              (S.vuelta===9?par9():parTotal())]].map(([l,v])=>
@@ -3582,6 +3623,18 @@ function vArranque(){
 function difs(){
   return played().filter(h => MARCA[h]!==undefined && MARCA[h]!==R.scores[h]);
 }
+/* VACÍO NO ES "COINCIDE".
+   `MARCA` guarda lo que el marcador anotó de mí. Mientras no haya anotado
+   nada está vacío, y hasta la v21 la pantalla leía ese vacío como acuerdo:
+   decía "Lo que anotó MD coincide con tus golpes en los 18 hoyos" cuando el
+   marcador no había escrito un solo número, y el total de su fila sumaba MIS
+   golpes con el rótulo de los suyos (`MARCA[h] ?? R.scores[h]`), al lado de
+   una fila de rayas. Una tarjeta que dice "está todo bien" sin que nadie la
+   haya cruzado es peor que no mostrar nada: es la clase de confirmación falsa
+   que en papel termina en descalificación.
+   Mientras el cruce de verdad viva en la ronda compartida, acá se dice la
+   verdad: que todavía no hay nada del otro lado. */
+const hayMarca = () => played().some(h => MARCA[h] !== undefined);
 function vFirma(){
   const g = GROUP(), mio = g[S.meMarca], suyo = g[S.marco];
   const d = difs(), p = played();
@@ -3598,8 +3651,8 @@ function vFirma(){
           ${p.map(h=>`<td class="dim2">${par(h)}</td>`).join('')}
           <td class="dim2">${p.reduce((a,h)=>a+par(h),0)}</td></tr>
         <tr><td class="name">${mio.i} anotó</td>
-          ${p.map(h=>`<td><span class="sq ${scoreClass(MARCA[h]??R.scores[h],par(h))}">${MARCA[h]??'–'}</span></td>`).join('')}
-          <td style="font-weight:800">${p.reduce((a,h)=>a+(MARCA[h]??R.scores[h]),0)}</td></tr>
+          ${p.map(h=>`<td><span class="sq ${MARCA[h]!==undefined?scoreClass(MARCA[h],par(h)):''}">${MARCA[h]??'–'}</span></td>`).join('')}
+          <td style="font-weight:800">${hayMarca()?p.reduce((a,h)=>a+(MARCA[h]??R.scores[h]),0):'–'}</td></tr>
         <tr><td class="name dim2" style="font-size:11px">tus golpes</td>
           ${p.map(h=>`<td class="${MARCA[h]!==undefined&&MARCA[h]!==R.scores[h]?'red':'dim2'}">${R.scores[h]}</td>`).join('')}
           <td class="dim2">${total()}</td></tr>
@@ -3616,6 +3669,11 @@ function vFirma(){
             <button class="chip" style="padding:7px 11px" onclick="resolver(${h},${R.scores[h]})">Van ${R.scores[h]}</button>
             <button class="chip" style="padding:7px 11px" onclick="resolver(${h},${MARCA[h]})">Van ${MARCA[h]}</button>
           </div></div>`).join('')}
+      </div>`:!hayMarca()?`
+      <div class="row" style="background:var(--ojoBg);border:1px solid var(--ojoLn);border-radius:11px;padding:10px 12px;margin-top:12px">
+        <div class="ico" style="width:30px;height:30px;font-size:14px">${ico('👀')}</div>
+        <div class="dim" style="font-size:12px">${esc(mio.n)} todavía no anotó nada tuyo, así que no hay con qué
+        cruzar. Cruzala con ${esc(mio.n)} antes de firmar.</div>
       </div>`:`
       <div class="row" style="background:var(--tint);border-radius:11px;padding:10px 12px;margin-top:12px">
         <div class="ico" style="width:30px;height:30px;font-size:14px">${ico('✅')}</div>
@@ -4169,8 +4227,8 @@ function vMe(){
 
     <h2>Mis rondas</h2>
     <div class="card">
-      ${[['31 jul',CLUB.corto,'84','+13'],['24 jul',CLUB.corto,'79','+8'],
-         ['18 jul',CLUB.corto,'88','+17'],['11 jul',CLUB.corto,'82','+11']].map(([d,c,s,p])=>
+      ${[[fechaCorta(diasAtras(2)),CLUB.corto,'84','+13'],[fechaCorta(diasAtras(9)),CLUB.corto,'79','+8'],
+         [fechaCorta(diasAtras(16)),CLUB.corto,'88','+17'],[fechaCorta(diasAtras(23)),CLUB.corto,'82','+11']].map(([d,c,s,p])=>
         `<div class="item"><div class="ico">${ico('⛳')}</div><div style="flex:1;min-width:0">
           <div style="font-weight:700">${c}</div><div class="dim" style="font-size:12px">${d}</div></div>
           <div style="text-align:right"><div style="font-weight:800;font-size:17px">${s}</div>
@@ -4235,7 +4293,7 @@ function vDash(){
     ${bannerCambio()}
     <div class="card"><h3>Modalidad</h3>
       <div class="dim" style="font-size:12px;margin-bottom:11px">
-        Cambia según el fin de semana y el clima. Lo que elijas les llega a todos los socios al instante.</div>
+        Cambia según el fin de semana y el clima. Esta pantalla todavía es un dibujo: lo que elijas acá no sale a los socios.</div>
       <div class="grid2">
         <button class="chip ${CLUB.torneo.modo==='escalonada'?'on':''}" style="padding:13px 6px"
           onclick="setModo('escalonada')"><div style="font-size:17px">🕐</div>Escalonadas
@@ -4307,7 +4365,8 @@ function vDash(){
     <h2>Avisar a los socios</h2>
     <div class="card">
       <div class="dim" style="font-size:12px;margin-bottom:11px">
-        Llega como notificación a los ${CLUB.socios} socios y queda fijado en Novedades.</div>
+        Queda fijado en Novedades y lo ve cualquier socio que abra la app.
+        Todavía no suena el teléfono: eso es una notificación y no está hecha.</div>
       <div class="grid2">
         ${[['🚧','Cancha cerrada'],['🌱','Aireación de greens'],
            ['💳','Aumento de cuota'],['💰','Cuota extraordinaria'],
@@ -4559,8 +4618,17 @@ function vSocios(){return `<div class="fade">
   <div class="hdr"><div><div class="lbl">Panel</div><h1>Socios</h1></div>
     <button class="chip" onclick="S.mode='player';S.tab='home';render()">Salir</button></div>
   <div class="pad">
-    ${kpi([['Total','412','+8 este mes','acc'],['Cuotas al día','94%','24 con deuda'],
-      ['Handicap medio','18.7',''],['Juegan 4+/mes','168','41% del padrón']])}
+    ${/* Esta pantalla todavía es un dibujo: el padrón de verdad vive en
+         `padron.sql` y no está enchufado. Pero los números salen de
+         `CLUB.socios` y no escritos a mano, porque decían 412 socios en un
+         club de 123 y eso lo ve de una la primera persona de la comisión que
+         mire la pantalla. Un dibujo puede ser un dibujo; no puede contradecir
+         al club. */
+      (() => { const n = CLUB.socios;
+        return kpi([['Total',String(n),'+3 este mes','acc'],
+          ['Cuotas al día','94%',Math.round(n*0.06)+' con deuda'],
+          ['Handicap medio','18.7',''],
+          ['Juegan 4+/mes',String(Math.round(n*0.41)),'41% del padrón']]); })()}
     <div class="card"><h3>Últimos movimientos</h3>
       ${[['✅','Socia Dos','Alta de socia · plan full'],['💳','Socio Seis','Cuota vencida · 42 días','red'],
          ['📉','Socio Cuatro','Handicap 22 → 20.4'],['🚫','Socio Siete','No-show domingo · multa aplicada','red'],
@@ -4585,12 +4653,18 @@ function vTorneo(){return `<div class="fade">
     <button class="chip" onclick="S.mode='player';S.tab='home';render()">Salir</button></div>
   <div class="pad">
     <div class="card"><h3>${CLUB.torneo.n} · ${CLUB.torneo.fecha}</h3>
+      ${/* Decía 53 de 64 y $954k escritos a mano, mientras el Panel —leyendo
+           `CLUB.torneo`— decía 34 de 52 para el mismo torneo. Y 954k entre 53
+           tampoco daba el precio del torneo. Es un dibujo, pero un dibujo que
+           se contradice de una pantalla a otra le enseña a la comisión a no
+           creerle a ningún número. Ahora sale todo del mismo lugar. */''}
       <div class="between" style="margin-bottom:10px">
-        <div><div class="lbl">Inscriptos</div><div class="big">53</div></div>
-        <div style="text-align:right"><div class="lbl">Recaudado</div><div class="big acc">$954k</div></div>
+        <div><div class="lbl">Inscriptos</div><div class="big">${CLUB.torneo.inscriptos}</div></div>
+        <div style="text-align:right"><div class="lbl">Recaudado</div>
+          <div class="big acc">${pesos(CLUB.torneo.inscriptos * CLUB.torneoPrecios.normal)}</div></div>
       </div>
-      <div class="bar"><i style="width:83%"></i></div>
-      <div class="dim" style="font-size:12px;margin-top:7px">53 de 64 lugares · cierra el 6/8</div>
+      <div class="bar"><i style="width:${Math.round(100*CLUB.torneo.inscriptos/CLUB.torneo.cupo)}%"></i></div>
+      <div class="dim" style="font-size:12px;margin-top:7px">${CLUB.torneo.inscriptos} de ${CLUB.torneo.cupo} lugares · cierra el ${fechaBarra(enDias(5))}</div>
       <div class="grid2" style="margin-top:12px">
         <button class="chip" onclick="toast('Grillas de salida generadas automáticamente')">Generar salidas</button>
         <button class="chip" onclick="toast('Recordatorio enviado a ${CLUB.socios} socios')">Recordar a socios</button>
@@ -4599,7 +4673,7 @@ function vTorneo(){return `<div class="fade">
 
     <div class="card"><h3>Modalidad de salida</h3>
       <div class="dim" style="font-size:12px;margin-bottom:11px">
-        Cambia según el fin de semana y el clima. Lo que elijas acá les llega a todos los socios al instante.</div>
+        Cambia según el fin de semana y el clima. Esta pantalla todavía es un dibujo: lo que elijas acá no sale a los socios.</div>
       <div class="between" style="background:var(--tint);border-radius:11px;padding:9px 11px;margin-bottom:11px">
         <span style="font-size:12px;font-weight:600">Lo pueden cambiar</span>
         <span class="dim" style="font-size:12px">Quien tenga el permiso de salidas
@@ -4719,6 +4793,12 @@ function empezarRonda(sinGps){
     render(); return;
   }
   const aCiegas = !gpsVivo();
+  /* La fecha de la vuelta se fija ACÁ, cuando se sale al 1, y no se recalcula
+     al mirar la tarjeta. Una tarjeta es la prueba de una vuelta: si la fecha
+     saliera del reloj en el momento de abrirla, la del sábado diría "lunes"
+     cuando el socio la muestra el lunes. Antes directamente estaba escrita a
+     mano —31/07/2026— y decía lo mismo para todos y para siempre. */
+  S.fecha = new Date().toISOString().slice(0,10);
   S.hole=1; S.playing=true; go('play');
   toast(aCiegas ? 'Arrancó sin GPS · vas a anotar sin distancias'
       : S.torneo?`Arrancó · llevás la tarjeta de ${GROUP()[S.marco].n}`:'Arrancó la ronda');
@@ -4745,7 +4825,7 @@ function entregar(){
   S.entregada=true; render(); go('summary');
   toast(S.presento===false
     ? `📩 Entregaste la de ${GROUP()[S.marco].n} · la tuya no se presenta`
-    : `📩 Tarjetas entregadas · le llegaron a ${CLUB.pro.n}`);
+    : '📩 Tarjetas cerradas · la entrega al club todavía no está conectada');
 }
 /* La app no supone que sos socio: hasta que lo digas, `S.tipo` es null. */
 function seguirDesdeTipo(){
@@ -4936,8 +5016,8 @@ async function bajarAviso(id){
 }
 function publicarResultados(){
   toast(S.resultadosPublicos
-    ? '📊 Resultados publicados · notificación a socios e invitados'
-    : `📊 Resultados publicados · notificación a los ${CLUB.socios} socios`);
+    ? '📊 Así se verían · publicar resultados todavía no está hecho'
+    : '📊 Así se verían · publicar resultados todavía no está hecho');
 }
 function toggleAlcance(){ S.resultadosPublicos=!S.resultadosPublicos; render();
   toast(S.resultadosPublicos?'Los resultados los ve cualquiera con la app':'Los resultados quedan solo para socios'); }
@@ -4950,15 +5030,19 @@ function setTipo(t){ S.tipo=t; S.tab='home'; render();
 function setRol(){ toast('Los permisos los da el club desde el servidor'); }
 function setModo(m){
   CLUB.torneo.modo=m;
+  /* Decía "aviso enviado a 123 socios" y no se enviaba nada: esta pantalla
+     todavía es un dibujo y el cambio vive en la memoria del teléfono. Un
+     cartel que dice que salió algo que no salió es la misma mentira que un
+     número inventado, y encima se descubre tarde. */
   toast(m==='simultanea'
-    ? `💥 Tiro simultáneo ${CLUB.torneo.hora} · aviso enviado a ${CLUB.socios} socios`
-    : `🕐 Salidas escalonadas ${CLUB.horarios.primera}–${CLUB.horarios.ultima} · aviso enviado a ${CLUB.socios} socios`);
+    ? `💥 Tiro simultáneo ${CLUB.torneo.hora} · todavía no sale a los socios`
+    : `🕐 Salidas escalonadas ${CLUB.horarios.primera}–${CLUB.horarios.ultima} · todavía no sale a los socios`);
   render();
 }
 function cambioClima(motivo){
   CLUB.torneo.cambio = motivo;
   if(motivo.includes('simultáneo')) CLUB.torneo.modo='simultanea';
-  toast(`📣 Aviso enviado a ${CLUB.socios} socios`);
+  toast('📣 Así se vería · el cambio todavía no sale a los socios');
   render();
 }
 function limpiarCambio(){ CLUB.torneo.cambio=null; render(); }
@@ -6393,7 +6477,14 @@ const LS_KEY = 'trisquelia_v1';
 const GUARDAR = ['user','tee','cat','mat','hcpIn','fedOk','onboarded','tipo','dni','nsocio',
                  'email','indexDias','hole','vuelta','playing','torneo','marco','meMarca',
                  'certifico','firmoLaOtra','entregada','presento','booked','soloSeguir',
-                 'instalarVisto'];
+                 'instalarVisto',
+                 /* `fecha` es el día que se salió al 1. Si no viaja acá, la
+                    primera vez que Android recarga la pestaña en el medio de la
+                    vuelta se pierde, y la tarjeta vuelve a sacar la fecha del
+                    reloj: la del sábado dice "lunes" cuando se la mira el lunes.
+                    Se agregó a `S` en la v22 y se olvidó acá; lo encontró la
+                    revisión de esa misma versión. */
+                 'fecha'];
 function guardarTodo(){
   try{
     const d = {v:1, ts:Date.now(), R:{scores:R.scores,putts:R.putts,fw:R.fw,gir:R.gir,shots:R.shots,bunker:R.bunker,penal:R.penal},

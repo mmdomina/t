@@ -70,7 +70,7 @@ queda publicada igual, pero no la carga nadie).
 No es opcional: es lo que le avisa a los teléfonos que ya tienen la app que hay algo nuevo.
 Si no se toca, pueden seguir abriendo la versión vieja para siempre.
 
-Va en `trisquelia-vN`. Al día de hoy: **v21**.
+Va en `trisquelia-vN`. Al día de hoy: **v22**.
 
 ---
 
@@ -107,6 +107,16 @@ un club puede confiar en esto. No la pierdas por rellenar un hueco.
 
 **El texto de la interfaz le habla al socio**, no al programador. "¿Estás parado en una estaca?",
 "Quedate quieto donde estás", "Dictáselo a los demás".
+
+**Un dibujo puede ser un dibujo; no puede mentir ni contradecirse.** Hay pantallas que todavía
+son de ejemplo —padrón, cuotas, tee sheet, torneos— y está bien que existan: es más barato que la
+comisión diga "ese número no me sirve" mirando un dibujo. Pero tres cosas no se permiten, y las
+tres pasaron hasta la v21: **una fecha fija** ("Viernes 31 de julio" en Inicio, en octubre), **un
+número que contradice al club** (412 socios en un club de 123; 53 inscriptos en Torneos y 34 en
+el Panel para el mismo torneo) y **un cartel que dice que salió algo que no salió** ("aviso
+enviado a 123 socios", "le llegaron a Félix"). Los números de ejemplo salen de `CLUB` y no se
+escriben a mano; las fechas, del reloj; y un botón de una pantalla dibujada dice "así se vería ·
+todavía no sale a los socios". Lo encontró la revisión del PDF para la comisión, el 23/10/2026.
 
 ---
 
@@ -218,6 +228,29 @@ que los socios tengan cuenta (`padron.sql`). Mientras tanto el casillero decide 
 no qué se puede averiguar**, y la pantalla de publicar avisa con esas palabras para que nadie
 ponga ahí algo que no quiera que se lea. `clubtest` tiene una comprobación que deja escrita esa
 limitación: el día que haga falta llave, se pone en rojo sola.
+
+**Las fechas salen del reloj, y sus ayudantes van PRIMERO en el script.** `hoyTxt()`,
+`diasAtras()`, `enDias()`, `fechaCorta()`, `fechaBarra()` y `fechaTarjeta()` viven en el bloque
+`FECHAS QUE NO ENVEJECEN`, arriba de todo, antes de `const S`. No es prolijidad: `CLUBS_DB` y
+`PARA_AAG` las llaman al construirse, y un `const` usado antes de su declaración no queda "sin
+definir" — **corta el script entero y la app no abre**. Pasó al escribirlas. Los nombres de mes y
+día están a mano porque `toLocaleDateString('es-AR')` devuelve inglés en algunos Android. Y la
+fecha de la tarjeta **no** sale del reloj al mirarla: se fija en `S.fecha` cuando `empezarRonda()`
+sale al 1, porque la tarjeta del sábado no puede decir "lunes" cuando el socio la muestra el lunes.
+**Y `fecha` va en `GUARDAR`**: la primera versión del arreglo la agregó a `S` y se olvidó de la
+lista de lo que se guarda, así que la primera recarga de Android en el medio de la vuelta la
+borraba. Si agregás algo a `S` que tenga que sobrevivir una vuelta de cuatro horas, va en
+`GUARDAR` en el mismo cambio — `identidadtest` sección 9 lo prueba con una recarga de verdad.
+
+**Vacío no es "coincide".** `MARCA` es lo que el marcador anotó de mí, y en un solo teléfono
+está vacío: hoy el cruce de verdad vive en la ronda compartida. Hasta la v21 la pantalla de firma
+leía ese vacío como acuerdo —"Lo que anotó MD coincide con tus golpes en los 18 hoyos"— y el total
+de la fila del marcador sumaba los golpes del jugador. `hayMarca()` separa los tres casos: no anotó
+nada (lo dice), anotó y coincide, anotó y no coincide. `identidadtest` sección 8, y se comprobó
+que da rojo contra la v21. Ojo con lo que sigue abierto: `MARCA` y `OTRO` **no se guardan** en
+`guardarTodo()` y `S.certifico` sí, así que una recarga puede dejar "certificada" una tarjeta sin
+el lado del marcador. Se resuelve cuando el cruce de un teléfono y el de la ronda compartida sean
+uno solo.
 
 **Sin index no se inventan números.** `hcpCancha()` devuelve `null` cuando no hay index, y
 `null` **no es cero**: cero significa "juega scratch" y daba un neto igual al gross y un
@@ -502,7 +535,7 @@ node pruebas/ubicaciontest.js         # el portón del GPS              (27 ✓)
 node pruebas/cierretest.js            # cerrar el hoyo                 (43 ✓)
 node pruebas/teetest.js                # el aviso al llegar al tee      (21 ✓)
 node pruebas/canchatest.js             # la tarjeta y el handicap       (78 ✓)
-node pruebas/identidadtest.js          # quién sos: nombre e identidad  (45 ✓)
+node pruebas/identidadtest.js          # quién sos, y no inventar acuerdo (54 ✓)
 node pruebas/formatest.js              # la forma medida de los hoyos   (29 ✓)
 node pruebas/paneltest.js              # el portón del panel del club   (40 ✓)
 ```
@@ -562,10 +595,17 @@ de club que quedó guardada en el teléfono, y el simulador de "ver como" puesto
 tienen que rebotar. Después comprueba lo otro, que es igual de importante: que a Félix se le abran
 las salidas y no los permisos, y a Chelo el padrón y no las salidas.
 
-Entre las trece suites son **432 comprobaciones**, más las **61** del esquema, las **69** del
-alta y las **78** del panel: 640 en total. Si
+Entre las trece suites son **440 comprobaciones**, más las **61** del esquema, las **69** del
+alta y las **78** del panel: 648 en total. Si
 alguna se pone en rojo después de un cambio tuyo, es un bug tuyo: estaban todas en verde el
-25/9/2026 (las 61 del esquema, el 24/9, ya con los roles de Neon).
+23/10/2026, con la v22. `test-pwa` es la única caprichosa, y tiene dos caprichos distintos: a
+veces corta a mitad de camino por un `ERR_ABORTED` del contenedor (da 9 o 14 en vez de 18, sin
+rojos), y a veces da **un** rojo, siempre el mismo: *"el atajo del ícono abre la pantalla pedida"*,
+con `S.tab = home`. Ese segundo **es un bug de verdad y es viejo**: el atajo `./?ir=arranque` del
+ícono a veces cae en Inicio en vez de en Empezar ronda. Se midió el 23/10/2026: 2 de 6 en la v22
+y 1 de 8 en la v21 publicada, o sea que no lo trajo ningún cambio de ese día. Huele a carrera
+entre el `?ir=` y algo que redibuja al arrancar; no se persiguió porque no estaba en el camino
+de la presentación.
 
 Si Playwright no encuentra Chromium solo, pásale la ruta en `CHROME_PATH`.
 
@@ -616,9 +656,18 @@ app que juega sin señal y sincroniza cada seis segundos no se notan.
    haber escrito su nombre, pero ese nombre lo elige la persona: cualquiera con el código sigue
    pudiendo **sumarse** con el nombre que quiera. Para un torneo oficial hace falta que el que
    entra sea un socio verificado contra el padrón.
-4. El panel de la comisión, funcionando contra el servidor. Hoy la puerta al panel la abre el
-   nombre: `esComision()` compara contra `EQUIPO`, que alcanza para que no se le abra a
-   cualquiera que baja la app, y se cae solo el día que el rol lo diga el servidor.
+4. ~~El panel de la comisión, funcionando contra el servidor.~~ **Andando desde la v21**: llave
+   por puesto, estado de cancha y avisos contra Neon, probado el 23/10/2026 cerrando la cancha
+   desde una computadora y viéndolo en un teléfono sin llave. Lo que queda: dos de los ocho
+   permisos —`result` y `admin`— **no tienen nada detrás** (en el servidor sólo se verifican
+   `avisos` y `cancha`), y no hay notificaciones: un aviso se ve al abrir la app, el teléfono
+   no suena.
+
+**El lunes 26/10/2026 se le presenta a la comisión** con un PDF y desde el teléfono de Mauro,
+sin repartir llaves. La condición que se propone para abrirla a los socios es una sola y
+concreta: **que salga limpia una vuelta de 18 hoyos con dos teléfonos.** (Si estás leyendo esto
+después de esa fecha, lo que la comisión haya dicho va acá.) El PDF y la lista de lo que el
+verificador encontró están en el proyecto de Claude, en `presentacion-comision.md`.
 5. ~~Rating y slope oficiales de las tres salidas.~~ **Resueltos en la v10**, y el club cerró
    las dos preguntas que quedaban el 22/9/2026: la tarjeta de papel nueva **ya está impresa**
    (el papel y la app coinciden) y el corte para salir de negras es **por index, hasta 10.3**.
