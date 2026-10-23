@@ -117,6 +117,16 @@ begin
   j := club_estado('TEST-CLUB', null, false);
   perform _ok(json_array_length(j->'avisos') = 1,
      'y el que NO es socio ve sólo el público: lo de plata no sale');
+  --  Pero que quede escrito qué NO protege: el "soy socio" lo manda el
+  --  teléfono, y un teléfono miente. Cualquiera pide el token anónimo y
+  --  llama con `p_socio => true`. Lo encontró un ataque dirigido el
+  --  23/10/2026 y no se puede cerrar hasta que los socios tengan cuenta.
+  --  Esta comprobación está acá para que nadie crea que es un secreto:
+  --  el día que SÍ haga falta llave, se pone en rojo sola y hay que
+  --  cambiarla a propósito.
+  j := club_estado('TEST-CLUB', null, true);
+  perform _ok(json_array_length(j->'avisos') = 2,
+     'OJO · pidiendo "soy socio" los ve cualquiera: el marcador filtra, no protege');
   perform _ok(j->'avisos'->0->>'titulo' = 'Cancha cerrada el jueves', 'y es el que corresponde');
   perform _ok(j->'avisos'->0->>'por' = 'Carla', 'firmado por quien lo puso');
 

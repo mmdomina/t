@@ -131,10 +131,16 @@ async function hasta(p, fn, arg, tope = 14000) {
   await esperar(1500);
   const conCaida = await A.p.evaluate(() => ({
     score: R.scores[4], cola: RONDA.cola.length,
-    pantalla: document.getElementById('screen').innerText.length
+    /* Antes acá se medía el largo del texto de la pantalla contra un número
+       fijo. Desde la v21 ese número cambió solo: las novedades del club
+       salen del servidor, y con el servidor caído la pantalla dice "no se
+       pudieron traer" en vez de mostrar cinco avisos de ejemplo. O sea que
+       el umbral medía el relleno, no que la app siguiera viva. Ahora se
+       comprueba lo que importa: que la ronda en curso se siga viendo. */
+    sigueLaRonda: /Hoyo\s*\d/i.test(document.getElementById('screen').innerText)
   }));
-  ok(conCaida.score === 4 && conCaida.cola >= 1 && conCaida.pantalla > 500,
-     'seguís jugando igual: el score queda guardado y la app no se cae');
+  ok(conCaida.score === 4 && conCaida.cola >= 1 && conCaida.sigueLaRonda,
+     'seguís jugando igual: el score queda guardado y la ronda se sigue viendo');
   await fetch(MOCK + '/__test?caido=0');
   ok(await hasta(A.p, () => RONDA.cola.length === 0, null, 16000), 'cuando el servidor vuelve, se pone al día solo');
 

@@ -204,24 +204,34 @@ const pantalla = p => p.evaluate(() =>
 
   /* ══ 6 · El panel del club no se le abre a cualquiera ══════════════ */
   console.log('\n6. El panel del club no se le abre a cualquiera');
+  /* Desde la v21 el nombre ya no abre nada: lo que abre es la llave que da
+     el servidor. Acá sólo se comprueba el lado de la identidad —que escribir
+     el nombre de alguien de la comisión no te convierta en esa persona—; el
+     resto del portón lo prueba `paneltest` a fondo. */
   const puertas = await t1.p.evaluate(() => {
-    const ver = n => { ponerNombre(n); S.comoQuien = null; S.tipo = 'socio';
-      /* Desde el 22/10/2026 `quien()` devuelve null al que no está en la
-         comisión, en vez de caer en el primero del equipo. Que acá hiciera
-         falta un `?` es justamente la prueba de que antes no era null. */
-      const q = quien();
+    const ver = n => { ponerNombre(n); S.tipo = 'socio';
       return { puerta: /Abrir panel del club/.test(VIEWS.me()),
-               rol: q ? q.rol : null, comision: esComision() }; };
-    return { ana: ver('Ana Gómez'), mauro: ver('Mauro Domina'), felix: ver('Félix Córdoba') };
+               ofrece: /Sos de la comisión/.test(VIEWS.me()),
+               quien: quien(), comision: esComision() }; };
+    COMISION = null;
+    const a = ver('Ana Gómez'), m = ver('Mauro Domina');
+    /* Y ahora con una llave, que es lo único que sí abre. */
+    COMISION = { llave:'k'.repeat(64), puesto:'Administración', persona:'Ana Prueba',
+                 rol:'admin', permisos:['salidas','result','torneos','avisos','cancha','padron','cuotas','admin'] };
+    const conLlave = ver('Ana Gómez');
+    COMISION = null;
+    return { ana: a, mauro: m, conLlave };
   });
   ok(!puertas.ana.puerta && !puertas.ana.comision,
      'un socio cualquiera no ve la puerta al panel');
-  ok(puertas.ana.rol === null,
-     'y para la app no tiene NINGÚN rol: no hereda el del primero del equipo');
-  ok(puertas.mauro.puerta && puertas.mauro.rol === 'admin',
-     'el que está en la comisión sí, y con su rol');
-  ok(puertas.felix.puerta && puertas.felix.rol === 'salidas',
-     'y cada uno entra con el suyo: Félix maneja salidas, no es administrador');
+  ok(puertas.ana.quien === null,
+     'y para la app no es nadie de la comisión');
+  ok(!puertas.mauro.puerta && puertas.mauro.quien === null,
+     'ESCRIBIR EL NOMBRE DE ALGUIEN DE LA COMISIÓN TAMPOCO ABRE NADA');
+  ok(puertas.ana.ofrece,
+     'en su lugar, a cualquiera se le ofrece pegar una llave si la tiene');
+  ok(puertas.conLlave.puerta && puertas.conLlave.quien.puesto === 'Administración',
+     'con la llave puesta sí se abre, y con el puesto que dice el servidor');
 
   /* ══ 7 · El alta pide el nombre por los dos caminos ════════════════ */
   console.log('\n7. El alta pide el nombre por los dos caminos');

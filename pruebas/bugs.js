@@ -99,15 +99,30 @@ const EXE = process.env.CHROME_PATH || undefined;   // si está vacío, Playwrig
     }
     S.cerrando = false; S.hole = 1;
 
-    /* 4 · modo club, con cada persona del equipo */
+    /* 4 · modo club, con cada rol posible.
+       Desde la v21 la app no tiene la lista de personas: quién sos lo dice
+       el servidor cuando pegás tu llave. Acá se simula esa respuesta, que
+       es exactamente lo que `comision_entrar()` devuelve. */
     S.mode = 'club';
-    EQUIPO.forEach((m, i) => {
-      S.comoQuien = i;
+    const ROLES_PRUEBA = {
+      admin:   ['salidas','result','torneos','avisos','cancha','padron','cuotas','admin'],
+      salidas: ['salidas','result'],
+      avisos:  ['avisos','cancha','padron','cuotas'],
+      torneos: ['torneos'],
+      sin:     []
+    };
+    Object.keys(ROLES_PRUEBA).forEach(rol => {
+      COMISION = { llave:'x'.repeat(64), puesto:'Puesto de prueba',
+                   persona: rol === 'sin' ? null : 'Persona Prueba',
+                   rol, permisos: ROLES_PRUEBA[rol] };
       ['dash', 'tees', 'socios', 'torneo', 'permisos'].forEach(k => {
-        if (VIEWS[k]) revisar(`club:${m.rol}/${k}`, VIEWS[k]);
+        if (VIEWS[k]) revisar(`club:${rol}/${k}`, VIEWS[k]);
       });
     });
-    S.mode = 'player'; S.comoQuien = 0;
+    /* Y sin llave ninguna, que es el caso del socio común. */
+    COMISION = null;
+    ['dash', 'permisos'].forEach(k => { if (VIEWS[k]) revisar(`club:sinllave/${k}`, VIEWS[k]); });
+    S.mode = 'player';
 
     /* 5 · el alta de cuenta, paso por paso */
     const onbGuardado = S.onboarded;
