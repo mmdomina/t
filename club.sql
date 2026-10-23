@@ -18,26 +18,45 @@
 --  En la app, la puerta del panel la abre comparar el nombre que la
 --  persona escribió contra una lista escrita en el código. Eso
 --  alcanza para que no se le abra a cualquiera que baja la app, pero
---  no puede sostener una escritura: cualquiera escribe "Chelo
---  Caballero". Acá cada miembro de la comisión tiene una **llave**
---  propia —el mismo invento que protege la tarjeta de cada jugador
---  en `esquema.sql`— y sin ella no se publica nada.
+--  no puede sostener una escritura: cualquiera escribe un nombre.
+--  Acá cada acceso tiene una **llave** propia —el mismo invento que
+--  protege la tarjeta de cada jugador en `esquema.sql`— y sin ella no
+--  se publica nada.
+--
+--  Y LA LLAVE ES DEL PUESTO, NO DE LA PERSONA
+--  Ésta es la idea de Mauro y mejora el diseño original. La comisión
+--  cambia: Félix no va a ser el profesional para siempre. Si la llave
+--  fuera de Félix, el día que deje el puesto habría que rehacer todo.
+--  Entonces la fila es el PUESTO —"Profesional de la cancha"— y a él
+--  están atados la llave y los permisos. `persona` es sólo quién lo
+--  ocupa hoy, y se cambia con un renglón: `comision_persona()`.
+--
+--  Pero el aviso se firma con la PERSONA, no con el puesto. En un club
+--  donde todos se conocen, "lo dijo Chelo" pesa más que "lo dijo la
+--  Comisión Directiva". Si el puesto está vacante, ahí sí firma el
+--  puesto. Eso es todo lo que hace la línea de `coalesce` que aparece
+--  en `cancha_poner` y en `aviso_poner`.
+--
+--  Y DE PASO, EL CÓDIGO PÚBLICO QUEDA SIN NOMBRES REALES
+--  El repositorio es público. Hasta ahora los cuatro nombres de la
+--  comisión vivían en `index.html` porque la app los necesitaba para
+--  decidir quién entraba. Con la llave ya no los necesita: los nombres
+--  viven sólo acá, en la base, que es privada.
 --
 --  Y LOS PERMISOS LOS DICE EL SERVIDOR
 --  La app tiene su tabla de roles para dibujar nombres y descripciones,
---  pero **quién puede qué lo decide `ROLES_SRV`, acá abajo**. Si la
+--  pero **quién puede qué lo decide `roles_srv()`, acá abajo**. Si la
 --  lista viviera en los dos lados, algún día dejarían de coincidir y
 --  el que manda sería el equivocado. `comision_entrar()` le devuelve
 --  al teléfono la lista de permisos ya resuelta, y la app la usa.
 --
 --  CÓMO SE REPARTEN LAS LLAVES
 --  `comision_alta()` se corre a mano desde el SQL Editor y devuelve la
---  llave UNA vez. Esa cadena se le pasa a la persona por donde sea
---  (en mano, por WhatsApp) y la pega una sola vez en su panel. Es el
---  mismo trato que el código de la ronda: se dicta entre personas que
---  se conocen. Si alguna vez hay cuentas de verdad —`padron.sql`— la
---  llave va a salir de entrar con DNI y clave en vez de repartirse, y
---  esta tabla gana una columna `dni`. El resto no cambia.
+--  llave UNA vez. Esa cadena se le pasa a la persona que ocupa el
+--  puesto y la pega una sola vez en su panel. Es el mismo trato que el
+--  código de la ronda: se dicta entre personas que se conocen. Cuando
+--  alguien deja el puesto, lo prolijo es rotar: `comision_baja()` del
+--  puesto y `comision_alta()` de nuevo, que da una llave nueva.
 -- ============================================================
 
 -- ---------- los dos roles de la Data API ----------
@@ -55,17 +74,19 @@ end $$;
 --  LAS TABLAS
 -- ============================================================
 
--- ---------- quién es de la comisión ----------
---  La llave es la clave primaria a propósito: es lo único que la
---  persona presenta, y así no hay forma de pedir una fila sin tenerla.
+-- ---------- quién tiene acceso al panel ----------
+--  Una fila por PUESTO, no por persona. La llave es la clave primaria
+--  a propósito: es lo único que se presenta, y así no hay forma de
+--  pedir una fila sin tenerla.
 create table if not exists comision (
   llave       text primary key,
   club        text not null,
-  nombre      text not null,
-  rol         text not null,                      -- ver ROLES_SRV, más abajo
+  puesto      text not null default 'Sin puesto',   -- lo durable
+  persona     text,                                 -- quién lo ocupa hoy
+  rol         text not null,                        -- ver roles_srv()
   creada      timestamptz not null default now(),
   visto       timestamptz,
-  borrado_en  timestamptz                         -- borrado lógico: null = vigente
+  borrado_en  timestamptz                           -- borrado lógico
 );
 
 -- ---------- el estado de la cancha ----------
@@ -76,7 +97,7 @@ create table if not exists cancha (
   club        text primary key,
   abierta     boolean not null default true,
   nota        text,
-  por         text,                               -- nombre de pila de quien publicó
+  por         text,
   desde       timestamptz,
   actualizado timestamptz not null default now()
 );
@@ -87,24 +108,55 @@ create table if not exists cancha (
 create table if not exists avisos (
   id          bigserial primary key,
   club        text not null,
-  ic          text,                               -- el emoji que la app convierte en dibujo
+  ic          text,
   titulo      text not null,
   detalle     text,
   socios      boolean not null default false,
   por         text,
   creado      timestamptz not null default now(),
-  vence       timestamptz,                        -- null = hasta que lo bajen
+  vence       timestamptz,                          -- null = hasta que lo bajen
   borrado_en  timestamptz,
-  actualizado timestamptz not null default now()  -- para "qué cambió desde X"
+  actualizado timestamptz not null default now()    -- para "qué cambió desde X"
 );
 
 -- ---------- la migración ----------
-alter table comision add column if not exists borrado_en  timestamptz;
+--  Una base que ya tenía la versión anterior guardaba el nombre de la
+--  PERSONA en una columna `nombre`. Acá se renombra, se agrega el
+--  puesto, y las llaves que ya se repartieron siguen valiendo: no hay
+--  que volver a darlas de alta ni avisarle a nadie.
+do $$
+begin
+  if exists (select 1 from information_schema.columns
+              where table_name = 'comision' and column_name = 'nombre')
+     and not exists (select 1 from information_schema.columns
+              where table_name = 'comision' and column_name = 'persona') then
+    alter table comision rename column nombre to persona;
+  end if;
+end $$;
+
+alter table comision add column if not exists persona    text;
+alter table comision add column if not exists puesto     text not null default 'Sin puesto';
+alter table comision alter column persona drop not null;
 alter table avisos   add column if not exists actualizado timestamptz not null default now();
+
+--  Puestos por omisión, deducidos del rol, para que una base que viene
+--  de la versión anterior quede usable sin tocar nada. Son nombres de
+--  club genéricos, no de Trisquelia: se renombran con `comision_puesto()`.
+update comision set puesto = case rol
+    when 'admin'   then 'Administración'
+    when 'salidas' then 'Profesional de la cancha'
+    when 'avisos'  then 'Comisión Directiva'
+    when 'torneos' then 'Subcomisión de Torneos'
+    else 'Sin puesto' end
+ where puesto = 'Sin puesto' or puesto is null;
 
 -- ---------- los índices ----------
 create index if not exists avisos_por_club on avisos (club, actualizado);
 create index if not exists comision_viva   on comision (club) where borrado_en is null;
+--  Un puesto, una llave viva. Si se rota, la vieja queda con fecha de
+--  baja y deja de contar para este índice.
+create unique index if not exists comision_un_puesto
+  on comision (club, puesto) where borrado_en is null;
 
 -- ============================================================
 --  QUIÉN PUEDE QUÉ · la única lista que manda
@@ -112,6 +164,15 @@ create index if not exists comision_viva   on comision (club) where borrado_en i
 --  Espejo de `ROLES` en `index.html`, pero **ésta es la que decide**.
 --  La app la usa para dibujar los nombres lindos de cada permiso; para
 --  dejar pasar o no, manda ésta. Si agregás un rol, va acá primero.
+--
+--  OJO, UN HUECO CONOCIDO: el permiso `result` ("publicar resultados")
+--  está en la lista pero todavía no lo mira ninguna función. Hoy sólo
+--  `avisos`, `cancha` y los que use el resto del panel hacen algo. Está
+--  a propósito: los resultados son parte del torneo y eso no se
+--  construyó. El día que se haga, `aviso_poner` va a necesitar saber si
+--  el aviso es un resultado para pedir `result` en vez de `avisos` —
+--  mientras tanto, el profesional de la cancha NO publica avisos, y eso
+--  es lo correcto, no un olvido. Lo comprueba `clubtest`.
 create or replace function roles_srv() returns jsonb
 language sql immutable as $$
   select '{
@@ -125,11 +186,20 @@ language sql immutable as $$
 $$;
 revoke execute on function roles_srv() from public, anonymous, authenticated;
 
+-- ---------- con qué se firma ----------
+--  El nombre de pila de quien ocupa el puesto. Si está vacante, el
+--  puesto. Nunca nada vacío: un aviso sin firma no sirve.
+create or replace function firma_de(p_persona text, p_puesto text) returns text
+language sql immutable as $$
+  select coalesce(nullif(split_part(coalesce(p_persona,''),' ',1),''), p_puesto)
+$$;
+revoke execute on function firma_de(text,text) from public, anonymous, authenticated;
+
 -- ---------- la puerta ----------
---  Devuelve la fila de la persona si la llave vale Y tiene ese permiso.
---  Null en cualquier otro caso: llave inventada, persona dada de baja,
---  o rol que no incluye lo que quiere hacer. Una sola función para que
---  no haya dos criterios distintos dando vueltas.
+--  Devuelve la fila si la llave vale Y el puesto tiene ese permiso.
+--  Null en cualquier otro caso: llave inventada, puesto dado de baja,
+--  o rol que no incluye lo que se quiere hacer. Una sola función para
+--  que no haya dos criterios distintos dando vueltas.
 create or replace function comision_quien(p_llave text, p_permiso text)
 returns comision
 language plpgsql security definer set search_path = public as $$
@@ -149,7 +219,7 @@ revoke execute on function comision_quien(text,text) from public, anonymous, aut
 
 -- ---------- entrar al panel ----------
 --  El teléfono pega su llave una vez y guarda lo que vuelve. No
---  devuelve la llave (ya la tiene) ni nada de las otras personas.
+--  devuelve la llave (ya la tiene) ni nada de los otros puestos.
 create or replace function comision_entrar(p_llave text)
 returns json
 language plpgsql security definer set search_path = public as $$
@@ -161,8 +231,8 @@ begin
     return json_build_object('error', 'esa llave no sirve');
   end if;
   update comision set visto = now() where llave = p_llave;
-  return json_build_object('ok', true, 'nombre', v.nombre, 'club', v.club,
-    'rol', v.rol, 'permisos', roles_srv() -> v.rol);
+  return json_build_object('ok', true, 'puesto', v.puesto, 'persona', v.persona,
+    'club', v.club, 'rol', v.rol, 'permisos', roles_srv() -> v.rol);
 end $$;
 
 -- ---------- lo que ve un socio ----------
@@ -212,7 +282,7 @@ begin
 
   insert into cancha (club, abierta, nota, por, desde, actualizado)
   values (v.club, coalesce(p_abierta,true), recortar(p_nota,280),
-          split_part(v.nombre,' ',1), now(), now())
+          firma_de(v.persona, v.puesto), now(), now())
   on conflict (club) do update
     set abierta = excluded.abierta, nota = excluded.nota,
         por = excluded.por, desde = excluded.desde, actualizado = now();
@@ -243,7 +313,7 @@ begin
 
   insert into avisos (club, ic, titulo, detalle, socios, por, vence)
   values (v.club, recortar(p_ic,8), v_t, recortar(p_detalle,400),
-          coalesce(p_socios,false), split_part(v.nombre,' ',1),
+          coalesce(p_socios,false), firma_de(v.persona, v.puesto),
           case when coalesce(p_dias,0) > 0 then now() + (p_dias || ' days')::interval end)
   returning id into v_id;
 
@@ -272,32 +342,83 @@ end $$;
 --  LO QUE CORRE EL CLUB A MANO · nadie de afuera
 -- ============================================================
 
--- ---------- dar de alta a alguien de la comisión ----------
---  Se corre desde el SQL Editor y devuelve la llave UNA vez. Anotala
---  antes de cerrar la ventana: después no se puede volver a leer de
---  ningún lado que no sea la tabla.
-create or replace function comision_alta(p_club text, p_nombre text, p_rol text)
+--  La versión anterior daba de alta personas y recibía tres argumentos.
+--  Se saca para que no queden dos funciones con el mismo nombre.
+drop function if exists comision_alta(text,text,text);
+
+-- ---------- crear un puesto ----------
+--  Devuelve la llave UNA vez. Anotala antes de cerrar la ventana:
+--  después sólo se puede leer de la tabla, desde el SQL Editor.
+create or replace function comision_alta(p_club text, p_puesto text, p_rol text,
+                                         p_persona text default null)
 returns json
 language plpgsql security definer set search_path = public as $$
-declare v_ll text;
+declare v_ll text; v_p text := recortar(p_puesto,60);
 begin
   if not (roles_srv() ? p_rol) then
     return json_build_object('error','ese rol no existe');
   end if;
+  if v_p is null then
+    return json_build_object('error','el puesto necesita un nombre');
+  end if;
+  if exists (select 1 from comision
+              where club = p_club and puesto = v_p and borrado_en is null) then
+    return json_build_object('error','ese puesto ya tiene una llave viva: dalo de baja primero');
+  end if;
   v_ll := replace(gen_random_uuid()::text,'-','') || replace(gen_random_uuid()::text,'-','');
-  insert into comision (llave, club, nombre, rol)
-  values (v_ll, p_club, recortar(p_nombre,60), p_rol);
-  return json_build_object('ok', true, 'llave', v_ll, 'nombre', p_nombre, 'rol', p_rol);
+  insert into comision (llave, club, puesto, persona, rol)
+  values (v_ll, p_club, v_p, recortar(p_persona,60), p_rol);
+  return json_build_object('ok', true, 'llave', v_ll,
+    'puesto', v_p, 'persona', p_persona, 'rol', p_rol);
 end $$;
-revoke execute on function comision_alta(text,text,text) from public, anonymous, authenticated;
+revoke execute on function comision_alta(text,text,text,text)
+  from public, anonymous, authenticated;
 
--- ---------- sacarle el acceso a alguien ----------
-create or replace function comision_baja(p_club text, p_nombre text) returns json
+-- ---------- cambiar quién ocupa un puesto ----------
+--  El renglón que hace que todo esto valga la pena. Félix deja de ser
+--  el profesional y entra otro: se corre esto y listo. La llave, los
+--  permisos y los avisos que ya publicó no se tocan. Si además querés
+--  que la llave cambie —lo prolijo cuando alguien se va del club—
+--  usá `comision_baja()` y `comision_alta()`.
+create or replace function comision_persona(p_club text, p_puesto text, p_persona text)
+returns json
+language plpgsql security definer set search_path = public as $$
+begin
+  update comision set persona = recortar(p_persona,60)
+   where club = p_club and puesto = p_puesto and borrado_en is null;
+  if not found then return json_build_object('error','no hay un puesto así'); end if;
+  return json_build_object('ok', true, 'puesto', p_puesto, 'persona', p_persona);
+end $$;
+revoke execute on function comision_persona(text,text,text)
+  from public, anonymous, authenticated;
+
+-- ---------- renombrar un puesto ----------
+create or replace function comision_puesto(p_club text, p_viejo text, p_nuevo text)
+returns json
+language plpgsql security definer set search_path = public as $$
+begin
+  update comision set puesto = recortar(p_nuevo,60)
+   where club = p_club and puesto = p_viejo and borrado_en is null;
+  if not found then return json_build_object('error','no hay un puesto así'); end if;
+  return json_build_object('ok', true);
+end $$;
+revoke execute on function comision_puesto(text,text,text)
+  from public, anonymous, authenticated;
+
+-- ---------- anular la llave de un puesto ----------
+--  Antes el segundo argumento se llamaba `p_nombre` y era el de la
+--  persona. Postgres no deja renombrar un parámetro con `create or
+--  replace`, así que hay que sacarla primero: sin esto, el archivo
+--  corta acá al correrse sobre una base de la versión anterior y los
+--  permisos del final NO se aplican. Pasó, y por eso está escrito.
+drop function if exists comision_baja(text,text);
+
+create or replace function comision_baja(p_club text, p_puesto text) returns json
 language plpgsql security definer set search_path = public as $$
 declare n int;
 begin
   update comision set borrado_en = now()
-   where club = p_club and nombre = p_nombre and borrado_en is null;
+   where club = p_club and puesto = p_puesto and borrado_en is null;
   get diagnostics n = row_count;
   return json_build_object('ok', true, 'dados_de_baja', n);
 end $$;
@@ -308,7 +429,7 @@ revoke execute on function comision_baja(text,text) from public, anonymous, auth
 create or replace function comision_lista(p_club text) returns json
 language sql security definer set search_path = public as $$
   select coalesce(json_agg(json_build_object(
-    'nombre', nombre, 'rol', rol, 'creada', creada, 'visto', visto)
+    'puesto', puesto, 'persona', persona, 'rol', rol, 'creada', creada, 'visto', visto)
     order by creada), '[]'::json)
   from comision where club = p_club and borrado_en is null
 $$;
