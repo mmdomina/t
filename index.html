@@ -937,15 +937,40 @@ const EQUIPO = [
 const enComision = () => EQUIPO.findIndex(m =>
   hayNombre() && m.n.toLowerCase() === String(S.user.name).trim().toLowerCase());
 const esComision = () => enComision() >= 0;
-/* quién está mirando el panel — el selector de "ver como" manda si lo usaron */
-const quienK = () => S.comoQuien ?? Math.max(0, enComision());
-const quien  = () => EQUIPO[quienK()] || EQUIPO[0];
+/* quién está mirando el panel — el selector de "ver como" manda si lo usaron
+
+   OJO CON EL `Math.max(0, ...)` QUE HABÍA ACÁ. Cuando la persona no figuraba
+   en la comisión, `enComision()` devuelve -1 y ese `Math.max` lo convertía en
+   0: la app te trataba como el PRIMERO del equipo, que es el administrador.
+   Junto con el acceso directo de la URL, cualquiera que hubiera escrito un
+   nombre abría `?ir=permisos` y veía el panel entero diciéndole "sos el
+   administrador". Comprobado el 22/10/2026 y cerrado el mismo día. Si no sos
+   de la comisión no sos nadie acá: devuelve null, y `puede()` dice que no. */
+const quienK = () => {
+  const yo = enComision();
+  if(yo < 0) return -1;
+  /* "Ver como" es un simulador para mirar el panel con los ojos de otro, no
+     una puerta: sólo vale si la persona de verdad está en la comisión. */
+  return (S.comoQuien != null && EQUIPO[S.comoQuien]) ? S.comoQuien : yo;
+};
+const quien  = () => EQUIPO[quienK()] || null;
 /* Qué es público y qué es solo para socios.
    Los resultados van abiertos: ya son públicos en la federación y son
    la mejor carta de presentación del club. Lo de plata, no. */
 const SOLO_SOCIOS = ['cuota','padron','avisosInternos','ranking','precioSocio'];
 const esSocio = () => S.tipo==='socio';
-const puede  = k => ROLES[quien().rol].p.includes(k);
+const puede  = k => { const q = quien(); return !!q && ROLES[q.rol].p.includes(k); };
+
+/* ---------- LA ÚNICA PUERTA AL PANEL ----------
+   Todo lo que pueda terminar dibujando una pantalla del club pregunta por
+   acá: el botón de Perfil, el nav, el acceso directo de la URL y el render.
+   Una sola puerta y no cuatro es justamente lo que evita que se abra una
+   mientras las otras siguen cerradas, que es lo que pasó. */
+const PANTALLAS_CLUB = ['dash','tees','socios','torneo','permisos','cargaaag'];
+const esPantallaClub = t => PANTALLAS_CLUB.indexOf(t) >= 0;
+/* Estar en la lista no alcanza: el rol `sin` existe y no abre nada. */
+const puedeEntrarAlPanel = () => { const q = quien(); return !!q && ROLES[q.rol].p.length > 0; };
+const puedePantalla = t => !esPantallaClub(t) || (puedeEntrarAlPanel() && puedeVer(t));
 
 let CLUB = CLUBS_DB.trisquelia;             // ← el club de esta instalación
 let COURSE = CLUB.cancha;
@@ -4054,7 +4079,7 @@ function vMe(){
         Borrar todo y empezar de nuevo</button>
     </div>
 
-    ${esComision()?`<div class="card modeban">
+    ${puedeEntrarAlPanel()?`<div class="card modeban">
       <div style="font-weight:700">Panel del club</div>
       <div class="dim" style="font-size:12px">Figurás en la comisión de ${CLUB.corto}:
       ${ROLES[quien().rol].n}. Este panel no lo ve el resto de los socios.</div>
@@ -4099,19 +4124,25 @@ function vMe(){
    PANTALLAS — CLUB (admin)
    ============================================================ */
 function selectorQuien(){
+  const q = quien();
+  if(!q) return '';
+  /* El simulador es del administrador: el resto se ve sólo a sí mismo y no
+     tiene por qué poder mirar el panel con los ojos de otro. */
+  if(!puede('admin')) return '';
   return `<div class="card" style="padding:12px">
     <div class="lbl" style="margin-bottom:8px">Estás viendo el panel como</div>
     <div class="grid4">${EQUIPO.map((e,k)=>
       `<button class="chip ${quienK()===k?'on':''}" style="padding:9px 3px;font-size:11px"
         onclick="S.comoQuien=${k};S.tab='dash';render()">${e.n.split(' ')[0]}
         <div class="dim2" style="font-size:9px;font-weight:500">${ROLES[e.rol].n}</div></button>`).join('')}</div>
-    ${!quien().vos?`<div class="dim2" style="font-size:11px;margin-top:9px">
-      Así ve el panel ${quien().n}. Solo aparece lo que le habilitaste.</div>`:''}
+    ${!q.vos?`<div class="dim2" style="font-size:11px;margin-top:9px">
+      Así ve el panel ${q.n}. Solo aparece lo que le habilitaste.</div>`:''}
   </div>`;
 }
 
 function vDash(){
   const q = quien();
+  if(!q) return vHome();          // el portón de `render()` ya devolvió a casa
   return `<div class="fade">
   <div class="hdr"><div class="row" style="gap:11px">${crest(38)}
     <div><div class="lbl">Panel · ${CLUB.corto}</div><h1 style="font-size:23px">${q.vos?'Hoy':q.n.split(' ')[0]}</h1></div></div>
@@ -4125,7 +4156,7 @@ function vDash(){
         <span class="pill ${ROLES[q.rol].c}">${ROLES[q.rol].p.length} permiso${ROLES[q.rol].p.length===1?'':'s'}</span></div>
       <div class="sep"></div>
       ${ROLES[q.rol].p.length ? ROLES[q.rol].p.map(k=>
-        `<div class="item" style="padding:9px 0"><div class="ico">${PERMISOS[k].ic}</div>
+        `<div class="item" style="padding:9px 0"><div class="ico">${ico(PERMISOS[k].ic)}</div>
           <div style="min-width:0"><div style="font-weight:600;font-size:13px">${PERMISOS[k].n}</div>
           <div class="dim2" style="font-size:11px">${PERMISOS[k].d}</div></div></div>`).join('')
         : '<div class="dim" style="font-size:13px">Sin permisos asignados.</div>'}
@@ -4402,7 +4433,7 @@ function vPermisos(){
       ${Object.entries(PERMISOS).map(([k,pm])=>{const t2=rol.p.includes(k);
         return `<div class="between" style="padding:10px 0;border-bottom:1px solid var(--hair)">
           <div class="row" style="min-width:0;flex:1;gap:10px">
-            <span style="font-size:15px;${t2?'':'opacity:.3'}">${pm.ic}</span>
+            <span class="ico" style="width:26px;height:26px;flex:0 0 auto;${t2?'':'opacity:.3'}">${ico(pm.ic)}</span>
             <div style="min-width:0"><div style="font-weight:600;font-size:13px;${t2?'':'opacity:.45'}">${pm.n}</div>
               <div class="dim2" style="font-size:11px;${t2?'':'opacity:.5'}">${pm.d}</div></div></div>
           <span style="font-size:16px;color:${t2?'var(--acc)':'var(--dim2)'}">${t2?'✓':'—'}</span></div>`}).join('')}
@@ -4870,7 +4901,9 @@ function setCancha(abierta){
   render();
 }
 function publicarCancha(){
-  CANCHA_ESTADO.porQuien = quien().n.split(' ')[0];
+  const q = quien();
+  if(!q) return;
+  CANCHA_ESTADO.porQuien = q.n.split(' ')[0];
   CANCHA_ESTADO.desde = new Date().toLocaleDateString('es-AR',{day:'numeric',month:'short'})
                       + ' ' + new Date().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});
   toast(CANCHA_ESTADO.abierta ? 'Cancha abierta · aviso enviado a los socios'
@@ -6357,7 +6390,13 @@ function render(){
     return;
   }
   $('#nav').style.display='flex';
-  if(S.mode==='club' && !puedeVer(S.tab)) S.tab='dash';
+  /* EL PORTÓN DEL PANEL, y va acá porque acá pasa TODO lo que se dibuja, sin
+     importar cómo se llegó: por el nav, por la URL, o por una pantalla vieja
+     que quedó guardada en el teléfono. El control que había antes sólo corría
+     cuando `S.mode` ya era 'club', y por eso se lo podía saltear entrando
+     derecho con `?ir=`. */
+  if(!puedePantalla(S.tab)){ S.mode='player'; S.tab='home'; }
+  if(S.mode==='club' && !puedeEntrarAlPanel()) S.mode='player';
   $('#screen').innerHTML = (VIEWS[S.tab]||vHome)();
   renderNav();
   pintarBarra();
@@ -6366,11 +6405,17 @@ function render(){
 }
 cargarTodo();
 /* Accesos directos del ícono: si mantenés apretada la app en la pantalla
-   del teléfono aparece "Empezar una ronda", y eso abre directo ahí. */
+   del teléfono aparece "Empezar una ronda", y eso abre directo ahí.
+
+   Acá entra lo que venga escrito en la dirección, así que es una puerta al
+   mismo nivel que el nav y pregunta lo mismo: `puedePantalla()`. Antes
+   aceptaba cualquier pantalla de `VIEWS`, incluidas las del club. */
 (function(){
   try{
     const ir = new URLSearchParams(location.search).get('ir');
-    if(ir && VIEWS[ir]) S.tab = ir;
+    if(!ir || !VIEWS[ir] || !puedePantalla(ir)) return;
+    S.tab = ir;
+    if(esPantallaClub(ir)) S.mode = 'club';
   }catch(e){}
 })();
 arrancarGPS();

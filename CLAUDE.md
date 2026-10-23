@@ -25,32 +25,32 @@ una razón concreta (claves de servidor que no puedan ir en el código, o un des
 
 ## 2. Mapa de `index.html`
 
-Son ~6.170 líneas. Los números se corren al editar; buscá el texto, no la línea.
+Son ~6.430 líneas. Los números se corren al editar; buscá el texto, no la línea.
 
 | Dónde | Qué |
 |---|---|
-| `PENDIENTE DE CONFIRMAR CON EL CLUB` (~312) | **El acta del proyecto.** `[x]` confirmado, `[ ]` pendiente |
-| `const CLUBS_DB` (~472) | Todo lo que cambia de un club a otro. Para otro club se copia este bloque y listo |
-| `geo:{` (~567) | Las 65 coordenadas medidas en cancha el 5/8/2026, ±3-4 m |
-| `const PADRON` (~731) | Padrón de prueba, **inventado**. El real vive en el servidor |
-| `QUIÉN SOS` (~827) | Nombre e iniciales: `ponerNombre()`, `hayNombre()`, `yoNombre()`. La app arranca sin nadie |
-| `const BAG` (~853) | Los 31 palos y la media ponderada |
-| `MEDIDA Y HOMOLOGACIÓN` (~1029) | `homologada()`, `teeDelHcp()`, `ratingTxt()` |
-| `function ratingDe` (~1090) | Con qué rating y slope se calcula: 18 hoyos o ese nueve |
-| `function hcpCancha` (~1062) | Handicap de cancha, fórmula del WHS y regla 6.1b |
-| `function gps(` (~1154) | Distancia al frente, centro y fondo del green |
-| `function formaHoyo` (~1780) | **La forma medida del hoyo**: largo, green e inclinación desde las coordenadas |
-| `function holeSVG` (~1845) | El dibujo del hoyo |
-| `function panelCierre` (~1552) | Cerrar el hoyo |
-| `function vPlay` (~1640) | **La pantalla de jugar** (referente: Hole19) |
-| `const HOJAS` (~1771) | Las hojas que se abren desde jugar |
-| `function vArranque` (~2812) | Empezar la ronda |
-| `PANTALLAS — CLUB` (~3466) | El panel de la comisión |
-| `INSTALARLA Y QUE ANDE SIN SEÑAL` (~4166) | Service worker, instalación, actualizaciones |
-| `MODO PRUEBA` (~4277) | Medir GPS y batería en la cancha |
-| `const NUBE` (~4724) | ⚠️ **Las dos direcciones del servidor**: la Data API y la de autenticación. Vacías = todo local |
-| `const LS_KEY` (~5132) | Guardado en el teléfono |
-| `function render()` (~5164) | El render |
+| `PENDIENTE DE CONFIRMAR CON EL CLUB` (~412) | **El acta del proyecto.** `[x]` confirmado, `[ ]` pendiente |
+| `const CLUBS_DB` (~586) | Todo lo que cambia de un club a otro. Para otro club se copia este bloque y listo |
+| `geo:{` (~692) | Las 65 coordenadas medidas en cancha el 5/8/2026, ±3-4 m |
+| `const PADRON` (~857) | Padrón de prueba, **inventado**. Lo usa el alta del jugador, no el panel |
+| `QUIÉN SOS` (~888) | Nombre e iniciales, y **la única puerta al panel del club**: `quien()`, `puede()`, `puedePantalla()` |
+| `const BAG` (~1109) | Los 31 palos y la media ponderada |
+| `MEDIDA Y HOMOLOGACIÓN` (~1288) | `homologada()`, `teeDelHcp()`, `ratingTxt()` |
+| `function ratingDe` (~1329) | Con qué rating y slope se calcula: 18 hoyos o ese nueve |
+| `function hcpCancha` (~1345) | Handicap de cancha, fórmula del WHS y regla 6.1b |
+| `function gps(` (~1595) | Distancia al frente, centro y fondo del green |
+| `function formaHoyo` (~1841) | **La forma medida del hoyo**: largo, green e inclinación desde las coordenadas |
+| `function holeSVG` (~1866) | El dibujo del hoyo |
+| `function panelCierre` (~2124) | Cerrar el hoyo |
+| `function vPlay` (~2238) | **La pantalla de jugar** (referente: Hole19) |
+| `const HOJAS` (~2362) | Las hojas que se abren desde jugar |
+| `function vArranque` (~3412) | Empezar la ronda |
+| `PANTALLAS — CLUB` (~4124) | El panel de la comisión |
+| `INSTALARLA Y QUE ANDE SIN SEÑAL` (~4924) | Service worker, instalación, actualizaciones |
+| `MODO PRUEBA` (~5092) | Medir GPS y batería en la cancha |
+| `const NUBE` (~5561) | ⚠️ **Las dos direcciones del servidor**: la Data API y la de autenticación. Vacías = todo local |
+| `const LS_KEY` (~6152) | Guardado en el teléfono |
+| `function render()` (~6360) | El render, y donde vive el portón del panel |
 
 Otros archivos: `sw.js` (offline), `manifest.webmanifest` (instalación), `medir.html`
 (herramienta GPS para medir la cancha), `esquema.sql` (la ronda compartida en el servidor),
@@ -68,7 +68,7 @@ queda publicada igual, pero no la carga nadie).
 No es opcional: es lo que le avisa a los teléfonos que ya tienen la app que hay algo nuevo.
 Si no se toca, pueden seguir abriendo la versión vieja para siempre.
 
-Va en `trisquelia-vN`. Al día de hoy: **v19**.
+Va en `trisquelia-vN`. Al día de hoy: **v20**.
 
 ---
 
@@ -167,6 +167,24 @@ ejemplo, la fila que sos vos se dibuja con `nomDe(j)` y nunca con un nombre lite
 es la única puerta a la app y **no se abre sin nombre**; `crearRonda()` y `unirseRonda()`
 tampoco. Si agregás una pantalla, usá esos ayudantes: `bugs.js` corre sin nombre cargado y
 `identidadtest` barre las quince pantallas del jugador buscando nombres de persona.
+
+**Al panel del club se entra por UNA puerta, y hay que pasar por ella siempre.** El 22/10/2026 se
+descubrió que no: cualquiera que hubiera escrito un nombre abría `?ir=permisos` y el panel le
+decía *"Sos el administrador"*, con los ocho permisos. No fue un bug, fueron **dos chicos que se
+juntaron mal** — y por eso la lección no es el parche sino la forma. Uno: el acceso directo del
+ícono aceptaba cualquier pantalla que viniera en la dirección, porque el control de permisos
+vivía en otro lado. Dos: `quienK()` hacía `Math.max(0, enComision())`, y ese `Math.max` convertía
+el −1 de "no está en la comisión" en el 0 de "es el primero del equipo", que es el administrador.
+Cada uno por separado parecía inofensivo. Ahora **`quien()` devuelve `null`** al que no está, y
+toda pantalla del club —venga del nav, de la URL o de un `S.tab` viejo guardado en el teléfono—
+pasa por **`puedePantalla()`**, que se chequea en `render()` antes de dibujar nada y **sin mirar
+`S.mode`**: ése era el agujero, que el control viejo sólo corría si `S.mode` ya era `'club'`. Si
+agregás una pantalla de comisión, va en `PANTALLAS_CLUB` y en el mapa de `puedeVer()`, y nada
+más; no inventes un control nuevo al lado. `paneltest` entra por las tres puertas con un socio
+cualquiera y comprueba además que a cada miembro se le abra lo suyo y nada más. Hoy el rol sale
+de comparar el nombre contra `EQUIPO`, que es poco: esto se cae solo el día que el rol lo diga el
+servidor, y **entonces este portón pasa a ser lo que protege los datos del club, no una pantalla
+de mentira**.
 
 **Sin index no se inventan números.** `hcpCancha()` devuelve `null` cuando no hay index, y
 `null` **no es cero**: cero significa "juega scratch" y daba un neto igual al gross y un
@@ -439,8 +457,9 @@ node pruebas/ubicaciontest.js         # el portón del GPS              (27 ✓)
 node pruebas/cierretest.js            # cerrar el hoyo                 (43 ✓)
 node pruebas/teetest.js                # el aviso al llegar al tee      (21 ✓)
 node pruebas/canchatest.js             # la tarjeta y el handicap       (78 ✓)
-node pruebas/identidadtest.js          # quién sos: nombre e identidad  (44 ✓)
+node pruebas/identidadtest.js          # quién sos: nombre e identidad  (45 ✓)
 node pruebas/formatest.js              # la forma medida de los hoyos   (29 ✓)
+node pruebas/paneltest.js              # el portón del panel del club   (36 ✓)
 ```
 
 El esquema del servidor se prueba aparte, contra un Postgres de verdad — no
@@ -489,8 +508,14 @@ hora corten para todos, y que un DNI que existe y uno que no **tarden igual** �
 corre siempre, incluso cuando el código se tira a la basura, porque si sólo se corriera para los
 socios de verdad la demora sería, de hecho, la respuesta.
 
-Entre las doce suites son **390 comprobaciones**, más las **61** del esquema y las **69** del
-alta: 520 en total. Si
+`paneltest` es el que cuida que el panel de la comisión no se abra solo. Entra con un socio que
+no está en el equipo por las **tres** puertas que existen —la dirección con `?ir=`, una pantalla
+de club que quedó guardada en el teléfono, y el simulador de "ver como" puesto a mano— y las tres
+tienen que rebotar. Después comprueba lo otro, que es igual de importante: que a Félix se le abran
+las salidas y no los permisos, y a Chelo el padrón y no las salidas.
+
+Entre las trece suites son **427 comprobaciones**, más las **61** del esquema y las **69** del
+alta: 557 en total. Si
 alguna se pone en rojo después de un cambio tuyo, es un bug tuyo: estaban todas en verde el
 25/9/2026 (las 61 del esquema, el 24/9, ya con los roles de Neon).
 
