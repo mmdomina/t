@@ -37,8 +37,13 @@ async function hasta(p, fn, arg, tope = 14000) {
         errores.push(`${nombre}: ${x}`); });
     await p.addInitScript(([n, i]) => {
       window.confirm = () => true;
+      /* `playing:true` desde la v25. Estos teléfonos anotan hoyos, y en la app
+         real para anotar hay que haber salido al 1. Antes daba igual: con la
+         tarjeta llena, Inicio decía "Ronda en curso" aunque nadie hubiera
+         empezado nada —y nunca dejaba de decirlo—. Ahora lo dice sólo con una
+         vuelta empezada, que es lo que esta suite está simulando. */
       try { localStorage.setItem('trisquelia_v1', JSON.stringify({ v:1, onboarded:true, tipo:'socio',
-        tee:'mixta', vuelta:18, hole:1, torneo:true,
+        tee:'mixta', vuelta:18, hole:1, torneo:true, playing:true,
         user:{ name:n, ini:i, hcp:7.4, socio:'#1', club:'Trisquelia Golf Club', cat:'cab' } })); } catch(e){}
     }, [nombre, ini]);
     await p.goto(APP, { waitUntil: 'load' });
@@ -207,11 +212,23 @@ async function hasta(p, fn, arg, tope = 14000) {
       p_index:10, p_hcp:10, p_salida:'mixta' }) });
   await A.p.evaluate(() => latir());
   await esperar(900);
+  /* Los nombres del grupo se ven en DOS lugares, y se revisan los dos: la
+     preparación de la vuelta (el arranque, sin una vuelta abierta) y la hoja
+     del grupo, que es la que se mira jugando. Hasta la v24 se miraba sólo el
+     arranque; desde la v25, con una vuelta abierta, el arranque pregunta qué
+     hacer con ella y no muestra el grupo. En la hoja el nombre va abreviado
+     ("<img s."), así que lo que se busca es que el `<` se vea como texto. */
   const conElAtaque = await A.p.evaluate(() => {
-    S.tab = 'arranque'; render();
-    const s = document.getElementById('screen');
-    return { roto: !!window.__roto, imgs: s.querySelectorAll('img').length,
-             texto: s.innerText.includes('<img src=x') };
+    const mira = el => ({ imgs: el ? el.querySelectorAll('img').length : 0,
+                          texto: !!el && el.innerText.includes('<img') });
+    const jugando = S.playing;
+    S.playing = false; S.hoja = null; S.tab = 'arranque'; render();
+    const arranque = mira(document.getElementById('screen'));
+    S.playing = jugando; S.tab = 'play'; S.hoja = 'grupo'; render();
+    const grupo = mira(document.getElementById('hoja'));
+    S.hoja = null; render();
+    return { roto: !!window.__roto, imgs: arranque.imgs + grupo.imgs,
+             texto: arranque.texto && grupo.texto };
   });
   ok(!conElAtaque.roto, 'un nombre con HTML NO ejecuta código en el teléfono del grupo');
   ok(conElAtaque.imgs === 0, 'y no inyecta ningún elemento en la pantalla');

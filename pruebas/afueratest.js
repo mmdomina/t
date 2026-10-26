@@ -160,6 +160,30 @@ const conNumero = t => /-?\d+\s*°|km\/h/.test(t);
     await t.ctx.close();
   }
 
+  {
+    /* Alguien que abre la app por primera vez ve la bienvenida, no Inicio.
+       Cuando llegan los datos no hay nada que mostrar ahí, y redibujarla la
+       hace parpadear: es la primera pantalla que ve, y la de la demo. */
+    const t = await telefono(b, { club:['cerrada'], clima:'bueno', demoraClub:600, demoraClima:500,
+      socio:{ v:1, onboarded:false, user:{ name:null, ini:null, hcp:null } } });
+    errores.push(...t.errores);
+    await t.p.waitForTimeout(350);
+    await t.p.evaluate(() => { const e = document.querySelector('#screen .fade'); if (e) e.__marca = 1; });
+    await t.p.waitForTimeout(1600);
+    const quieta = await t.p.evaluate(() => {
+      const e = document.querySelector('#screen .fade'); return !!(e && e.__marca); });
+    ok(quieta, 'la bienvenida no se redibuja sola cuando llegan los datos de afuera');
+    /* Y al entrar, lo que llegó mientras tanto está. */
+    await t.p.getByText('Ya tengo cuenta · entrar').click();
+    await t.p.fill('#inNombre', 'Socio Prueba');
+    await t.p.getByText('Entrar a la app').click();
+    await t.p.waitForTimeout(400);
+    const c = await cancha(t.p), k = await clima(t.p);
+    ok(/Cerrada/.test(c) && /\b22°/.test(k),
+       `al terminar el alta ya está todo lo que llegó: "Cerrada" y "22°" (${c} · ${k})`);
+    await t.ctx.close();
+  }
+
   /* ══ 2 · El clima, cuando hay ══════════════════════════════════════════ */
   console.log('\n2. El clima, cuando hay');
   {

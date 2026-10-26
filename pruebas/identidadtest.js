@@ -147,9 +147,15 @@ const pantalla = p => p.evaluate(() =>
 
   /* ══ 4 · Sin index no se inventan números ══════════════════════════ */
   console.log('\n4. Sin index no se inventan netos ni stablefords');
+  /* La pantalla de arranque se mira SIN una vuelta abierta. Desde la v25, con
+     una vuelta a medio jugar —la que dejó cargada la sección 3— el arranque no
+     muestra la preparación sino la pregunta de qué hacer con esa vuelta, y el
+     "sin index" vive en la preparación, que es lo que se quiere revisar. */
   const sinIndex = await t1.p.evaluate(() => {
     S.user.hcp = null; S.tab = 'tarjeta';
-    return { tarjeta: VIEWS.tarjeta(), grupo: HOJAS.grupo.c(), arranque: VIEWS.arranque() };
+    const jugando = S.playing; S.playing = false;
+    const arranque = VIEWS.arranque(); S.playing = jugando;
+    return { tarjeta: VIEWS.tarjeta(), grupo: HOJAS.grupo.c(), arranque };
   });
   const texto = h => { const d = { innerHTML:'' };
     return h.replace(/<[^>]*>/g,' ').replace(/\s+/g,' '); };

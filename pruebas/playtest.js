@@ -17,8 +17,12 @@ const ok = (c, m) => console.log((c ? '  ✓ ' : '  ✗ ') + m);
   p.on('console', m => { if (m.type() === 'error') errores.push(m.text()); });
 
   await p.addInitScript(() => {
+    /* `playing:true` desde la v25: la pantalla de jugar es de una vuelta
+       empezada, y sin una lleva a empezarla. Antes se podía mirar "fuera" de
+       una vuelta, y por ahí la vuelta terminada se reabría y la siguiente se
+       escribía encima (revisión adversaria de la v25). */
     try { localStorage.setItem('trisquelia_v1', JSON.stringify({ v: 1, onboarded: true, tipo: 'socio',
-      tee: 'mixta', vuelta: 18, hole: 1, indexDias: 2,
+      tee: 'mixta', vuelta: 18, hole: 1, indexDias: 2, playing: true,
       user: { name: 'Mauro Domina', ini: 'MD', hcp: 7.4, socio: '#1',
               club: 'Trisquelia Golf Club', cat: 'cab' } })); } catch (e) {}
   });
@@ -58,10 +62,22 @@ const ok = (c, m) => console.log((c ? '  ✓ ' : '  ✗ ') + m);
   });
   ok(barra.visible && barra.sobreElNav, `fija arriba del menú · "${barra.txt.slice(0, 60)}…"`);
 
+  /* Durante una vuelta, la flecha sobre un hoyo sin anotar abre el cierre en
+     vez de saltearlo: así nadie pasa de largo un hoyo. Con el hoyo anotado,
+     avanza. Hasta la v24 esta comprobación miraba la pantalla de jugar FUERA
+     de una vuelta, donde la flecha avanzaba siempre; ese estado ya no existe. */
+  await p.click('#barra .fl:last-child');
+  await p.waitForTimeout(400);
+  const sinAnotar = await p.evaluate(() => ({ hole: S.hole, cerrando: !!S.cerrando }));
+  ok(sinAnotar.hole === 1 && sinAnotar.cerrando,
+     'sobre un hoyo sin anotar, la flecha abre el cierre en vez de saltearlo');
+  await p.evaluate(() => { S.cerrando = false; R.scores[1] = 4; render(); });
+  await p.waitForTimeout(300);
   await p.click('#barra .fl:last-child');   // siguiente hoyo
   await p.waitForTimeout(400);
   const h2 = await p.evaluate(() => ({ hole: S.hole, txt: document.querySelector('#barra .mid .h').textContent.trim() }));
-  ok(h2.hole === 2, `la flecha avanza de hoyo · "${h2.txt}"`);
+  ok(h2.hole === 2, `con el hoyo anotado, la flecha avanza · "${h2.txt}"`);
+  await p.evaluate(() => { delete R.scores[1]; render(); });
 
   await p.click('#barra .fl:first-child');
   await p.waitForTimeout(400);
