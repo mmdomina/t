@@ -36,6 +36,7 @@ Son ~6.430 líneas. Los números se corren al editar; buscá el texto, no la lí
 | `QUIÉN SOS` (~888) | Nombre e iniciales del jugador |
 | `QUIÉN SOS PARA EL CLUB` (~926) | **La única puerta al panel**: la llave de la comisión, `quien()`, `puede()`, `puedePantalla()` |
 | `LO QUE EL CLUB LE DICE` (~1421) | Estado de cancha y avisos, como los manda el servidor |
+| `EL CLIMA EN LA CANCHA` (~1478) | Open-Meteo: `traerClima()`, `climaTarjeta()`, `climaVivo()`. Lo comercial está ahí arriba |
 | `const BAG` (~1109) | Los 31 palos y la media ponderada |
 | `MEDIDA Y HOMOLOGACIÓN` (~1288) | `homologada()`, `teeDelHcp()`, `ratingTxt()` |
 | `function ratingDe` (~1329) | Con qué rating y slope se calcula: 18 hoyos o ese nueve |
@@ -70,7 +71,7 @@ queda publicada igual, pero no la carga nadie).
 No es opcional: es lo que le avisa a los teléfonos que ya tienen la app que hay algo nuevo.
 Si no se toca, pueden seguir abriendo la versión vieja para siempre.
 
-Va en `trisquelia-vN`. Al día de hoy: **v22**.
+Va en `trisquelia-vN`. Al día de hoy: **v23**.
 
 ---
 
@@ -115,8 +116,13 @@ tres pasaron hasta la v21: **una fecha fija** ("Viernes 31 de julio" en Inicio, 
 número que contradice al club** (412 socios en un club de 123; 53 inscriptos en Torneos y 34 en
 el Panel para el mismo torneo) y **un cartel que dice que salió algo que no salió** ("aviso
 enviado a 123 socios", "le llegaron a Félix"). Los números de ejemplo salen de `CLUB` y no se
-escriben a mano; las fechas, del reloj; y un botón de una pantalla dibujada dice "así se vería ·
-todavía no sale a los socios". Lo encontró la revisión del PDF para la comisión, el 23/10/2026.
+escriben a mano; las fechas, del reloj; y un botón de una pantalla dibujada llama a **`dibujo(que)`**,
+que dice "Así se vería · crear torneos todavía no está hecho". En la v23 se pasaron trece botones del
+panel a `dibujo()` (crear torneos, generar salidas, mandar recordatorios, cambiar la cuota…). Cuando
+una de esas cosas se construya, su botón deja de llamarla. Lo encontró la revisión del PDF para la
+comisión, el 23/10/2026. Quedan dos en el alta de socios —"Código enviado a…" y "Cuenta creada · te
+mandamos un mail"—, que sólo aparecen con los tres DNI inventados del padrón de prueba: se arreglan
+cuando se enchufe el alta de verdad.
 
 ---
 
@@ -241,6 +247,33 @@ sale al 1, porque la tarjeta del sábado no puede decir "lunes" cuando el socio 
 lista de lo que se guarda, así que la primera recarga de Android en el medio de la vuelta la
 borraba. Si agregás algo a `S` que tenga que sobrevivir una vuelta de cuatro horas, va en
 `GUARDAR` en el mismo cambio — `identidadtest` sección 9 lo prueba con una recarga de verdad.
+
+**Lo que llega de afuera se dibuja apenas llega, por `redibujarSiSePuede()`.** Dos cosas le llegan
+solas a la app: lo que dice el club y el clima. Hasta la v22 el estado del club se pedía al abrir,
+pero la pantalla ya estaba dibujada cuando llegaba la respuesta y **nadie la volvía a dibujar**: el
+dato quedaba en memoria y la pantalla seguía diciendo "El club todavía no publicó el estado" hasta
+que el socio tocara algo. Se midió el 23/10/2026 con un servidor que tarda 600 ms: a los 14 segundos
+seguía igual, con el GPS permitido, negado o sin contestar. `traerClub()` y `traerClima()` devuelven
+si cambió lo que se ve, y `redibujarSiSePuede(pantallas)` redibuja **sólo si cambió algo, si nadie
+tiene el foco en un campo** (en el panel la nota de la cancha ES un campo, y `render()` lo borraría)
+**y si la pantalla de ahora muestra ese dato** — en la de jugar no se toca. Si agregás algo que
+llegue solo de afuera, va por ahí, nunca con un `render()` suelto. Y sin respuesta no se afirma
+nada: "Preguntando al club…" mientras pregunta, "Hace falta señal para saberlo" si no pudo, y
+"todavía no publicó" **sólo** si el servidor contestó y no había nada (`CLUB_VIVO.desde` es la hora
+de la última respuesta). `afueratest` cubre las dos cosas y da rojo contra la v22.
+
+**El clima es de Open-Meteo, y es gratis porque Trisquelia no cobra.** Sin clave ni registro;
+los términos (verificados el 23/10/2026) ponen como no comercial a las "apps privadas o sin fines
+de lucro, sin suscripciones ni publicidad". **El día que la app se le venda a otro club deja de
+serlo**, y hay que contratar un plan — no publican precios. La licencia de los datos es CC BY 4.0 y
+pide un link a open-meteo.com al lado del dato: está en la tarjeta, no lo saques. Un dato de más de
+tres horas no se muestra (`climaVivo()`, la misma idea que `gpsVivo()`), no se pregunta más de una
+vez cada 15 minutos, y las coordenadas salen del promedio de los greens de `CLUB.geo` — un club sin
+cancha medida no tiene clima, y la tarjeta lo dice. **El viento**: el ángulo es de dónde VIENE (la
+convención meteorológica; la documentación de Open-Meteo no lo dice con esas palabras), por eso la
+tarjeta dice "del NE". Con menos de 3 km/h dice "Sin viento": el modelo devuelve un ángulo igual,
+y "del N" sería inventado. **Antes de usar el viento hoyo por hoyo** ("en contra", "a favor", con
+la dirección medida de cada hoyo) hay que confirmar la convención en la cancha un día ventoso.
 
 **Vacío no es "coincide".** `MARCA` es lo que el marcador anotó de mí, y en un solo teléfono
 está vacío: hoy el cruce de verdad vive en la ronda compartida. Hasta la v21 la pantalla de firma
@@ -538,6 +571,7 @@ node pruebas/canchatest.js             # la tarjeta y el handicap       (78 ✓)
 node pruebas/identidadtest.js          # quién sos, y no inventar acuerdo (54 ✓)
 node pruebas/formatest.js              # la forma medida de los hoyos   (29 ✓)
 node pruebas/paneltest.js              # el portón del panel del club   (40 ✓)
+node pruebas/afueratest.js             # lo que llega de afuera: club y clima (24 ✓)
 ```
 
 El esquema del servidor se prueba aparte, contra un Postgres de verdad — no
@@ -595,17 +629,23 @@ de club que quedó guardada en el teléfono, y el simulador de "ver como" puesto
 tienen que rebotar. Después comprueba lo otro, que es igual de importante: que a Félix se le abran
 las salidas y no los permisos, y a Chelo el padrón y no las salidas.
 
-Entre las trece suites son **440 comprobaciones**, más las **61** del esquema, las **69** del
-alta y las **78** del panel: 648 en total. Si
+Entre las catorce suites son **464 comprobaciones**, más las **61** del esquema, las **69** del
+alta y las **78** del panel: 672 en total. Si
 alguna se pone en rojo después de un cambio tuyo, es un bug tuyo: estaban todas en verde el
-23/10/2026, con la v22. `test-pwa` es la única caprichosa, y tiene dos caprichos distintos: a
+26/10/2026, con la v23. **Ojo al contar pedidos de red en una prueba**: la primera vez que se abre la
+app, el service worker toma el control y la página se recarga sola una vez (`controllerchange` →
+`location.reload()`), así que una instalación nueva hace cada pedido dos veces. `afueratest` se
+equivocó con eso la primera vez: hay que contar los pedidos NUEVOS después de que la app se asentó.
+`test-pwa` es la única caprichosa, y tiene dos caprichos distintos: a
 veces corta a mitad de camino por un `ERR_ABORTED` del contenedor (da 9 o 14 en vez de 18, sin
 rojos), y a veces da **un** rojo, siempre el mismo: *"el atajo del ícono abre la pantalla pedida"*,
 con `S.tab = home`. Ese segundo **es un bug de verdad y es viejo**: el atajo `./?ir=arranque` del
 ícono a veces cae en Inicio en vez de en Empezar ronda. Se midió el 23/10/2026: 2 de 6 en la v22
 y 1 de 8 en la v21 publicada, o sea que no lo trajo ningún cambio de ese día. Huele a carrera
 entre el `?ir=` y algo que redibuja al arrancar; no se persiguió porque no estaba en el camino
-de la presentación.
+de la presentación. Una hipótesis ya descartada, para no volver a probarla: **no** es que se borre el `?ir=` de la
+dirección antes de la recarga del service worker — no hay ningún `replaceState`. En la v23 dio 1 de
+14 corridas en la batería del 26/10.
 
 Si Playwright no encuentra Chromium solo, pásale la ruta en `CHROME_PATH`.
 

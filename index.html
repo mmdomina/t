@@ -1470,10 +1470,158 @@ const GPS_REAL = true;
    pasa los 300 tranquilamente, así que 300 quedaba corto. */
 const TIRO_MIN = 3, TIRO_MAX = 380;
 
-/* Clima: todavía no está conectado a ningún servicio. Mientras sea false, la app
-   dice que no lo tiene en vez de inventar una temperatura. */
-const CLIMA_REAL = false;
-const CLIMA = {temp:null, ic:'', dir:'', kmh:null};
+/* ============================================================
+   EL CLIMA EN LA CANCHA
+   ============================================================
+   De Open-Meteo (open-meteo.com): sin clave, sin registro y sin tarjeta.
+   Lo que dicen sus términos, verificado el 23/10/2026:
+   · Es gratis para uso NO comercial, y ponen como ejemplo las "apps privadas
+     o sin fines de lucro, sin suscripciones ni publicidad". La app de
+     Trisquelia entra ahí.
+   · Menos de 10.000 consultas por día, 5.000 por hora y 600 por minuto,
+     contadas por IP. Cada teléfono pregunta por su cuenta y como mucho una
+     vez cada 15 minutos: un club entero queda lejísimos.
+   · ⚠ EL DÍA QUE LA APP SE LE VENDA A OTRO CLUB deja de ser no comercial
+     —ponen como comerciales a las "apps con suscripciones" y a los
+     "productos comerciales"—. Ese día hay que contratar un plan, y en la
+     página no publican precios: hay que preguntarles.
+   · Los datos son CC BY 4.0 y la licencia pide un link a open-meteo.com al
+     lado de donde se muestran. Está en la tarjeta: no lo saques.
+
+   Las reglas de siempre, aplicadas al clima:
+   · Si nunca llegó nada, se dice. No se inventa una temperatura.
+   · Un dato viejo no es el clima de ahora: se muestra con su hora, y pasadas
+     tres horas no se muestra más. Es la misma idea que `gpsVivo()`: un
+     "22° sin viento" de esta mañana puede ser una tormenta ahora.
+   · Se pide al abrir y al volver a la app, como el estado del club, y no más
+     de una vez cada 15 minutos: Open-Meteo renueva el dato cada 15, y
+     preguntar más seguido gasta batería para recibir lo mismo.
+   · Se redibuja por `redibujarSiSePuede()`, nunca con un `render()` suelto:
+     llega solo, y puede llegar mientras alguien escribe.
+
+   EL VIENTO. El ángulo dice de dónde VIENE, que es la convención
+   meteorológica de siempre (0° = viene del norte). La documentación de
+   Open-Meteo no lo dice con esas palabras; lo dicen las fuentes de
+   meteorología y los modelos que Open-Meteo reparte. Por eso la tarjeta dice
+   "del NE" y no "NE" a secas, que se podría leer al revés. ANTES de usar el
+   viento hoyo por hoyo ("en contra", "a favor"), confirmarlo en la cancha un
+   día ventoso: si la bandera apunta al sur, la app tiene que decir "del N".
+   Está en la lista de la prueba de 18 hoyos. Y con viento calmo no se dice
+   dirección: el modelo devuelve algún ángulo igual, y "del N" sería inventado.
+
+   `trisquelia_clima` NO va en `COPIA_CLAVES`: el clima de ayer no es algo
+   que haya que rescatar de un teléfono a otro. */
+const CLIMA_KEY   = 'trisquelia_clima';
+const CLIMA_VENCE = 3 * 3600e3;         // pasado esto, el dato no se muestra
+const CLIMA_CADA  = 15 * 60e3;          // y no se pregunta más seguido que esto
+let CLIMA = null;                       // {temp, cod, kmh, grados, rafaga, hora}
+let CLIMA_PIDIENDO = false;
+
+/* El centro de la cancha, promediando los greens medidos. Así otro club no
+   tiene que cargar una coordenada aparte: si tiene la cancha medida, tiene
+   clima; si no, no hay de dónde preguntar, y la tarjeta lo dice. */
+function centroCancha(){
+  const g = CLUB.geo && CLUB.geo.greens;
+  if(!g) return null;
+  const cs = Object.values(g).map(x => x && x.c).filter(c => Array.isArray(c) && c.length === 2);
+  if(!cs.length) return null;
+  return [cs.reduce((a,c) => a + c[0], 0) / cs.length,
+          cs.reduce((a,c) => a + c[1], 0) / cs.length];
+}
+
+/* Los códigos WMO de Open-Meteo, en lo que diría un socio. */
+function cieloTxt(c){
+  if(c === 0) return 'Despejado';
+  if(c === 1) return 'Casi despejado';
+  if(c === 2) return 'Parcialmente nublado';
+  if(c === 3) return 'Nublado';
+  if(c === 45 || c === 48) return 'Niebla';
+  if(c >= 51 && c <= 57) return 'Llovizna';
+  if(c === 65 || c === 67 || c === 82) return 'Lluvia fuerte';
+  if((c >= 61 && c <= 66) || (c >= 80 && c <= 81)) return 'Lluvia';
+  if((c >= 71 && c <= 77) || c === 85 || c === 86) return 'Nieve';
+  if(c === 96 || c === 99) return 'Tormenta con granizo';
+  if(c === 95 || c === 97) return 'Tormenta';
+  return '';
+}
+const RUMBOS = ['N','NE','E','SE','S','SO','O','NO'];
+const rumbo  = g => RUMBOS[Math.round((((g % 360) + 360) % 360) / 45) % 8];
+const climaVivo = () => !!(CLIMA && CLIMA.hora && (Date.now() - CLIMA.hora) < CLIMA_VENCE);
+
+function vientoTxt(c){
+  if(!(c.kmh >= 0)) return '';
+  if(c.kmh < 3) return 'Sin viento';
+  let t = 'Viento del ' + rumbo(c.grados) + ' ' + Math.round(c.kmh) + ' km/h';
+  /* Las ráfagas sólo si dicen algo: con 18 de viento y 21 de ráfaga es ruido,
+     con 18 y 40 es el dato que cambia el palo. */
+  if(c.rafaga >= c.kmh + 10) t += ', ráfagas de ' + Math.round(c.rafaga);
+  return t;
+}
+
+/* Lo que muestra la tarjeta, en un solo lugar. `traerClima()` lo compara
+   antes y después para saber si hace falta redibujar. */
+function climaTarjeta(){
+  if(!centroCancha()) return { grande:'Sin datos', linea:'La cancha no tiene coordenadas cargadas' };
+  if(climaVivo()) return {
+    grande: Math.round(CLIMA.temp) + '°',
+    cielo:  cieloTxt(CLIMA.cod),
+    linea:  vientoTxt(CLIMA),
+    pie:    hace(new Date(CLIMA.hora).toISOString()),
+    vivo:   true };
+  if(CLIMA_PIDIENDO) return { grande:'Sin datos', linea:'Preguntando…' };
+  if(CLIMA && CLIMA.hora) return { grande:'Sin datos recientes', linea:'Hace falta señal para actualizarlo' };
+  return { grande:'Sin datos', linea:'Hace falta señal para saberlo' };
+}
+
+function cargarClima(){
+  try{ CLIMA = JSON.parse(localStorage.getItem(CLIMA_KEY) || 'null'); }catch(e){ CLIMA = null; }
+  /* Entero o nada, como la credencial de la comisión. */
+  if(CLIMA && !(typeof CLIMA.temp === 'number' && typeof CLIMA.hora === 'number')) CLIMA = null;
+}
+
+/* Devuelve si cambió lo que muestra la tarjeta. */
+async function traerClima(){
+  const cc = centroCancha();
+  if(!cc || CLIMA_PIDIENDO) return false;
+  if(CLIMA && CLIMA.hora && Date.now() - CLIMA.hora < CLIMA_CADA) return false;
+  /* PRIMERO se prende el "preguntando" y DESPUÉS se toma la foto de cómo se
+     ve la tarjeta. Al revés, si no había dato y falla la conexión, el antes y
+     el después dicen los dos "Hace falta señal" y no se redibuja nada… pero en
+     pantalla quedó "Preguntando…", que se dibujó en el medio. Para siempre. */
+  CLIMA_PIDIENDO = true;
+  const antes = JSON.stringify(climaTarjeta());
+  const ctl = (typeof AbortController === 'function') ? new AbortController() : null;
+  const corte = ctl ? setTimeout(() => ctl.abort(), 10000) : null;
+  try{
+    const u = 'https://api.open-meteo.com/v1/forecast'
+      + '?latitude=' + cc[0].toFixed(4) + '&longitude=' + cc[1].toFixed(4)
+      + '&current=temperature_2m,weather_code,wind_speed_10m,wind_direction_10m,wind_gusts_10m'
+      + '&wind_speed_unit=kmh';
+    const r = await fetch(u, ctl ? { signal: ctl.signal } : {});
+    if(!r.ok) throw new Error('clima ' + r.status);
+    const d = await r.json();
+    /* Un 200 con {error:...} no es un éxito, y uno sin `current` tampoco: se
+       trata igual que no haber podido preguntar. Y todo se fuerza a número:
+       lo que llega de afuera no entra a la pantalla como texto. */
+    const c = d && !d.error && d.current;
+    const n = v => (typeof v === 'number' && isFinite(v)) ? v : null;
+    if(!c || n(c.temperature_2m) === null) throw new Error('clima sin formato');
+    CLIMA = { temp: n(c.temperature_2m), cod: n(c.weather_code),
+              kmh: n(c.wind_speed_10m), grados: n(c.wind_direction_10m) || 0,
+              rafaga: n(c.wind_gusts_10m), hora: Date.now() };
+    try{ localStorage.setItem(CLIMA_KEY, JSON.stringify(CLIMA)); }catch(e){}
+  }catch(e){
+    /* Sin señal, o el servicio caído: queda lo que había. Si ya es viejo,
+       `climaVivo()` lo esconde solo. */
+  }finally{
+    if(corte) clearTimeout(corte);
+    CLIMA_PIDIENDO = false;
+  }
+  return JSON.stringify(climaTarjeta()) !== antes;
+}
+async function traerClimaYDibujar(){
+  if(await traerClima()) redibujarSiSePuede(['home']);
+}
 
 /* Estado de la cancha. Lo carga quien tenga el permiso 'cancha' — hoy Chelo.
    Es un dato que siempre es cierto porque lo pone una persona, no se deduce
@@ -1504,9 +1652,20 @@ const canchaTxt     = () => CLUB_VIVO.cancha ? (CLUB_VIVO.cancha.abierta ? 'Abie
 const canchaClase   = () => CLUB_VIVO.cancha ? (CLUB_VIVO.cancha.abierta ? 'acc' : 'gold') : 'dim';
 /* La nota, y debajo quién la publicó y cuándo. Un socio que lee "cerrada"
    un sábado a la mañana tiene derecho a saber quién lo dijo. */
+/* Sin estado hay TRES situaciones distintas, y hasta la v22 las tres decían
+   "El club todavía no publicó el estado". Eso sólo es cierto en una: cuando
+   el servidor contestó y no había nada (`CLUB_VIVO.desde` es la hora de la
+   última respuesta, así que si está, se preguntó). Mientras se pregunta, o
+   si no se pudo preguntar, afirmarlo es inventar — y la diferencia importa:
+   "no publicó" quiere decir "andá tranquilo", "no pude preguntar" no. */
+let CLUB_PIDIENDO = false;
 const canchaNota = () => {
   const c = CLUB_VIVO.cancha;
-  if(!c) return 'El club todavía no publicó el estado';
+  if(!c){
+    if(CLUB_VIVO.desde) return 'El club todavía no publicó el estado';
+    if(!hayNube())      return 'Esta app no está conectada al club';
+    return CLUB_PIDIENDO ? 'Preguntando al club…' : 'Hace falta señal para saberlo';
+  }
   return c.nota || 'Sin novedades';
 };
 const canchaFirma = () => {
@@ -1851,11 +2010,16 @@ function vHome(){
       </div>
       <div class="card" style="margin:0">
         <div class="lbl">Clima en cancha</div>
-        ${CLIMA_REAL
-          ? `<div style="font-size:20px;font-weight:800;margin-top:4px">${CLIMA.temp}° ${CLIMA.ic}</div>
-             <div class="dim" style="font-size:12px">Viento ${CLIMA.dir} ${CLIMA.kmh} km/h</div>`
-          : `<div style="font-size:15px;font-weight:700;margin-top:4px" class="dim">Sin conectar</div>
-             <div class="dim2" style="font-size:11px">Falta enchufar el servicio de clima</div>`}
+        ${(() => { const k = climaTarjeta();
+          return k.vivo
+          ? `<div style="font-size:20px;font-weight:800;margin-top:4px">${esc(k.grande)}</div>
+             ${k.cielo ? `<div class="dim" style="font-size:12px">${esc(k.cielo)}</div>` : ''}
+             ${k.linea ? `<div class="dim" style="font-size:12px">${esc(k.linea)}</div>` : ''}
+             <div class="dim2" style="font-size:11px;margin-top:2px">${esc(k.pie)} ·
+               <a href="https://open-meteo.com/" target="_blank" rel="noopener"
+                  style="color:inherit;white-space:nowrap">Open-Meteo.com</a></div>`
+          : `<div style="font-size:15px;font-weight:700;margin-top:4px" class="dim">${esc(k.grande)}</div>
+             <div class="dim2" style="font-size:11px">${esc(k.linea)}</div>`; })()}
       </div>
     </div>
 
@@ -4296,17 +4460,17 @@ function vDash(){
         Cambia según el fin de semana y el clima. Esta pantalla todavía es un dibujo: lo que elijas acá no sale a los socios.</div>
       <div class="grid2">
         <button class="chip ${CLUB.torneo.modo==='escalonada'?'on':''}" style="padding:13px 6px"
-          onclick="setModo('escalonada')"><div style="font-size:17px">🕐</div>Escalonadas
+          onclick="setModo('escalonada')">Escalonadas
           <div class="dim2" style="font-size:10px;font-weight:500">${CLUB.horarios.primera}–${CLUB.horarios.ultima} c/${CLUB.horarios.intervalo}′</div></button>
         <button class="chip ${CLUB.torneo.modo==='simultanea'?'on':''}" style="padding:13px 6px"
-          onclick="setModo('simultanea')"><div style="font-size:17px">💥</div>Tiro simultáneo
+          onclick="setModo('simultanea')">Tiro simultáneo
           <div class="dim2" style="font-size:10px;font-weight:500">todos ${CLUB.torneo.hora}</div></button>
       </div>
       <div class="sep"></div>
       <h3>Cambio por clima</h3>
       <div class="grid2">
-        <button class="chip" onclick="cambioClima('Se pasó a tiro simultáneo por pronóstico de lluvia a la tarde.')">🌧️ Adelantar por lluvia</button>
-        <button class="chip" onclick="cambioClima('Se retrasó una hora por viento fuerte en la mañana.')">💨 Retrasar por viento</button>
+        <button class="chip" onclick="cambioClima('Se pasó a tiro simultáneo por pronóstico de lluvia a la tarde.')">Adelantar por lluvia</button>
+        <button class="chip" onclick="cambioClima('Se retrasó una hora por viento fuerte en la mañana.')">Retrasar por viento</button>
       </div>
       <button class="btn ghost sm" style="margin-top:10px" onclick="limpiarCambio()">Quitar el aviso</button>
     </div>`:''}
@@ -4329,7 +4493,7 @@ function vDash(){
           <span class="pill ${c||''}">${est}</span></div>`).join('')}
       <div class="grid2" style="margin-top:11px">
         <button class="chip" onclick="toast('Tarjeta abierta · podés revisar hoyo por hoyo')">Revisar una</button>
-        <button class="chip" onclick="toast('Recordatorio enviado a los que faltan certificar')">Recordar firmas</button>
+        <button class="chip" onclick="dibujo('mandar recordatorios')">Recordar firmas</button>
       </div>
       <button class="btn sm" style="margin-top:11px" onclick="go('cargaaag')">
         Pasar a la federación · ${PARA_AAG.filter(t=>!t.cargada).length} pendientes</button>
@@ -4351,8 +4515,8 @@ function vDash(){
       </div>
       <div class="dim2" style="font-size:11px;margin:9px 0 11px">Así les llega al celular.</div>
       <div class="grid2">
-        <button class="chip" style="padding:13px 6px" onclick="toast('Cargá el podio: gross y netos por categoría')">📝 Cargar podio</button>
-        <button class="chip" style="padding:13px 6px" onclick="publicarResultados()">📣 Publicar y avisar</button>
+        <button class="chip" style="padding:13px 6px" onclick="dibujo('cargar el podio')">Cargar podio</button>
+        <button class="chip" style="padding:13px 6px" onclick="publicarResultados()">Publicar y avisar</button>
       </div>
       <div class="between" style="margin-top:12px;background:var(--tint);border-radius:11px;padding:10px 12px">
         <div style="min-width:0"><div style="font-size:12px;font-weight:700">Quién lo recibe</div>
@@ -4424,7 +4588,8 @@ function vDash(){
         style="width:100%;padding:13px;border-radius:12px;background:var(--nav);
         border:1px solid var(--line);color:var(--txt);font-family:inherit;font-size:14px">
       <div class="dim2" style="font-size:11px;margin-top:7px">
-        ${canchaFirma() ? 'Última vez: '+esc(canchaFirma()) : 'Nadie lo publicó todavía'}</div>
+        ${canchaFirma() ? 'Última vez: '+esc(canchaFirma())
+          : CLUB_VIVO.desde ? 'Nadie lo publicó todavía' : 'Todavía no hay respuesta del servidor'}</div>
       <button class="btn sm" style="margin-top:11px" onclick="publicarCancha()">
         Guardar y avisar a los socios</button>
     </div>`:''}
@@ -4446,10 +4611,10 @@ function vDash(){
         <div class="gold" style="font-weight:800;font-size:19px">${CLUB.torneo.proshop}</div>
       </div>
       <div class="grid2">
-        <button class="chip" style="padding:13px 6px" onclick="toast('Nuevo torneo · cargá fecha, valor y pro shop')">➕ Nuevo torneo</button>
-        <button class="chip" style="padding:13px 6px" onclick="toast('Inscripción abierta · aviso enviado')">📝 Abrir inscripción</button>
-        <button class="chip" style="padding:13px 6px" onclick="toast('Cargá el pro shop de este torneo · base $35.000, más si hay sponsor')">💵 Pro shop del torneo</button>
-        <button class="chip" style="padding:13px 6px" onclick="go('torneo')">📋 Ver inscriptos</button>
+        <button class="chip" style="padding:13px 6px" onclick="dibujo('crear torneos')">Nuevo torneo</button>
+        <button class="chip" style="padding:13px 6px" onclick="dibujo('abrir la inscripción')">Abrir inscripción</button>
+        <button class="chip" style="padding:13px 6px" onclick="dibujo('cargar el pro shop')">Pro shop del torneo</button>
+        <button class="chip" style="padding:13px 6px" onclick="go('torneo')">Ver inscriptos</button>
       </div>
     </div>`:''}
 
@@ -4487,8 +4652,8 @@ function vDash(){
       <div class="dim" style="font-size:12px;margin:11px 0">
         Los montos se definen en comisión. Los cargás acá y el aviso a los socios sale con los nuevos valores.</div>
       <div class="grid2">
-        <button class="chip" style="padding:13px 6px" onclick="toast('Nuevo valor de cuota cargado · avisá a los socios')">💳 Cambiar el monto</button>
-        <button class="chip" style="padding:13px 6px" onclick="toast('Cuota extraordinaria creada · definí monto y vencimiento')">💰 Cuota extraordinaria</button>
+        <button class="chip" style="padding:13px 6px" onclick="dibujo('cambiar la cuota')">Cambiar el monto</button>
+        <button class="chip" style="padding:13px 6px" onclick="dibujo('crear una cuota extraordinaria')">Cuota extraordinaria</button>
       </div>
       <button class="btn sm" style="margin-top:11px" onclick="avisar('Nuevo valor de cuota')">
         📣 Cargar y avisar en un paso</button>
@@ -4511,7 +4676,7 @@ function vDash(){
           <div style="flex:1;min-width:0"><div style="font-weight:700;font-size:14px">${n}</div>
             <div class="dim" style="font-size:12px">${d}</div></div>
           <div style="display:flex;gap:6px">
-            <button class="chip" style="padding:8px 11px" onclick="toast('Habilitado · le llega el mail')">✓</button>
+            <button class="chip" style="padding:8px 11px" onclick="dibujo('habilitar socios')">✓</button>
             <button class="chip" style="padding:8px 11px" onclick="toast('Rechazado')">✕</button></div>
         </div>`).join('')}
       <div class="sep"></div>
@@ -4610,7 +4775,7 @@ function vTees(){return `<div class="fade">
          ['Cancelación sin cargo','6 hs antes'],['No-show','$8.000 de multa']].map(([l,v])=>
         `<div class="between" style="padding:10px 0;border-bottom:1px solid var(--hair)">
           <span class="dim">${l}</span><span style="font-weight:700">${v}</span></div>`).join('')}
-      <button class="btn ghost sm" style="margin-top:12px" onclick="toast('Reglas actualizadas')">Editar reglas</button>
+      <button class="btn ghost sm" style="margin-top:12px" onclick="dibujo('editar las reglas')">Editar reglas</button>
     </div>
   </div></div>`;}
 
@@ -4644,7 +4809,7 @@ function vSocios(){return `<div class="fade">
         `<div class="between" style="padding:10px 0;border-bottom:1px solid var(--hair)">
           <div><div style="font-weight:600">${n}</div><div class="dim" style="font-size:12px">${s}</div></div>
           <span class="pill ${r==='Alto'?'red':'gold'}">${r}</span></div>`).join('')}
-      <button class="btn ghost sm" style="margin-top:12px" onclick="toast('Invitación a jugar enviada a 3 socios')">Enviar invitación a jugar</button>
+      <button class="btn ghost sm" style="margin-top:12px" onclick="dibujo('mandar invitaciones')">Enviar invitación a jugar</button>
     </div>
   </div></div>`;}
 
@@ -4666,8 +4831,8 @@ function vTorneo(){return `<div class="fade">
       <div class="bar"><i style="width:${Math.round(100*CLUB.torneo.inscriptos/CLUB.torneo.cupo)}%"></i></div>
       <div class="dim" style="font-size:12px;margin-top:7px">${CLUB.torneo.inscriptos} de ${CLUB.torneo.cupo} lugares · cierra el ${fechaBarra(enDias(5))}</div>
       <div class="grid2" style="margin-top:12px">
-        <button class="chip" onclick="toast('Grillas de salida generadas automáticamente')">Generar salidas</button>
-        <button class="chip" onclick="toast('Recordatorio enviado a ${CLUB.socios} socios')">Recordar a socios</button>
+        <button class="chip" onclick="dibujo('generar las salidas')">Generar salidas</button>
+        <button class="chip" onclick="dibujo('mandar recordatorios')">Recordar a socios</button>
       </div>
     </div>
 
@@ -4682,20 +4847,20 @@ function vTorneo(){return `<div class="fade">
       <div class="grid2">
         <button class="chip ${CLUB.torneo.modo==='escalonada'?'on':''}" style="padding:13px 6px"
           onclick="setModo('escalonada')">
-          <div style="font-size:17px">🕐</div>Salidas escalonadas
+          Salidas escalonadas
           <div class="dim2" style="font-size:10px;font-weight:500">${CLUB.horarios.primera}–${CLUB.horarios.ultima} c/${CLUB.horarios.intervalo}′</div></button>
         <button class="chip ${CLUB.torneo.modo==='simultanea'?'on':''}" style="padding:13px 6px"
           onclick="setModo('simultanea')">
-          <div style="font-size:17px">💥</div>Tiro simultáneo
+          Tiro simultáneo
           <div class="dim2" style="font-size:10px;font-weight:500">todos ${CLUB.torneo.hora}</div></button>
       </div>
       <div class="sep"></div>
       <h3>Cambio por clima</h3>
       <div class="grid2">
         <button class="chip" onclick="cambioClima('Se pasó a tiro simultáneo por pronóstico de lluvia a la tarde.')">
-          🌧️ Adelantar por lluvia</button>
+          Adelantar por lluvia</button>
         <button class="chip" onclick="cambioClima('Se retrasó una hora por viento fuerte en la mañana.')">
-          💨 Retrasar por viento</button>
+          Retrasar por viento</button>
       </div>
       <button class="btn ghost sm" style="margin-top:10px" onclick="limpiarCambio()">Quitar el aviso de cambio</button>
     </div>
@@ -4711,7 +4876,7 @@ function vTorneo(){return `<div class="fade">
         `<div class="item"><div class="ico">${ico(i)}</div><div style="flex:1;min-width:0">
           <div style="font-weight:700">${t}</div><div class="dim" style="font-size:12px">${s}</div></div>
           <span class="dim2">›</span></div>`).join('')}
-      <button class="btn sm" style="margin-top:12px" onclick="toast('Nuevo torneo creado')">+ Crear torneo</button>
+      <button class="btn sm" style="margin-top:12px" onclick="dibujo('crear torneos')">+ Crear torneo</button>
     </div>
   </div></div>`;}
 
@@ -4805,7 +4970,7 @@ function empezarRonda(sinGps){
 }
 function finish(){
   if(!S.torneo){ S.entregada=false; go('summary');
-    toast('Tarjeta guardada · sumó a tus estadísticas'); return; }
+    toast('Tarjeta cerrada · queda guardada en este teléfono'); return; }
   go('firma');
 }
 function resolver(h,v){ R.scores[h]=v; MARCA[h]=v; render(); toast(`Hoyo ${h} corregido: ${v}`); }
@@ -5028,6 +5193,19 @@ function setTipo(t){ S.tipo=t; S.tab='home'; render();
    Hasta la v20 esto mutaba una constante en memoria y se perdía al
    recargar — parecía que funcionaba y no hacía nada. */
 function setRol(){ toast('Los permisos los da el club desde el servidor'); }
+/* LOS BOTONES DE LO QUE TODAVÍA ES UN DIBUJO.
+   Decían "Nuevo torneo creado", "Grillas de salida generadas", "Recordatorio
+   enviado a 123 socios", "Invitación a jugar enviada a 3 socios", "Nuevo valor
+   de cuota cargado"… y no pasaba nada. Un botón en una pantalla dibujada está
+   bien —es para que la comisión vea dónde va a estar cada cosa y diga si le
+   sirve—, pero no puede afirmar que hizo algo. Para el 26/10/2026 estaba
+   prevista la presentación a la comisión, con el panel en la mano: cualquiera
+   de esos carteles habría desmentido en voz alta al PDF que decía qué
+   funcionaba y qué no.
+   Cuando una de estas cosas se construya de verdad, su botón deja de llamar
+   a `dibujo()`. Mientras tanto, todos dicen lo mismo y lo mismo es cierto. */
+function dibujo(que){ toast('Así se vería · ' + que + ' todavía no está hecho'); }
+
 function setModo(m){
   CLUB.torneo.modo=m;
   /* Decía "aviso enviado a 123 socios" y no se enviaba nada: esta pantalla
@@ -5155,7 +5333,7 @@ function togBag(i){
 }
 function book(t){if(FULL().includes(t))return;
   S.booked[t]=!S.booked[t];
-  toast(S.booked[t]?`⛳ Anotado al torneo · salida ${t}`:'Te bajaste de la salida');render();}
+  toast(S.booked[t]?'Así se vería · anotarse por la app todavía no está hecho':'Te bajaste de la salida');render();}
 
 
 /* ============================================================
@@ -5930,8 +6108,21 @@ function cargarClub(){
   }catch(e){}
 }
 
+/* Devuelve si cambió algo que se ve, para que `traerClubYDibujar()` decida
+   si vale la pena redibujar. Mientras pregunta, `CLUB_PIDIENDO` está prendido
+   y la tarjeta dice "Preguntando al club…" en vez de afirmar algo que todavía
+   no sabe. Si al terminar seguimos sin ninguna respuesta del servidor, también
+   cuenta como cambio: ese "Preguntando…" tiene que pasar a "Hace falta señal". */
 async function traerClub(forzar){
-  if(!hayNube()) return;
+  if(!hayNube()) return false;
+  const vista = () => JSON.stringify([CLUB_VIVO.cancha, CLUB_VIVO.avisos, !!CLUB_VIVO.desde]);
+  const antes = vista();
+  CLUB_PIDIENDO = true;
+  try{ await pedirClub(forzar); }
+  finally{ CLUB_PIDIENDO = false; }
+  return vista() !== antes || !CLUB_VIVO.desde;
+}
+async function pedirClub(forzar){
   try{
     const res = await rpc('club_estado',
       { p_club: CLUB.id, p_desde: forzar ? null : CLUB_VIVO.desde, p_socio: esSocio() });
@@ -5960,6 +6151,38 @@ async function traerClub(forzar){
   }catch(e){
     NUBE_ESTADO.conectado = false;
   }
+}
+
+/* ---------- lo que llega de afuera se dibuja apenas llega ----------
+   Hasta la v22 el estado del club se pedía al abrir la app, pero la pantalla
+   ya estaba dibujada para cuando llegaba la respuesta, y nadie la volvía a
+   dibujar: el dato quedaba en memoria y la pantalla seguía diciendo "Sin
+   datos · El club todavía no publicó el estado" hasta que el socio tocara
+   algo. La app afirmaba que el club no había dicho nada cuando ya sabía lo
+   que había dicho. Se midió el 23/10/2026, preparando la presentación, con
+   un servidor que tarda 600 ms: a los 14 segundos seguía sin aparecer, con
+   el GPS permitido, negado o sin contestar. Se veía bien en el teléfono de
+   Mauro sólo porque ya tenía el dato guardado de una vez anterior.
+
+   Tres condiciones para redibujar, y las tres importan:
+   · que haya cambiado algo — si no, es redibujar por redibujar;
+   · que nadie esté escribiendo — `render()` destruye el campo y borra lo
+     tecleado, y en el panel la nota de la cancha ES un campo;
+   · que la pantalla de ahora muestre ese dato. En la de jugar no se toca:
+     un redibujo reinicia la animación y pierde el scroll, y el estado de la
+     cancha se ve en una hoja que se dibuja fresca al abrirla.
+   Lo usa también el clima. Si agregás algo que llegue solo de afuera, va
+   por acá, no con un `render()` suelto. */
+function redibujarSiSePuede(pantallas){
+  const a = document.activeElement;
+  if(a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) return false;
+  if(pantallas && pantallas.indexOf(S.tab) < 0) return false;
+  render();
+  return true;
+}
+const PANTALLAS_CON_CLUB = ['home', 'dash'];
+async function traerClubYDibujar(forzar){
+  if(await traerClub(forzar)) redibujarSiSePuede(PANTALLAS_CON_CLUB);
 }
 
 /* ---------- la llave de la comisión ----------
@@ -6739,6 +6962,7 @@ cargarTodo();
    pregunta al servidor, que es lo que puede tardar. */
 cargarClub();
 cargarComision();
+cargarClima();
 /* Accesos directos del ícono: si mantenés apretada la app en la pantalla
    del teléfono aparece "Empezar una ronda", y eso abre directo ahí.
 
@@ -6756,11 +6980,14 @@ cargarComision();
 arrancarGPS();
 cargarPrueba();
 cargarRonda();
-traerClub();
+traerClubYDibujar();
+traerClimaYDibujar();
 /* Al volver a la app, y al recuperar la señal, se pregunta de nuevo. Un
-   aviso del club no cambia dos veces por minuto: no hace falta latir. */
-document.addEventListener('visibilitychange', () => { if(!document.hidden) traerClub(); });
-window.addEventListener('online', () => traerClub());
+   aviso del club no cambia dos veces por minuto: no hace falta latir. El
+   clima tiene su propio freno de 15 minutos adentro de `traerClima()`. */
+document.addEventListener('visibilitychange', () => {
+  if(!document.hidden){ traerClubYDibujar(); traerClimaYDibujar(); } });
+window.addEventListener('online', () => { traerClubYDibujar(); traerClimaYDibujar(); });
 applyTheme();
 document.getElementById('appname').textContent = CLUB.app;
 render();
