@@ -420,6 +420,7 @@ const S = {
   mat:'', fedOk:false, indexDias:9, chequeoRonda:false,
   dni:'', nsocio:'', padronOk:false, soloSeguir:false, vA:10, vB:18,
   fecha:null,           // el día que se salió al 1; lo fija empezarRonda()
+  vueltaId:null,        // quién es esta vuelta en Mis rondas; lo fija empezarRonda()
   marco:1,              // a quién le llevo la tarjeta yo (índice en el grupo)
   meMarca:2,            // quién lleva la mía
   torneo:true,          // en torneo la tarjeta se cruza y se firma
@@ -1989,7 +1990,10 @@ function vHome(){
       </div>
     </div>
 
-    ${S.playing||p ? `
+    ${/* Sólo con una vuelta empezada y sin terminar. Antes alcanzaba con tener
+         golpes en la tarjeta, y como la tarjeta no se vaciaba nunca, esto
+         decía "Ronda en curso" para siempre. */ ''}
+    ${S.playing ? `
     <div class="card" style="border-color:var(--acc2)">
       <div class="between"><h3 style="margin:0">Ronda en curso</h3><span class="pill">Hoyo ${S.hole}</span></div>
       <div class="row" style="margin-top:10px">
@@ -2354,13 +2358,27 @@ function abrirCierre(h){
 }
 function fijar(campo, v){
   const h = S.hole;
-  if(campo==='sc'){ R.scores[h]=v; S.playing=true;
+  /* Anotar ya no pone `S.playing` en true: eso era una puerta de atrás para
+     "empezar" una vuelta sin pasar por `empezarRonda()`, o sea sin vaciar la
+     anterior. Una vuelta sólo empieza ahí. */
+  /* Y una tarjeta certificada que cambia ya no es la que se certificó: se
+     descertifica, y lo mismo la del otro si se la firmó como marcador. La
+     revisión adversaria de la v25 certificó, cambió un 4 por un 2 y la firma
+     seguía "Certificada"; se entregaba con un número que nadie certificó.
+     Venía de antes de la v25. */
+  if(campo==='sc'){
+    if(S.certifico && R.scores[h] !== v){ S.certifico = false; S.presento = null;
+      toast('Cambiaste un golpe · tu tarjeta hay que volver a certificarla'); }
+    R.scores[h]=v;
     if(R.putts[h]!=null && R.putts[h]>v) R.putts[h]=v; }
   else if(campo==='putts'){ R.putts[h]=v; }
   else if(campo==='bunker'){ R.bunker[h]=v; }
   else if(campo==='penal'){ R.penal[h]=v; }
   else if(campo==='fw'){ R.fw[h] = R.fw[h]===v ? null : v; }
-  else if(campo==='otro'){ OTRO[h]=v; }
+  else if(campo==='otro'){
+    if(S.firmoLaOtra && OTRO[h] !== v){ S.firmoLaOtra = false;
+      toast('Cambiaste la tarjeta que llevás · hay que volver a firmarla'); }
+    OTRO[h]=v; }
   render();
 }
 /* El green en regulación NO se pregunta: se calcula. Llegar en regulación es
@@ -2386,7 +2404,14 @@ function cerrarHoyo(){
   anotarEnLaNube(h);          // si estás jugando con el grupo, se manda solo
   S.cerrando = false; S.cierrePaso = 1; S.teeVisto = null;
   if(h < S.vuelta){ S.hole = h+1; toast(`Hoyo ${h} cerrado · vamos al ${h+1}`); }
-  else toast('Vuelta terminada');
+  else {
+    /* Decía "Vuelta terminada" y se quedaba en la pantalla de jugar: la vuelta
+       no terminaba —eso sólo lo hace `finish()`— y el botón para terminarla
+       estaba escondido al final de la hoja de la tarjeta. Ahora se abre esa
+       hoja, que es donde se revisa y se cierra. */
+    S.hoja = 'tarjeta';
+    toast('Último hoyo · revisá la tarjeta y terminala abajo');
+  }
   render(); $('#screen').scrollTop = 0;
 }
 
@@ -3688,6 +3713,27 @@ function vCargaAAG(){
    para cuando alguien no figura en la grilla. */
 function vArranque(){
   const g = GROUP();
+  /* Si quedó una vuelta sin terminar, primero se decide qué hacer con ésa. Es
+     lo que impide que una vuelta nueva se arme encima de otra a medio jugar —y
+     lo que rescata, sin perder nada, las tarjetas que quedaron abiertas en los
+     teléfonos de la v24 y anteriores, donde ninguna vuelta terminaba. */
+  if(enCurso()) return `<div class="fade">
+  <div class="hdr"><div class="row"><button class="arrow" onclick="go('home')">‹</button>
+    <div><div class="lbl">${CLUB.corto}</div><h1 style="font-size:22px">Empezar la ronda</h1></div></div></div>
+  <div class="pad">
+    <div class="card" style="border-color:var(--acc2)">
+      <h3 style="margin-top:0">Tenés una vuelta sin terminar</h3>
+      <div class="dim" style="font-size:13px;margin-bottom:12px">
+        ${S.fecha ? fechaLarga(new Date(S.fecha + 'T12:00:00')) + ' · ' : ''}${played().length}
+        ${played().length === 1 ? 'hoyo anotado' : 'hoyos anotados'} · ${total()} golpes
+        (${fmtPar(toPar())})${RONDA ? ' · con el grupo ' + esc(RONDA.codigo) : ''}</div>
+      <button class="btn" onclick="go('play')">Seguir con esa</button>
+      <div style="height:8px"></div>
+      <button class="btn ghost sm" onclick="terminarYSeguir()">Terminarla y empezar otra</button>
+      <div class="dim2" style="font-size:11px;margin-top:10px;line-height:1.5">
+        Terminarla no la borra: queda guardada en Mis rondas tal como está.</div>
+    </div>
+  </div></div>`;
   return `<div class="fade">
   <div class="hdr"><div class="row"><button class="arrow" onclick="go('home')">‹</button>
     <div><div class="lbl">${CLUB.corto}</div><h1 style="font-size:22px">Empezar la ronda</h1></div></div></div>
@@ -3896,9 +3942,12 @@ function vFirma(){
       <button class="btn" style="margin-top:12px" onclick="entregar()">
         ${S.presento===false?'Entregar solo la de '+suyo.n:'Entregar las dos tarjetas'}</button>
       <div class="dim2" style="font-size:11px;margin-top:9px">
-        ${S.presento===false
-          ? `A ${CLUB.pro.n} le llega la de ${suyo.n} y el aviso de que vos no presentaste.`
-          : `Le llegan a ${CLUB.pro.n} al toque, sin caminar hasta la secretaría.`}
+        ${/* Decía "le llegan a Félix al toque, sin caminar hasta la secretaría", y
+             la entrega al club no está construida: era el cartel que dice que
+             salió algo que no salió. Lo vio la revisión de la v25. */
+          S.presento===false
+          ? `La de ${suyo.n} queda cerrada en Mis rondas, con el aviso de que vos no presentaste. Todavía no le llega a ${CLUB.pro.n}: la entrega al club no está conectada.`
+          : `Quedan cerradas en Mis rondas. Todavía no le llegan a ${CLUB.pro.n}: la entrega al club no está conectada.`}
         Una vez entregadas no se modifican.</div>`
       :`<div class="dim" style="font-size:13px;margin-top:11px;text-align:center">
         ${!S.firmoLaOtra?'Falta que firmes la tarjeta de '+suyo.n+'. Esa se entrega sí o sí.'
@@ -3908,44 +3957,69 @@ function vFirma(){
 }
 
 /* ---------- RESUMEN DE RONDA ---------- */
+/* EL RESUMEN SÓLO DICE LO QUE JUGASTE.
+   Hasta la v24 mezclaba los números de la vuelta con frases escritas a mano:
+   "Stableford 31 pts", "Hoyo 6 — birdie", "Hoyo 2 — doble bogey · es tu patrón",
+   "por encima de tu media de la temporada", "si convertías dos de los tres
+   up&down que fallaste…". Ninguna salía de la tarjeta, y después de una vuelta
+   de verdad le contaban al socio un birdie que no hizo. Ahora todo sale de `R`,
+   y lo que no se cargó no aparece como cero: "0 putts" en una vuelta en la que
+   nadie anotó putts es un número inventado. El Stableford usa la misma cuenta
+   que la tabla del grupo, y sin index no hay Stableford. */
 function vSummary(){
   const p=played(), t=total(), tp=toPar();
   const b=p.filter(h=>R.scores[h]<par(h)).length;
   const pars=p.filter(h=>R.scores[h]===par(h)).length;
   const bog=p.filter(h=>R.scores[h]>par(h)).length;
-  const putts=p.reduce((a,h)=>a+(R.putts[h]||0),0);
-  const fw=p.filter(h=>R.fw[h]==='fw'&&par(h)>3).length;
+  const conPutts = p.filter(h => R.putts[h] != null);
+  const putts = conPutts.length ? conPutts.reduce((a,h)=>a+R.putts[h],0) : null;
+  const tresPutts = conPutts.filter(h => R.putts[h] >= 3).length;
+  const conFw = p.filter(h => par(h) > 3 && R.fw[h] != null);
+  const fw = conFw.filter(h => R.fw[h] === 'fw').length;
+  const hc = hcpJuego();
+  const stb = (hc == null || !p.length) ? null
+    : p.reduce((a,h)=>a+stableford(R.scores[h], par(h), COURSE.holes[h-1].hcp, hc), 0);
+  const dif = h => R.scores[h] - par(h);
+  const orden = p.slice().sort((x,y)=> dif(x)-dif(y) || x-y);
+  const mejor = orden[0], peor = orden[orden.length-1];
+  const hayExtremos = p.length >= 2 && dif(mejor) !== dif(peor);
+  const resultado = d => d<=-2?'eagle':d===-1?'birdie':d===0?'par':d===1?'bogey':d===2?'doble bogey':`+${d}`;
+  const detalle = h => { const y = yards(h);
+    return `Par ${par(h)}${y != null ? ' · ' + y + ' yds' : ''}${R.putts[h] != null
+      ? ' · ' + R.putts[h] + (R.putts[h] === 1 ? ' putt' : ' putts') : ''}`; };
   return `<div class="fade">
   <div class="pad" style="padding-top:20px">
     <div class="card" style="background:linear-gradient(135deg,var(--tint),var(--card));border-color:var(--acc2);text-align:center;padding:24px">
       <div style="font-size:40px">⛳</div>
       <div class="lbl" style="margin-top:6px">${!S.torneo?'Ronda de práctica'
         :(S.presento===false?'No presentada · queda para vos'
-        :(S.entregada?'Tarjeta entregada al club':'Tarjeta de torneo'))} · ${CLUB.corto}</div>
+        :(S.entregada?'Tarjeta firmada':'Tarjeta de torneo'))} · ${CLUB.corto}</div>
       <div style="font-size:56px;font-weight:800;letter-spacing:-.04em;line-height:1.05">${t}</div>
       <div class="pill" style="font-size:14px;padding:6px 16px">${fmtPar(tp)} al par · ${p.length} hoyos</div>
       <div class="sep"></div>
       <div class="between"><div><div class="lbl">Handicap</div>
         <div style="font-weight:800;font-size:18px">${verIndex(S.user.hcp)} · cancha ${verHcp(hcpCancha(S.user.hcp))}</div></div>
         <div style="text-align:right"><div class="lbl">Stableford</div>
-        <div style="font-weight:800;font-size:18px">31 pts</div></div></div>
+        <div style="font-weight:800;font-size:18px">${stb == null ? '–' : stb + ' pts'}</div></div></div>
     </div>
 
     <div class="grid4">
-      ${[['Birdies',b,'acc'],['Pares',pars,''],['Bogeys+',bog,''],['Putts',putts,'']].map(([l,v,c])=>
+      ${[['Birdies',b,'acc'],['Pares',pars,''],['Bogeys+',bog,''],['Putts',putts == null ? '–' : putts,'']].map(([l,v,c])=>
         `<div class="card" style="margin:0 0 10px;text-align:center;padding:12px 6px">
           <div class="big ${c}" style="font-size:24px">${v}</div>
           <div class="lbl" style="font-size:9px">${l}</div></div>`).join('')}
     </div>
 
-    <div class="card"><h3>Lo mejor y lo peor</h3>
-      <div class="item"><div class="ico">${ico('🔥')}</div><div><div style="font-weight:700">Hoyo 6 — birdie</div>
-        <div class="dim" style="font-size:12px">Par 3 de 187 yds. Green en regulación y un putt.</div></div></div>
-      <div class="item"><div class="ico">${ico('🩹')}</div><div><div style="font-weight:700">Hoyo 2 — doble bogey</div>
-        <div class="dim" style="font-size:12px">Segundo golpe al bunker. Es tu patrón: 2 golpes perdidos por ronda ahí.</div></div></div>
-      <div class="item"><div class="ico">${ico('📈')}</div><div><div style="font-weight:700">${fw} fairways de ${p.filter(h=>par(h)>3).length}</div>
-        <div class="dim" style="font-size:12px">Por encima de tu media de la temporada.</div></div></div>
-    </div>
+    ${hayExtremos || conFw.length ? `<div class="card"><h3>Lo mejor y lo peor</h3>
+      ${hayExtremos ? `
+      <div class="item"><div class="ico">${ico('🔥')}</div><div><div style="font-weight:700">Hoyo ${mejor} — ${resultado(dif(mejor))}</div>
+        <div class="dim" style="font-size:12px">${detalle(mejor)}</div></div></div>
+      <div class="item"><div class="ico">${ico('🩹')}</div><div><div style="font-weight:700">Hoyo ${peor} — ${resultado(dif(peor))}</div>
+        <div class="dim" style="font-size:12px">${detalle(peor)}</div></div></div>` : ''}
+      ${conFw.length ? `
+      <div class="item"><div class="ico">${ico('📈')}</div><div><div style="font-weight:700">${fw} fairways de ${conFw.length}</div>
+        <div class="dim" style="font-size:12px">En los par 4 y par 5 donde anotaste la salida.</div></div></div>` : ''}
+    </div>` : ''}
 
     ${(()=>{const all=[].concat(...Object.values(R.shots));
       if(!all.length)return '';
@@ -3960,14 +4034,13 @@ function vSummary(){
         <button class="btn ghost sm" style="margin-top:10px" onclick="go('bag')">Ver mi bolsa</button>
       </div>`})()}
 
-    <div class="card"><h3>El caddie dice</h3>
-      <p style="font-size:13px">Jugaste ${fmtPar(tp)} con ${putts} putts. Si convertías dos de los tres
-      up&amp;down que fallaste, cerrabas en ${t-2}. Tu práctica de esta semana: bunker y approach de 120 yds.</p>
-      <button class="btn ghost sm" onclick="go('stats')">Ver plan de práctica</button>
-    </div>
+    ${putts != null ? `<div class="card"><h3>En el green</h3>
+      <p style="font-size:13px;margin:0">${putts} putts en ${conPutts.length} ${conPutts.length === 1 ? 'hoyo' : 'hoyos'}${
+        tresPutts ? `, y ${tresPutts} ${tresPutts === 1 ? 'hoyo' : 'hoyos'} con tres putts o más.` : ', sin ningún tres putts.'}</p>
+    </div>` : ''}
 
     <div style="margin-bottom:24px">
-      <button class="btn" onclick="toast('📤 Tarjeta compartida con tu grupo y el club')">Compartir tarjeta</button>
+      <button class="btn" onclick="dibujo('compartir la tarjeta')">Compartir tarjeta</button>
       <div style="height:8px"></div>
       <button class="btn ghost sm" onclick="go('home')">Volver al inicio</button>
     </div>
@@ -4391,12 +4464,19 @@ function vMe(){
 
     <h2>Mis rondas</h2>
     <div class="card">
-      ${[[fechaCorta(diasAtras(2)),CLUB.corto,'84','+13'],[fechaCorta(diasAtras(9)),CLUB.corto,'79','+8'],
-         [fechaCorta(diasAtras(16)),CLUB.corto,'88','+17'],[fechaCorta(diasAtras(23)),CLUB.corto,'82','+11']].map(([d,c,s,p])=>
+      ${/* Eran cuatro filas escritas a mano —84, 79, 88 y 82— con fechas que se
+           corrían solas para parecer recientes. Ahora son las vueltas
+           terminadas en este teléfono, y si no hay ninguna, se dice. */''}
+      ${VUELTAS.length ? VUELTAS.slice().reverse().slice(0, 8).map(v =>
         `<div class="item"><div class="ico">${ico('⛳')}</div><div style="flex:1;min-width:0">
-          <div style="font-weight:700">${c}</div><div class="dim" style="font-size:12px">${d}</div></div>
-          <div style="text-align:right"><div style="font-weight:800;font-size:17px">${s}</div>
-          <div class="dim" style="font-size:11px">${p}</div></div></div>`).join('')}
+          <div style="font-weight:700">${esc(v.club || CLUB.corto)}${v.torneo ? ' · torneo' : ''}</div>
+          <div class="dim" style="font-size:12px">${esc(fechaCorta(new Date(v.fecha + 'T12:00:00')))}
+            · ${esc(v.hoyos)} ${v.hoyos === 1 ? 'hoyo' : 'hoyos'}${v.torneo && v.estado ? ' · ' + esc(v.estado) : ''}</div></div>
+          <div style="text-align:right"><div style="font-weight:800;font-size:17px">${esc(v.golpes)}</div>
+          <div class="dim" style="font-size:11px">${esc(fmtPar(v.alPar))}</div></div></div>`).join('')
+        : `<div class="dim" style="font-size:13px;line-height:1.5">Todavía no terminaste ninguna vuelta en
+           este teléfono. Cuando termines una, queda acá.</div>`}
+      ${VUELTAS.length > 8 ? `<div class="dim2" style="font-size:11px;margin-top:8px">y ${VUELTAS.length - 8} más</div>` : ''}
     </div>
 
     <h2>Ajustes</h2>
@@ -4898,7 +4978,7 @@ function setTee(id){S.tee=id;render();
     : `${tee().n} · ${totalYds()} yds · sin homologar: handicap de ${teeDelHcp(tee()).n.toLowerCase()}`);}
 function setVuelta(v){S.vuelta=v;if(S.hole>v)S.hole=v;render();
   toast(v===9?'Recorrido de 9 hoyos (una vuelta)':'Recorrido de 18 hoyos (dos vueltas)');}
-function setScore(v){R.scores[S.hole]=v;S.playing=true;
+function setScore(v){R.scores[S.hole]=v;
   const d=v-par(S.hole);
   toast(d<=-2?'🦅 ¡Eagle!':d===-1?'🐦 ¡Birdie!':d===0?'✓ Par':d===1?'Bogey':'Doble bogey');
   render();}
@@ -4964,13 +5044,41 @@ function empezarRonda(sinGps){
      cuando el socio la muestra el lunes. Antes directamente estaba escrita a
      mano —31/07/2026— y decía lo mismo para todos y para siempre. */
   S.fecha = new Date().toISOString().slice(0,10);
+  /* La vuelta nueva arranca de cero. Si había una sin terminar, la pantalla de
+     arranque ya preguntó; esto es la red por si se llega por otro lado: antes
+     de vaciar, se archiva. La ronda compartida NO se toca: si hay una, es la
+     que el socio acaba de armar en esta misma pantalla para ESTA vuelta.
+     `R`, `MARCA` y `OTRO` son `const`: se vacían por dentro, no se reemplazan. */
+  if(enCurso() && !archivarVuelta()){
+    toast('No hay lugar en este teléfono para guardar la vuelta anterior · no se empezó otra');
+    return;
+  }
+  S.vueltaId = nuevoIdVuelta();
+  Object.keys(R).forEach(k => { R[k] = {}; });
+  Object.keys(MARCA).forEach(k => { delete MARCA[k]; });
+  Object.keys(OTRO).forEach(k => { delete OTRO[k]; });
+  S.certifico = false; S.firmoLaOtra = false; S.entregada = false; S.presento = null;
+  S.cerrando = false; S.cierrePaso = 1; S.teeVisto = null; S.hoja = null;
   S.hole=1; S.playing=true; go('play');
   toast(aCiegas ? 'Arrancó sin GPS · vas a anotar sin distancias'
       : S.torneo?`Arrancó · llevás la tarjeta de ${GROUP()[S.marco].n}`:'Arrancó la ronda');
 }
 function finish(){
-  if(!S.torneo){ S.entregada=false; go('summary');
-    toast('Tarjeta cerrada · queda guardada en este teléfono'); return; }
+  /* El botón está a mano desde el hoyo 1 —para quien corta la vuelta por
+     lluvia—, así que tocarlo de más es fácil. Si faltan hoyos, se pregunta. */
+  const faltan = S.vuelta - played().length;
+  if(faltan > 0 && !confirm(`Te ${faltan === 1 ? 'falta 1 hoyo' : 'faltan ' + faltan + ' hoyos'}. ¿Terminar la vuelta igual?`)) return;
+  if(!S.torneo){
+    const nada = !played().length;
+    S.entregada=false;
+    if(!terminarVuelta()) return;
+    go('summary');
+    /* Sin ningún hoyo no hay nada que guardar, y decir "quedó guardada" sería
+       mentir. */
+    toast(nada ? 'Vuelta terminada · no tenía ningún hoyo anotado'
+               : 'Vuelta terminada · quedó guardada en Mis rondas');
+    return;
+  }
   go('firma');
 }
 function resolver(h,v){ R.scores[h]=v; MARCA[h]=v; render(); toast(`Hoyo ${h} corregido: ${v}`); }
@@ -4987,9 +5095,13 @@ function firmarLaOtra(){
   toast(`✍️ Firmaste la tarjeta de ${GROUP()[S.marco].n} como su marcador`);
 }
 function entregar(){
-  S.entregada=true; render(); go('summary');
+  /* En torneo la vuelta termina acá, no en `finish()`: después de firmar y
+     entregar. `terminarVuelta()` archiva con el estado ya puesto. */
+  S.entregada=true;
+  if(!terminarVuelta()){ S.entregada=false; render(); return; }
+  render(); go('summary');
   toast(S.presento===false
-    ? `📩 Entregaste la de ${GROUP()[S.marco].n} · la tuya no se presenta`
+    ? `📩 Cerraste la de ${GROUP()[S.marco].n} · la tuya no se presenta · la entrega al club todavía no está conectada`
     : '📩 Tarjetas cerradas · la entrega al club todavía no está conectada');
 }
 /* La app no supone que sos socio: hasta que lo digas, `S.tipo` es null. */
@@ -5414,7 +5526,16 @@ function hayVersionNueva(sw){
   if(momentoDeActualizar()) aplicarVersion();
   else toast('Hay una versión nueva · entra al terminar la vuelta');
 }
-const momentoDeActualizar = () => !S.playing && played().length === 0;
+/* Era `!S.playing && played().length === 0`, y como `S.playing` no volvía nunca
+   a false y la tarjeta no se vaciaba, después de la primera vuelta daba false
+   para siempre: una versión nueva sólo entraba cerrando la app del todo.
+   Ahora que la vuelta termina de verdad, alcanza con no estar jugando. Y dos
+   momentos más en que NO: con el cierre del hoyo abierto (recargar ahí corta lo
+   que se está anotando) y en el resumen o la firma, que son la vuelta que
+   recién terminó: la recarga los tapaba y se volvía a Inicio sin verlos. Las
+   dos cosas las encontró la revisión adversaria de la v25. */
+const momentoDeActualizar = () => !S.playing && !S.cerrando
+  && S.tab !== 'summary' && S.tab !== 'firma';
 function aplicarVersion(){
   if(!VERSION_ESPERANDO) return;
   const sw = VERSION_ESPERANDO; VERSION_ESPERANDO = null;
@@ -6176,6 +6297,12 @@ async function pedirClub(forzar){
 function redibujarSiSePuede(pantallas){
   const a = document.activeElement;
   if(a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) return false;
+  /* Durante el alta `S.tab` vale 'home', pero lo que se dibuja es `vOnboard()`,
+     que no muestra ni la cancha ni el clima. La primera versión de esto miraba
+     sólo `S.tab` y redibujaba la bienvenida cuando llegaban los datos: la
+     primera pantalla que ve alguien nuevo parpadeaba sola al segundo de abrir.
+     Lo encontró la simulación de la demo para la comisión, el 26/10/2026. */
+  if(!S.onboarded) return false;
   if(pantallas && pantallas.indexOf(S.tab) < 0) return false;
   render();
   return true;
@@ -6280,11 +6407,211 @@ async function entrar(fn, args, codigo){
   }
 }
 function salirRonda(){
-  if(!confirm('¿Salir de la ronda del grupo? Tu tarjeta no se toca.')) return;
+  /* Si quedan anotaciones sin mandar, salir las deja sin mandar. Decirlo:
+     "tu tarjeta no se toca" es cierto para la de este teléfono, no para la
+     copia del grupo. */
+  const n = (RONDA && RONDA.cola) ? RONDA.cola.length : 0;
+  const pregunta = n
+    ? `Hay ${n === 1 ? 'una anotación' : n + ' anotaciones'} que todavía no llegaron al grupo, y si salís no van a llegar. Tu tarjeta no se toca. ¿Salir igual?`
+    : '¿Salir de la ronda del grupo? Tu tarjeta no se toca.';
+  if(!confirm(pregunta)) return;
+  dejarRondaCompartida();
+  render();
+}
+function dejarRondaCompartida(){
   RONDA = null; guardarRonda();
   clearInterval(_latido); _latido = null;
   NUBE_ESTADO = { conectado:false, ultimo:null, error:null, mandando:0 };
+}
+
+/* ============================================================
+   EL CICLO DE UNA VUELTA
+   ============================================================
+   Hasta la v24 una vuelta no terminaba nunca. `S.playing` se ponía en true al
+   salir al 1 y no volvía a false en ningún lado, y la tarjeta (`R`), lo que
+   anotó el marcador (`MARCA`), la tarjeta que llevo (`OTRO`) y las cuatro
+   firmas no se vaciaban jamás. Comprobado el 26/10/2026:
+   · después de la primera vuelta, Inicio decía "Ronda en curso" para siempre;
+   · una vuelta nueva arrancaba con los golpes de la anterior;
+   · la segunda vuelta de torneo arrancaba "Certificada" y "Firmada";
+   · la ronda compartida seguía consultando al servidor cada 6 segundos para
+     siempre, y la vuelta nueva pisaba en el servidor, hoyo por hoyo, las
+     anotaciones de la anterior;
+   · `momentoDeActualizar()` quedaba en false para siempre: una versión nueva
+     sólo entraba cerrando la app del todo.
+   Lo encontró la simulación de la demo para la comisión.
+
+   Ahora una vuelta tiene principio y fin:
+   · EMPIEZA en `empezarRonda()`, que vacía todo lo de la anterior. Antes, si
+     hay una vuelta sin terminar, la pantalla de arranque pregunta si se sigue
+     con esa o se termina. Una vuelta no se pisa nunca en silencio.
+   · TERMINA en `terminarVuelta()`: la guarda en "Mis rondas"
+     (`trisquelia_vueltas`), suelta la ronda compartida en ESTE teléfono y pone
+     `S.playing` en false. La tarjeta (`R`) NO se vacía al terminar —el resumen
+     la está mostrando—: se vacía al empezar la próxima.
+   · La ronda compartida se suelta SIN cerrarla en el servidor: los demás del
+     grupo capaz siguen jugando, y `ronda_cerrar` les rechazaría lo que anoten.
+     El servidor la limpia sola a los 30 días.
+   · Lo que quedó sin mandar al grupo —terminar en el 18 sin señal es lo normal
+     en la cancha— no se tira: pasa a `COLA_VIEJA`, que se sigue mandando sola
+     cuando vuelve la señal. Cada anotación lleva adentro su código de ronda y
+     su llave, así que no necesita la ronda abierta, y no se mezcla con la
+     vuelta siguiente.
+   · `trisquelia_vueltas` y `trisquelia_cola_vieja` van en `COPIA_CLAVES`: una
+     tarjeta es la prueba de una vuelta, y lo pendiente es parte de ella. */
+const VUELTAS_KEY    = 'trisquelia_vueltas';
+const COLA_VIEJA_KEY = 'trisquelia_cola_vieja';
+const VUELTAS_MAX    = 60;          // más de un año de sábados
+let VUELTAS = [];
+let COLA_VIEJA = [];
+let _mandandoVieja = false;
+
+/* "En el medio de una vuelta": empezada y con algo anotado. Una vuelta
+   empezada sin ningún golpe no tiene nada que perder. */
+const enCurso = () => !!S.playing && played().length > 0;
+
+/* ---------- leer y escribir las listas ----------
+   Se lee del teléfono JUSTO ANTES de escribir, no de la memoria: si la app
+   instalada y una pestaña del navegador están abiertas a la vez, comparten el
+   almacenamiento, y escribir la lista que cada una cargó al arrancar borraba
+   lo que había guardado la otra. Y escribir devuelve si pudo: sin lugar en el
+   teléfono no se puede decir "quedó guardada". */
+function leerLista(k){
+  try{ const v = JSON.parse(localStorage.getItem(k) || '[]'); return Array.isArray(v) ? v : []; }
+  catch(e){ return []; }
+}
+function escribirLista(k, arr){
+  try{ arr.length ? localStorage.setItem(k, JSON.stringify(arr)) : localStorage.removeItem(k); return true; }
+  catch(e){ return false; }
+}
+
+/* ---------- lo que entra, entra sano ----------
+   "Mis rondas" y lo pendiente pueden llegar de una copia de seguridad, y una
+   copia es un archivo que alguien puede armar a mano. Entra entero y bien
+   formado, o no entra: una fecha que exista (el primer borrador de este arreglo aceptaba "2026-13-45" y
+   Perfil dejaba de dibujarse), números enteros y en rango, y de lo pendiente
+   sólo las dos operaciones que esta app encola, contra una ronda y con una
+   llave con forma de ronda y de llave. Una cola armada mandaba cualquier
+   cosa a cualquier ruta del servidor desde el teléfono del socio. */
+const fechaReal = f => { if(!/^\d{4}-\d{2}-\d{2}$/.test(String(f))) return false;
+  const d = new Date(f + 'T12:00:00'); return !isNaN(d) && d.toISOString().slice(0,10) === f; };
+const enteroEn = (v, a, b) => Number.isInteger(v) && v >= a && v <= b;
+const vueltaSana = v => !!v && typeof v === 'object' && fechaReal(v.fecha)
+  && enteroEn(v.hoyos, 1, 18) && enteroEn(v.golpes, v.hoyos, v.hoyos * 20)
+  && enteroEn(v.alPar, -3 * v.hoyos, 20 * v.hoyos);
+const opSana = o => !!o && typeof o === 'object' && (o.fn === 'anotar' || o.fn === 'marcar_a')
+  && !!o.args && typeof o.args === 'object'
+  && /^[A-Za-z0-9]{4,12}$/.test(String(o.args.p_codigo))
+  && typeof o.args.p_llave === 'string' && o.args.p_llave.length <= 200
+  && (o.fn !== 'anotar' || (enteroEn(o.args.p_hoyo, 1, 18)
+        && (o.args.p_golpes == null || enteroEn(o.args.p_golpes, 1, 20))));
+
+function cargarVueltas(){
+  VUELTAS = leerLista(VUELTAS_KEY).filter(vueltaSana);
+  COLA_VIEJA = leerLista(COLA_VIEJA_KEY).filter(opSana);
+}
+
+const nuevoIdVuelta = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+
+/* Copia la vuelta a "Mis rondas". Cada vuelta tiene su `S.vueltaId`, y archivar
+   de nuevo la misma vuelta la ACTUALIZA en vez de sumar otra: la revisión
+   adversaria encontró la misma vuelta dos veces en Mis rondas. Devuelve si
+   quedó guardada en el teléfono. */
+function archivarVuelta(){
+  if(!played().length) return true;
+  if(!S.vueltaId) S.vueltaId = nuevoIdVuelta();
+  const copia = o => JSON.parse(JSON.stringify(o));
+  const v = {
+    id:      S.vueltaId,
+    fecha:   fechaReal(S.fecha) ? S.fecha : new Date().toISOString().slice(0,10),
+    club:    CLUB.corto, salida: tee().n, vuelta: S.vuelta, torneo: !!S.torneo,
+    estado:  !S.torneo ? 'práctica'
+           : S.presento === false ? 'no presentada'
+           : S.entregada ? 'entregada' : 'sin entregar',
+    golpes:  total(), alPar: toPar(), hoyos: played().length,
+    R: copia(R), otro: copia(OTRO), marca: copia(MARCA),
+    terminada: new Date().toISOString() };
+  const lista = leerLista(VUELTAS_KEY).filter(vueltaSana).filter(x => x.id !== v.id);
+  lista.push(v);
+  const recortada = lista.slice(-VUELTAS_MAX);
+  if(!escribirLista(VUELTAS_KEY, recortada)) return false;
+  VUELTAS = recortada;
+  return true;
+}
+
+/* TODO O NADA. Si la vuelta no se puede guardar —el teléfono sin lugar—, no se
+   termina: queda abierta, y se dice. El primer borrador decía "quedó guardada en Mis
+   rondas" aunque no se hubiera guardado, y la vuelta siguiente la borraba.
+   Mismo criterio con lo pendiente del grupo: si no se puede guardar aparte, la
+   ronda compartida no se suelta. Devuelve si terminó. */
+function terminarVuelta(){
+  const sinLugar = () => { toast('No hay lugar en este teléfono para guardar la vuelta · sigue abierta. Bajá una copia de seguridad y liberá lugar.'); return false; };
+  if(!archivarVuelta()) return sinLugar();
+  if(RONDA){
+    const pendientes = (RONDA.cola || []).filter(opSana);
+    if(pendientes.length){
+      const juntas = leerLista(COLA_VIEJA_KEY).filter(opSana).concat(pendientes);
+      if(!escribirLista(COLA_VIEJA_KEY, juntas)) return sinLugar();
+      COLA_VIEJA = juntas;
+    }
+    dejarRondaCompartida();
+    vaciarColaVieja();
+  }
+  S.playing = false;
+  return true;
+}
+
+/* Desde la pantalla de arranque, cuando quedó una vuelta sin terminar. */
+function terminarYSeguir(){
+  if(!terminarVuelta()){ render(); return; }
   render();
+  toast('Esa vuelta quedó guardada en Mis rondas · ya podés empezar otra');
+}
+
+/* Lo pendiente de vueltas ya terminadas. Mismo criterio que `vaciarCola()`: de
+   a una y en orden; un 200 con `{error}` no es un éxito, pero tampoco se
+   arregla reintentando —la ronda se cerró, o la llave no es la nuestra—, así
+   que se saca y se dice. Y un rechazo DEFINITIVO del servidor (400, 403, 404…)
+   tampoco: el primer borrador lo trataba como "sin señal", lo reintentaba para siempre y
+   trababa todo lo que venía detrás. Sin señal, o con el servidor caído (5xx),
+   se corta y se reintenta después. */
+const RECHAZO_DEFINITIVO = /^servidor (400|403|404|405|409|410|413|422)$/;
+/* Si piden mandar mientras ya se está mandando, no se descarta el pedido: se
+   anota y se hace otra pasada al terminar. Sin esto, la señal que vuelve en el
+   medio de un intento fallido se perdía —el "online" llegaba con el intento
+   anterior todavía en vuelo— y lo pendiente esperaba hasta la próxima vez que
+   se abriera la app. Lo encontró `vueltatest`, que fallaba 1 de cada 4 veces. */
+let _otraVezVieja = false;
+async function vaciarColaVieja(){
+  if(!hayNube()) return;
+  if(_mandandoVieja){ _otraVezVieja = true; return; }
+  _otraVezVieja = false;
+  COLA_VIEJA = leerLista(COLA_VIEJA_KEY).filter(opSana);
+  if(!COLA_VIEJA.length) return;
+  _mandandoVieja = true;
+  try{
+    while(COLA_VIEJA.length){
+      const op = COLA_VIEJA[0];
+      let res = null, definitivo = false;
+      try{ res = await rpc(op.fn, op.args); }
+      catch(e){ if(RECHAZO_DEFINITIVO.test(e.message)) definitivo = true; else throw e; }
+      /* Se saca por IDENTIDAD, releyendo: otra instancia abierta pudo haber
+         sumado algo mientras se mandaba, o haber sacado ésta. */
+      const enviada = JSON.stringify(op);
+      COLA_VIEJA = leerLista(COLA_VIEJA_KEY).filter(opSana);
+      const i = COLA_VIEJA.findIndex(x => JSON.stringify(x) === enviada);
+      if(i >= 0) COLA_VIEJA.splice(i, 1);
+      escribirLista(COLA_VIEJA_KEY, COLA_VIEJA);
+      if(definitivo || (res && res.error))
+        toast('Una anotación de la vuelta anterior no llegó al grupo' + (res && res.error ? ' · ' + res.error : ''));
+    }
+  }catch(e){ /* sin señal o servidor caído: queda para la próxima */ }
+  finally{
+    _mandandoVieja = false;
+    /* Una sola pasada más, y sólo si alguien la pidió mientras tanto: no es
+       un reintento en bucle. */
+    if(_otraVezVieja){ _otraVezVieja = false; vaciarColaVieja(); }
+  }
 }
 
 /* ---------- guardar lo que llega ---------- */
@@ -6321,44 +6648,62 @@ function encolar(fn, args, clave){
   vaciarCola();
 }
 async function vaciarCola(){
-  if(!RONDA || !hayNube() || NUBE_ESTADO.mandando) return;
-  if(!RONDA.cola || !RONDA.cola.length) return;
-  NUBE_ESTADO.mandando = 1;
+  /* `r` es LA ronda de esta pasada. Desde la v25 una vuelta termina y suelta su
+     ronda, y un pedido puede volver cuando `RONDA` ya es otra: la revisión
+     adversaria encontró que el `shift()` de abajo le sacaba a la ronda NUEVA
+     una anotación que nunca se había mandado, y la pastilla decía "al día".
+     Después de cada espera, si la ronda cambió, se corta sin tocar nada: lo
+     que quedaba de la vieja ya pasó a `COLA_VIEJA`. */
+  const r = RONDA;
+  if(!r || !hayNube() || NUBE_ESTADO.mandando) return;
+  if(!r.cola || !r.cola.length) return;
+  const estado = NUBE_ESTADO;
+  estado.mandando = 1;
   try{
     /* De a uno y en orden. Cada anotación pisa la anterior del mismo
        hoyo, así que reintentar nunca duplica nada. */
-    while(RONDA.cola.length){
-      const op = RONDA.cola[0];
+    while(r.cola.length){
+      const op = r.cola[0];
       const res = await rpc(op.fn, op.args);
+      if(RONDA !== r) return;
       /* Un 200 con `{error:...}` NO es un éxito. Antes se descartaba igual y
          la app decía "al día": el jugador creía que había anotado y en el
          servidor no había nada. Un rechazo no se arregla reintentando —la
          ronda se cerró, o la llave no es la nuestra— así que lo sacamos de
          la cola y lo DECIMOS, una vez por motivo. */
-      RONDA.cola.shift();
+      r.cola.shift();
       guardarRonda();
       if(res && res.error){
-        NUBE_ESTADO.error = res.error;
+        estado.error = res.error;
         if(_ultimoRechazo !== res.error){ _ultimoRechazo = res.error; toast('No se pudo guardar en el grupo · ' + res.error); }
         continue;
       }
       _ultimoRechazo = null;
     }
-    NUBE_ESTADO.conectado = true; NUBE_ESTADO.error = null;
+    estado.conectado = true; estado.error = null;
   }catch(e){
-    NUBE_ESTADO.conectado = false; NUBE_ESTADO.error = e.message;
+    /* Si la ronda cambió, este error es de la vieja: no ensucia el estado de
+       la nueva (antes quedaba "Cannot read properties of null" en el
+       diagnóstico que el socio copia para pedir ayuda). */
+    if(RONDA === r){ estado.conectado = false; estado.error = e.message; }
   }finally{
-    NUBE_ESTADO.mandando = 0;
+    estado.mandando = 0;
   }
 }
 
 /* ---------- preguntar qué hicieron los demás ---------- */
 async function latir(){
-  if(!RONDA || !hayNube()) return;
+  const r = RONDA;
+  if(!r || !hayNube()) return;
   if(document.hidden) return;            // con la pantalla apagada no gastamos datos
   await vaciarCola();
+  if(RONDA !== r) return;
   try{
-    const res = await rpc('ronda_estado', { p_codigo:RONDA.codigo, p_desde:RONDA.desde });
+    const res = await rpc('ronda_estado', { p_codigo:r.codigo, p_desde:r.desde });
+    /* Si mientras se esperaba la vuelta terminó o cambió de ronda, esta
+       respuesta es de otra: absorberla le metía a la ronda nueva jugadores,
+       anotaciones y un `desde` de la vieja (revisión adversaria de la v25). */
+    if(RONDA !== r) return;
     /* La ronda se borró del servidor. Se lo decimos y salimos: mostrar la
        tarjeta del grupo vacía, sin explicar por qué, sería inventar. Lo que
        este teléfono anotó no se toca — vive en su propia tarjeta. */
@@ -6701,6 +7046,10 @@ const GUARDAR = ['user','tee','cat','mat','hcpIn','fedOk','onboarded','tipo','dn
                  'email','indexDias','hole','vuelta','playing','torneo','marco','meMarca',
                  'certifico','firmoLaOtra','entregada','presento','booked','soloSeguir',
                  'instalarVisto',
+                 /* El identificador de la vuelta: es lo que hace que archivarla
+                    dos veces la actualice en vez de duplicarla. Tiene que
+                    sobrevivir a una recarga, o la segunda vez sería otra. */
+                 'vueltaId',
                  /* `fecha` es el día que se salió al 1. Si no viaja acá, la
                     primera vez que Android recarga la pestaña en el medio de la
                     vuelta se pierde, y la tarjeta vuelve a sacar la fecha del
@@ -6710,7 +7059,11 @@ const GUARDAR = ['user','tee','cat','mat','hcpIn','fedOk','onboarded','tipo','dn
                  'fecha'];
 function guardarTodo(){
   try{
+    /* `marca` y `otro` se guardan desde la v25. Antes no, y una recarga de
+       Android en el medio de un torneo dejaba la tarjeta del otro en blanco
+       mientras las firmas —que sí se guardaban— seguían puestas. */
     const d = {v:1, ts:Date.now(), R:{scores:R.scores,putts:R.putts,fw:R.fw,gir:R.gir,shots:R.shots,bunker:R.bunker,penal:R.penal},
+               marca:MARCA, otro:OTRO,
                bag:BAG.map(b=>({c:b.c,on:b.on,shots:b.shots}))};
     GUARDAR.forEach(k=> d[k]=S[k]);
     localStorage.setItem(LS_KEY, JSON.stringify(d));
@@ -6726,12 +7079,46 @@ function guardarTodo(){
     }
   }
 }
+/* Un mapa hoyo → valor, reconstruido de cero: sólo claves "1" a "18" propias y
+   valores que pasan el control. Como el objeto es nuevo y las claves son
+   números, ni "__proto__" ni nada raro puede viajar adentro. */
+function mapaHoyos(src, vale){
+  const o = {};
+  if(src && typeof src === 'object')
+    Object.keys(src).forEach(k => { if(/^\d{1,2}$/.test(k) && +k >= 1 && +k <= 18 && vale(src[k])) o[k] = src[k]; });
+  return o;
+}
+const mapaEnteros = (src, a, b) => mapaHoyos(src, v => Number.isInteger(v) && v >= a && v <= b);
+const golpeSano = s => !!s && typeof s === 'object' && BAG.some(b => b.c === s.c)
+  && (s.d == null || (typeof s.d === 'number' && isFinite(s.d) && s.d >= 0 && s.d <= 450))
+  && (s.lat == null || (typeof s.lat === 'number' && isFinite(s.lat)))
+  && (s.lon == null || (typeof s.lon === 'number' && isFinite(s.lon)));
+
 function cargarTodo(){
   try{
     const d = JSON.parse(localStorage.getItem(LS_KEY) || 'null');
     if(!d || d.v !== 1) return false;
     GUARDAR.forEach(k=>{ if(d[k]!==undefined) S[k]=d[k]; });
-    if(d.R) Object.keys(R).forEach(k=>{ if(d.R[k]) R[k]=d.R[k]; });
+    /* Lo que vuelve del teléfono —o de una copia importada a mano— entra limpio:
+       números enteros y en rango, en hoyos que existen, palos que existen. Se
+       copiaba tal cual, y una copia armada con HTML en un score (desde siempre)
+       o en la tarjeta del otro (desde la v25, que empezó a guardarla) se
+       ejecutaba al abrir la firma —sin CSP, con acceso a la llave del panel—.
+       Con una clave "__proto__", `Object.assign` le cambiaba el prototipo a
+       MARCA y la firma decía que el marcador coincidía en todos los hoyos.
+       Los rangos son los mismos que exige el servidor en `anotaciones`. */
+    if(d.R && typeof d.R === 'object'){
+      R.scores = mapaEnteros(d.R.scores, 1, 20);
+      R.putts  = mapaEnteros(d.R.putts, 0, 15);
+      R.bunker = mapaEnteros(d.R.bunker, 0, 9);
+      R.penal  = mapaEnteros(d.R.penal, 0, 9);
+      R.fw     = mapaHoyos(d.R.fw,  v => FW.some(([k]) => k === v));
+      R.gir    = mapaHoyos(d.R.gir, v => typeof v === 'boolean');
+      R.shots  = mapaHoyos(d.R.shots, v => Array.isArray(v));
+      Object.keys(R.shots).forEach(h => { R.shots[h] = R.shots[h].filter(golpeSano); });
+    }
+    Object.assign(MARCA, mapaEnteros(d.marca, 1, 20));
+    Object.assign(OTRO,  mapaEnteros(d.otro,  1, 20));
     if(d.bag) d.bag.forEach(x=>{ const b=BAG.find(z=>z.c===x.c);
       if(b){ b.on=x.on; if(Array.isArray(x.shots)) b.shots=x.shots; } });
     return true;
@@ -6759,7 +7146,7 @@ let   SIN_LUGAR    = false;      // ya avisamos que no se puede guardar
    pisarlas. Si dos teléfonos tuvieran el mismo identificador, los dos se
    declararían dueños de la misma tarjeta. El teléfono que importa se queda
    siempre con el suyo. */
-const COPIA_CLAVES = [LS_KEY, PRUEBA_KEY, RONDA_KEY];
+const COPIA_CLAVES = [LS_KEY, PRUEBA_KEY, RONDA_KEY, VUELTAS_KEY, COLA_VIEJA_KEY];
 
 function datosCopia(){
   const datos = {};
@@ -6866,6 +7253,12 @@ function aplicarCopia(texto){
     + (r.ronda ? ` · ronda ${r.ronda}` : '')
     + `\n\nEsto reemplaza lo que hay en ESTE teléfono. Vas a poder deshacerlo.`)) return false;
 
+  /* Una vuelta a medio jugar se archiva antes de importar: la copia reemplaza
+     la tarjeta de este teléfono, y esa vuelta no estaba en ningún otro lado. */
+  if(enCurso() && !archivarVuelta()){
+    toast('No hay lugar para guardar la vuelta en curso · no se importó nada');
+    return false;
+  }
   /* Si no entra el respaldo, no importamos: quedarse sin poder volver atrás es
      peor que no importar. */
   try{ localStorage.setItem(DESHACER_KEY, copiaEnTexto()); }
@@ -6875,6 +7268,22 @@ function aplicarCopia(texto){
   }
   try{
     COPIA_CLAVES.forEach(k => {
+      /* Mis rondas y lo pendiente del grupo se SUMAN, no se reemplazan. Una
+         copia hecha con una versión anterior no los trae, y "reemplazar" quería
+         decir borrarlos sin avisar: la revisión adversaria de la v25 se quedó
+         sin Mis rondas importando una copia vieja, y si importaba dos veces el
+         deshacer tampoco las traía de vuelta. Sumando, importar nunca se lleva
+         una vuelta. Se repiten por identificador. */
+      if(k === VUELTAS_KEY || k === COLA_VIEJA_KEY){
+        const sana = k === VUELTAS_KEY ? vueltaSana : opSana;
+        const traidas = (Array.isArray(c.datos[k]) ? c.datos[k] : []).filter(sana);
+        const id = x => k === VUELTAS_KEY ? (x.id || x.fecha + '|' + x.golpes + '|' + x.terminada) : JSON.stringify(x);
+        const juntas = leerLista(k).filter(sana);
+        const ya = new Set(juntas.map(id));
+        traidas.forEach(x => { if(!ya.has(id(x))){ ya.add(id(x)); juntas.push(x); } });
+        if(!escribirLista(k, k === VUELTAS_KEY ? juntas.slice(-VUELTAS_MAX) : juntas)) throw new Error('sin lugar');
+        return;
+      }
       if(c.datos[k] === undefined) localStorage.removeItem(k);
       else localStorage.setItem(k, JSON.stringify(c.datos[k]));
     });
@@ -6904,9 +7313,15 @@ function deshacerCopia(callado){
 }
 
 /* Para volver a empezar de cero durante las pruebas. */
+/* "Todo" quería decir sólo la cuenta y la tarjeta: la cuenta nueva veía como
+   propias las vueltas de la anterior, la ronda del grupo seguía abierta y lo
+   pendiente se seguía mandando (revisión adversaria de la v25). Ahora borra lo
+   que es de la persona y de sus vueltas. NO toca el modo prueba —se guarda
+   aparte a propósito, para que borrar una cosa nunca se lleve la otra—, ni el
+   identificador del teléfono, ni lo que es del club. */
 function borrarTodoLocal(){
-  if(!confirm('Esto borra tu cuenta y la ronda de este teléfono. ¿Seguro?')) return;
-  try{ localStorage.removeItem(LS_KEY); }catch(e){}
+  if(!confirm('Esto borra tu cuenta, la vuelta en curso y Mis rondas de este teléfono. ¿Seguro?')) return;
+  try{ [LS_KEY, RONDA_KEY, VUELTAS_KEY, COLA_VIEJA_KEY].forEach(k => localStorage.removeItem(k)); }catch(e){}
   location.reload();
 }
 
@@ -6949,6 +7364,15 @@ function render(){
      cuando `S.mode` ya era 'club', y por eso se lo podía saltear entrando
      derecho con `?ir=`. */
   if(!puedePantalla(S.tab)){ S.mode='player'; S.tab='home'; }
+  /* JUGAR Y FIRMAR SON DE UNA VUELTA EMPEZADA, y se chequea acá por la misma
+     razón que el portón del panel: acá pasa todo, venga del menú, de la URL o
+     de un botón. La revisión adversaria de la v25 encontró que el "Jugar" del
+     menú de abajo se salteaba el ciclo de la vuelta: después de terminar,
+     mostraba la vuelta terminada como si siguiera, anotar ahí la reabría y la
+     siguiente se escribía encima —en torneo, con la firma ya "Certificada"—.
+     Sin vuelta en curso, "Jugar" lleva a empezar una, y la firma al resumen. */
+  if(S.tab === 'play'  && !S.playing) S.tab = 'arranque';
+  if(S.tab === 'firma' && !S.playing) S.tab = played().length ? 'summary' : 'home';
   if(S.mode==='club' && !puedeEntrarAlPanel()) S.mode='player';
   $('#screen').innerHTML = (VIEWS[S.tab]||vHome)();
   renderNav();
@@ -6957,12 +7381,21 @@ function render(){
   pintarGrabando();
 }
 cargarTodo();
+/* Una vuelta que quedó abierta en una versión anterior a la v25 —donde ninguna
+   terminaba— se reconoce porque no tiene identificador. Sus firmas pueden ser
+   de otra vuelta (la segunda de torneo arrancaba "Certificada"), así que se
+   borran; los golpes no se tocan. Pasa una sola vez: después ya lo tiene. */
+if(S.playing && !S.vueltaId){
+  S.vueltaId = nuevoIdVuelta();
+  S.certifico = false; S.firmoLaOtra = false; S.entregada = false; S.presento = null;
+}
 /* Lo que el club dijo y quién sos para él. Primero lo que quedó guardado
    —así la app abre con algo aunque no haya señal— y recién después se le
    pregunta al servidor, que es lo que puede tardar. */
 cargarClub();
 cargarComision();
 cargarClima();
+cargarVueltas();
 /* Accesos directos del ícono: si mantenés apretada la app en la pantalla
    del teléfono aparece "Empezar una ronda", y eso abre directo ahí.
 
@@ -6982,12 +7415,14 @@ cargarPrueba();
 cargarRonda();
 traerClubYDibujar();
 traerClimaYDibujar();
+vaciarColaVieja();
 /* Al volver a la app, y al recuperar la señal, se pregunta de nuevo. Un
    aviso del club no cambia dos veces por minuto: no hace falta latir. El
-   clima tiene su propio freno de 15 minutos adentro de `traerClima()`. */
+   clima tiene su propio freno de 15 minutos adentro de `traerClima()`. Y lo
+   que quedó sin mandar de una vuelta terminada sale en cuanto hay señal. */
 document.addEventListener('visibilitychange', () => {
-  if(!document.hidden){ traerClubYDibujar(); traerClimaYDibujar(); } });
-window.addEventListener('online', () => { traerClubYDibujar(); traerClimaYDibujar(); });
+  if(!document.hidden){ traerClubYDibujar(); traerClimaYDibujar(); vaciarColaVieja(); } });
+window.addEventListener('online', () => { traerClubYDibujar(); traerClimaYDibujar(); vaciarColaVieja(); });
 applyTheme();
 document.getElementById('appname').textContent = CLUB.app;
 render();
