@@ -25,38 +25,39 @@ una razón concreta (claves de servidor que no puedan ir en el código, o un des
 
 ## 2. Mapa de `index.html`
 
-Son ~7.400 líneas. Los números se corren al editar; buscá el texto, no la línea.
+Son ~7.900 líneas. Los números se corren al editar; buscá el texto, no la línea.
 
 | Dónde | Qué |
 |---|---|
 | `FECHAS QUE NO ENVEJECEN` (~375) | Las fechas salen del reloj. **Van primero en el script** (ver las trampas) |
-| `PENDIENTE DE CONFIRMAR CON EL CLUB` (~454) | **El acta del proyecto.** `[x]` confirmado, `[ ]` pendiente |
-| `const CLUBS_DB` (~628) | Todo lo que cambia de un club a otro. Para otro club se copia este bloque y listo |
-| `geo:{` (~734) | Las 65 coordenadas medidas en cancha el 5/8/2026, ±3-4 m |
-| `const PADRON` (~899) | Padrón de prueba, **inventado**. Lo usa el alta del jugador, no el panel |
-| `QUIÉN SOS` (~930) | Nombre e iniciales del jugador |
-| `QUIÉN SOS PARA EL CLUB` (~969) | **La única puerta al panel**: la llave de la comisión, `quien()`, `puede()`, `puedePantalla()` |
-| `const BAG` (~1166) | Los 31 palos y la media ponderada |
-| `MEDIDA Y HOMOLOGACIÓN` (~1349) | `homologada()`, `teeDelHcp()`, `ratingTxt()` |
-| `function ratingDe` (~1390) | Con qué rating y slope se calcula: 18 hoyos o ese nueve |
-| `function hcpCancha` (~1406) | Handicap de cancha, fórmula del WHS y regla 6.1b |
-| `EL CLIMA EN LA CANCHA` (~1475) | Open-Meteo: `traerClima()`, `climaTarjeta()`, `climaVivo()`. Lo comercial está ahí arriba |
-| `LO QUE EL CLUB LE DICE` (~1631) | Estado de cancha y avisos, como los manda el servidor |
-| `function gps(` (~1862) | Distancia al frente, centro y fondo del green |
-| `function formaHoyo` (~2122) | **La forma medida del hoyo**: largo, green e inclinación desde las coordenadas |
-| `function holeSVG` (~2147) | El dibujo del hoyo |
-| `function panelCierre` (~2426) | Cerrar el hoyo |
-| `function vPlay` (~2540) | **La pantalla de jugar** (referente: Hole19) |
-| `const HOJAS` (~2664) | Las hojas que se abren desde jugar |
-| `function vArranque` (~3714) | Empezar la ronda, y la pregunta si quedó una sin terminar |
-| `function vSummary` (~3969) | El resumen de la vuelta terminada: todo sale de `R`, nada a mano |
-| `PANTALLAS — CLUB` (~4506) | El panel de la comisión |
-| `INSTALARLA Y QUE ANDE SIN SEÑAL` (~5452) | Service worker, instalación, actualizaciones |
-| `MODO PRUEBA` (~5629) | Medir GPS y batería en la cancha |
-| `const NUBE` (~6098) | ⚠️ **Las dos direcciones del servidor**: la Data API y la de autenticación. Vacías = todo local |
-| `EL CICLO DE UNA VUELTA` (~6428) | **Dónde empieza y dónde termina una vuelta**: `terminarVuelta()`, "Mis rondas", `COLA_VIEJA` |
-| `const LS_KEY` (~7044) | Guardado en el teléfono, y lo que se sanea al cargar |
-| `function render()` (~7328) | El render, el portón del panel y el de jugar |
+| `PENDIENTE DE CONFIRMAR CON EL CLUB` (~468) | **El acta del proyecto.** `[x]` confirmado, `[ ]` pendiente |
+| `const CLUBS_DB` (~642) | Todo lo que cambia de un club a otro. Para otro club se copia este bloque y listo |
+| `geo:{` (~748) | Las 65 coordenadas medidas en cancha el 5/8/2026, ±3-4 m |
+| `const PADRON` (~913) | Padrón de prueba, **inventado**. Lo usa el alta del jugador, no el panel |
+| `QUIÉN SOS` (~957) | Nombre e iniciales del jugador |
+| `QUIÉN SOS PARA EL CLUB` (~996) | **La única puerta al panel**: la llave de la comisión, `quien()`, `puede()`, `puedePantalla()` |
+| `const BAG` (~1215) | Los 31 palos y la media ponderada |
+| `MEDIDA Y HOMOLOGACIÓN` (~1424) | `homologada()`, `teeDelHcp()`, `ratingTxt()` |
+| `function ratingDe` (~1465) | Con qué rating y slope se calcula: 18 hoyos o ese nueve |
+| `function hcpCancha` (~1481) | Handicap de cancha, fórmula del WHS y regla 6.1b |
+| `EL CLIMA EN LA CANCHA` (~1565) | Open-Meteo: `traerClima()`, `climaTarjeta()`, `climaVivo()`. Lo comercial está ahí arriba |
+| `LO QUE EL CLUB LE DICE` (~1721) | Estado de cancha y avisos, como los manda el servidor |
+| `function gps(` (~1978) | Distancia al frente, centro y fondo del green |
+| `function formaHoyo` (~2244) | **La forma medida del hoyo**: largo, green e inclinación desde las coordenadas |
+| `function holeSVG` (~2269) | El dibujo del hoyo |
+| `function panelCierre` (~2557) | Cerrar el hoyo |
+| `function vPlay` (~2673) | **La pantalla de jugar** (referente: Hole19) |
+| `const HOJAS` (~2797) | Las hojas que se abren desde jugar |
+| `TUS NÚMEROS, DE TUS VUELTAS` (~2922) | Las estadísticas, de "Mis rondas": `hoyosJugados()`, `golpesDe()`. Nada escrito a mano |
+| `function vArranque` (~3929) | Empezar la ronda, y la pregunta si quedó una sin terminar |
+| `function vSummary` (~4197) | El resumen de la vuelta terminada: todo sale de `R`, nada a mano |
+| `PANTALLAS — CLUB` (~4750) | El panel de la comisión |
+| `INSTALARLA Y QUE ANDE SIN SEÑAL` (~5772) | Service worker, instalación, actualizaciones |
+| `MODO PRUEBA` (~5971) | Medir GPS y batería en la cancha |
+| `const NUBE` (~6444) | ⚠️ **Las dos direcciones del servidor**: la Data API y la de autenticación. Vacías = todo local |
+| `EL CICLO DE UNA VUELTA` (~6789) | **Dónde empieza y dónde termina una vuelta**: `terminarVuelta()`, "Mis rondas", `COLA_VIEJA` |
+| `const LS_KEY` (~7409) | Guardado en el teléfono, y lo que se sanea al cargar |
+| `function render()` (~7745) | El render, el portón del panel y el de jugar |
 
 Otros archivos: `sw.js` (offline), `manifest.webmanifest` (instalación), `medir.html`
 (herramienta GPS para medir la cancha), `esquema.sql` (la ronda compartida en el servidor),
@@ -72,9 +73,13 @@ queda publicada igual, pero no la carga nadie).
 
 **Al publicar una versión nueva hay que subir el número de `VERSION` en `sw.js`.**
 No es opcional: es lo que le avisa a los teléfonos que ya tienen la app que hay algo nuevo.
-Si no se toca, pueden seguir abriendo la versión vieja para siempre.
+**Desde la v26, sin ese número los teléfonos no reciben NADA**: el service worker ya no baja el
+`index.html` nuevo "para la próxima vez" y lo guarda en la caché de la versión vieja. Lo hacía, y con
+una vuelta en curso la segunda recarga ya corría el código nuevo debajo del service worker viejo,
+salteándose el "entra al terminar la vuelta" (revisión adversaria de la v26). Lo nuevo entra sólo
+con un service worker nuevo, y su instalación falla —y se reintenta— si no pudo guardar la app.
 
-Va en `trisquelia-vN`. Al día de hoy: **v25**.
+Va en `trisquelia-vN`. Al día de hoy: **v26**.
 
 ---
 
@@ -107,7 +112,14 @@ websocket. Esos comentarios son lo que hace mantenible un archivo de 5.000 líne
 
 **Nunca mostrar un número inventado.** Si no hay dato, la app lo dice: "sin conectar", "sin
 medir", "no se puede calcular". Es la disciplina más valiosa del proyecto y la razón por la que
-un club puede confiar en esto. No la pierdas por rellenar un hueco.
+un club puede confiar en esto. No la pierdas por rellenar un hueco. Hasta la v25 se rompía en
+cuarenta y pico lugares del lado del socio, y nadie lo veía porque cada pantalla, sola, se veía
+razonable: la bolsa decía "Golpes que cargaste: 368 · medidas por vos" en un teléfono recién
+instalado, las estadísticas eran un dibujo escrito a mano ("Score promedio 86.4", "Handicap 14.2 ↓
+desde 16.1"), las notificaciones eran seis inventadas ("Cuota de octubre $150.000"), la cancha decía
+"Greens · Excelente" aunque el club la hubiera cerrado. Lo encontró un relevamiento el 26/10/2026, y
+`honestotest` cuida que no vuelva: su última sección dibuja todas las pantallas y busca cuarenta
+frases de las que mentían.
 
 **El texto de la interfaz le habla al socio**, no al programador. "¿Estás parado en una estaca?",
 "Quedate quieto donde estás", "Dictáselo a los demás".
@@ -123,9 +135,15 @@ escriben a mano; las fechas, del reloj; y un botón de una pantalla dibujada lla
 que dice "Así se vería · crear torneos todavía no está hecho". En la v23 se pasaron trece botones del
 panel a `dibujo()` (crear torneos, generar salidas, mandar recordatorios, cambiar la cuota…). Cuando
 una de esas cosas se construya, su botón deja de llamarla. Lo encontró la revisión del PDF para la
-comisión, el 23/10/2026. Quedan dos en el alta de socios —"Código enviado a…" y "Cuenta creada · te
-mandamos un mail"—, que sólo aparecen con los tres DNI inventados del padrón de prueba: se arreglan
-cuando se enchufe el alta de verdad.
+comisión, el 23/10/2026. **Y una pantalla dibujada lo dice arriba**, con `cartelEjemplo(título,
+texto)`: "Social · así se va a ver", "El torneo · de ejemplo". Desde la v26 las del socio que son
+dibujo —la cancha en vivo, las salidas del torneo, Invierno, Torneos, Resultados, Pro shop, Social—
+lo dicen, y sus botones pasan por `dibujo()`. **Un botón de una pantalla dibujada nunca llama a una
+función que hable con el servidor**: en Cuotas, que es un dibujo, "Cargar y avisar en un paso"
+publicaba de verdad un aviso para todos los socios (revisión del PDF, 26/10/2026). **El alta de
+socios es un dibujo que se puede recorrer**: con cualquier DNI decía "Código enviado a pr••••@…" y
+con cualquier código "Identidad verificada". Ahora `ALTA_DE_PRUEBA` hace que cada paso lo diga
+(`cartelAlta()`), y pasa a `false` cuando se enchufe `padron.sql`.
 
 ---
 
@@ -238,7 +256,9 @@ no qué se puede averiguar**, y la pantalla de publicar avisa con esas palabras 
 ponga ahí algo que no quiera que se lea. `clubtest` tiene una comprobación que deja escrita esa
 limitación: el día que haga falta llave, se pone en rojo sola.
 
-**Las fechas salen del reloj, y sus ayudantes van PRIMERO en el script.** `hoyTxt()`,
+**Las fechas salen del reloj, del teléfono, y sus ayudantes van PRIMERO en el script.** El día de
+hoy es `hoyISO()`, nunca `new Date().toISOString().slice(0,10)`: eso es el día en Greenwich, tres horas
+adelante, y una vuelta empezada a las 21 quedaba con fecha de mañana. `hoyTxt()`,
 `diasAtras()`, `enDias()`, `fechaCorta()`, `fechaBarra()` y `fechaTarjeta()` viven en el bloque
 `FECHAS QUE NO ENVEJECEN`, arriba de todo, antes de `const S`. No es prolijidad: `CLUBS_DB` y
 `PARA_AAG` las llaman al construirse, y un `const` usado antes de su declaración no queda "sin
@@ -278,6 +298,12 @@ convención meteorológica; la documentación de Open-Meteo no lo dice con esas 
 tarjeta dice "del NE". Con menos de 3 km/h dice "Sin viento": el modelo devuelve un ángulo igual,
 y "del N" sería inventado. **Antes de usar el viento hoyo por hoyo** ("en contra", "a favor", con
 la dirección medida de cada hoyo) hay que confirmar la convención en la cancha un día ventoso.
+**En la pantalla de jugar** el clima es un renglón arriba del plano (`climaCorto()`, en `#climaPill`),
+sólo con un dato vivo, y tocándolo se abre la hoja con el detalle y el link a Open-Meteo. Se escribe
+con `pintarClima()` sin redibujar —la pantalla de jugar no se toca— y el guardián del GPS lo vuelve a
+mirar cada cinco segundos, así un dato que vence a las tres horas se va solo. Lo pidió Mau después de
+jugar el 27/10/2026: en Inicio estaba, pero durante la vuelta, que es cuando el viento cambia el
+palo, no se veía.
 
 **Vacío no es "coincide".** `MARCA` es lo que el marcador anotó de mí, y en un solo teléfono
 está vacío: hoy el cruce de verdad vive en la ronda compartida. Hasta la v21 la pantalla de firma
@@ -336,6 +362,65 @@ panel, y una con la clave `__proto__` hacía decir a la firma que el marcador co
 hoyos. Y una vuelta que quedó abierta en una versión anterior se reconoce porque no tiene
 `vueltaId`: la v25 le da uno y le borra las firmas, que podían ser de otra vuelta. Los golpes no
 se tocan.
+
+**La bolsa arranca vacía, y lo que se inventó antes se saca.** Hasta la v25 cada palo traía `n`
+golpes fabricados "como si el jugador ya los hubiera cargado" —368 en total— y `guardarTodo()` los
+grababa, así que quedaron en el teléfono de todos los que abrieron la app. Desde la v26 cada palo
+arranca en su `base` (el caddie dice "estimado"), y `cargarTodo()` reconoce la lista inventada al
+principio de lo guardado y la saca: `golpesDeMentira(b, i)` la vuelve a armar igual que antes, con
+la misma fórmula, el mismo `n`, la misma `base` y **el mismo orden de `BAG`**. Si tocás cualquiera de
+esas tres cosas, la limpieza deja de reconocer lo viejo y los 368 vuelven a contar como del socio.
+Lo que va después de esa lista —lo medido de verdad— no se toca. Las estadísticas salen de "Mis
+rondas" (`hoyosJugados()`), y lo de adentro de cada vuelta se vuelve a mirar ahí (`enteroEn`),
+porque `VUELTAS` puede venir de una copia armada a mano.
+
+**Lo que publica para todos, pregunta antes.** Los avisos rápidos del panel publicaban con un toque,
+y lo publicado lo ve cualquiera que abra la app hasta que alguien lo baje: `avisoRapido()` pregunta.
+"Cancha cerrada" dejó de ser un aviso rápido, porque quedaba diciendo "cerrada" después de reabrir
+la cancha con su control. Y la aclaración de la cancha es de un estado: al pasar de Cerrada a
+Abierta, si nadie escribió una nueva, se vacía (`setCancha()`, `notaCanchaEditando()`). Si no, los
+socios veían "Abierta · Prueba en la reunión".
+
+**El index vence el jueves.** Era `S.indexDias: 9`, escrito a mano, y nada lo hacía crecer:
+"actualizado hace 0 días" para siempre. Desde la v26 se guarda el día en que se cargó
+(`S.indexFecha`), y `indexViejo()` es "se cargó antes del último jueves", que es cuando la federación
+lo recalcula. Sin fecha —un teléfono de antes— la app dice que no sabe, no inventa un número.
+
+**Los nombres del torneo salen de la ronda compartida.** `marcado()` y `marcador()` los sacan de
+`RONDA.jugadores` (a quién marco: `RONDA.marcoA`; quién me marca: el que tiene `marca_a` igual a
+`RONDA.yo`). Hasta la v25 la pantalla de cierre decía "Seguir · la tarjeta de Socio U." —el grupo de
+ejemplo de `GROUP()`— aunque estuvieras marcando a alguien de verdad. Sin ronda compartida el grupo
+es de ejemplo, y la tarjeta y la firma lo dicen. Son nombres que escribe cualquiera: van con `esc()`.
+
+**El neto es de la vuelta entera.** A mitad de recorrido, restarle el handicap completo a los golpes
+que van da un número que no existe. La tarjeta muestra el neto sólo con todos los hoyos, y en 9
+hoyos el handicap es el de 9 en todas las pantallas de la vuelta: `hcpJuego()`, nunca
+`hcpCancha(S.user.hcp)` a secas, que es el de 18. La columna del grupo que decía "Neto" era golpes
+contra el par: ahora dice "Al par".
+
+**Lo que vuelve del teléfono entra sano, TODO.** No sólo la tarjeta: `sanearS()` vuelve a poner cada
+campo de `GUARDAR` con su tipo y su rango, y `rondaSana()` hace lo mismo con la ronda compartida
+guardada. La revisión adversaria de la v26 armó una copia con HTML en `hole`, `nsocio`, `mat` y
+`user.club` —corría en Inicio, Club, Perfil, Mi handicap y el arranque, con la llave del panel en el
+teléfono— y otra con el index como texto, que dejaba la app en blanco. Y los nombres que escribe
+otro (el de tu marcador, en el aviso del cruce) se escapan donde se dibujan: ése ejecutaba código en
+el teléfono del marcado desde la v14. Si agregás un campo a `GUARDAR`, agregalo a `sanearS()`.
+
+**La bolsa mide sólo golpes, no caminatas.** Un golpe se mide con el golpe siguiente, que es donde
+quedó la bola. El último del hoyo no se mide al cerrarlo: el socio cierra en el tee siguiente, y un
+wedge de 100 entraba a la bolsa como de 129. Y una distancia imposible para ese palo —más de 1,7
+veces su media, o más de `TIRO_MAX`— no es un golpe: queda el palo registrado, sin distancia. En el
+modo prueba, una estaca marcada sin GPS no se guarda: era la estimación con el largo del hoyo, y
+entraba al promedio que valida la cancha medida.
+
+**La firma mira el cruce donde está.** Con la ronda compartida, lo que anotó tu marcador está en lo
+que mandó (`marcaDe()`), no en `MARCA`; la firma decía "todavía no anotó nada" y dejaba certificar
+con el cruce abierto. Sin elegir a quién marcás no hay paso del marcador ni firma de la otra
+tarjeta (`hayAQuienMarcar()`).
+
+**`ico()` escapa lo que no tiene dibujo.** Devolvía el texto tal cual, y el ícono de un aviso viene
+del servidor: alguien con una llave de la comisión podía meter HTML que corría en el teléfono de
+todos.
 
 **Sin index no se inventan números.** `hcpCancha()` devuelve `null` cuando no hay index, y
 `null` **no es cero**: cero significa "juega scratch" y daba un neto igual al gross y un
@@ -454,7 +539,13 @@ panel `/__test`.
 que dependa del GPS pregunta por esa función, nunca por `POS` a secas. Antes, cuando el GPS
 fallaba, `POS` se quedaba con la última lectura y la app seguía diciendo "GPS ±4 m" midiendo
 contra una coordenada congelada. **Dar una distancia falsa con cara de real es lo peor que puede
-hacer esta app.**
+hacer esta app.** Y vencer no alcanza si nadie se entera: si el teléfono deja de mandar posiciones
+sin avisar un error, ningún callback corre y la pantalla seguía diciendo "GPS ±5 m" con la distancia
+de hace un rato (lo midió la revisión del 26/10/2026: 36 segundos después, igual). Desde la v26 hay
+un **guardián** que cada cinco segundos compara `firmaGps()` con lo último que se dibujó
+(`_gpsVisto`, que anota `render()`) y redibuja si cambió. Sin GPS, frente y fondo salen de la
+profundidad MEDIDA de cada green (`formaHoyo(h).green.largo`), no de ±12 yardas fijas, y la
+pantalla sigue diciendo "estimadas".
 
 **Sin ubicación no se sale a jugar, pero la tarjeta nunca se bloquea.** `empezarRonda()` exige
 `gpsVivo()`; `empezarRonda(true)` es la puerta explícita para anotar sin distancias. Está abajo y
@@ -624,11 +715,12 @@ node pruebas/ubicaciontest.js         # el portón del GPS              (27 ✓)
 node pruebas/cierretest.js            # cerrar el hoyo                 (43 ✓)
 node pruebas/teetest.js                # el aviso al llegar al tee      (21 ✓)
 node pruebas/canchatest.js             # la tarjeta y el handicap       (78 ✓)
-node pruebas/identidadtest.js          # quién sos, y no inventar acuerdo (54 ✓)
+node pruebas/identidadtest.js          # quién sos, y no inventar acuerdo (55 ✓)
 node pruebas/formatest.js              # la forma medida de los hoyos   (29 ✓)
 node pruebas/paneltest.js              # el portón del panel del club   (40 ✓)
-node pruebas/afueratest.js             # lo que llega de afuera: club y clima (26 ✓)
+node pruebas/afueratest.js             # lo que llega de afuera: club y clima (32 ✓)
 node pruebas/vueltatest.js             # que no se pierda una tarjeta   (59 ✓)
+node pruebas/honestotest.js            # nada inventado con cara de real (75 ✓)
 ```
 
 El esquema del servidor se prueba aparte, contra un Postgres de verdad — no
@@ -697,12 +789,27 @@ prometa una entrega que no existe. Los cinco síntomas de
 la vuelta que no terminaba se midieron aparte, el mismo día, contra la v23 publicada y la v24:
 aparecen los cinco en las dos, y en la v25 ninguno.
 
-Entre las quince suites son **526 comprobaciones**, más las **61** del esquema, las **69** del
-alta y las **78** del panel: **734** en total. Si alguna se pone en rojo después de un cambio
-tuyo, es un bug tuyo: estaban todas en verde el 26/10/2026, con la v25. **Ojo al contar pedidos de red en una prueba**: la primera vez que se abre la
-app, el service worker toma el control y la página se recarga sola una vez (`controllerchange` →
-`location.reload()`), así que una instalación nueva hace cada pedido dos veces. `afueratest` se
-equivocó con eso la primera vez: hay que contar los pedidos NUEVOS después de que la app se asentó.
+`honestotest` es el guardián de la regla más vieja: nada inventado con cara de real. Arranca un
+teléfono nuevo y comprueba que la bolsa está vacía y el caddie dice "estimado"; siembra lo que
+guardaba la v25 —los 368 golpes inventados con lo medido atrás— y comprueba que sólo queda lo medido;
+siembra dos vueltas y comprueba cada promedio de las estadísticas contra la cuenta; mira que cada
+pantalla de ejemplo lo diga arriba; toca los botones del panel dibujado y comprueba que no sale
+ningún pedido al servidor, y que los avisos rápidos pregunten; recorre el alta con un DNI cualquiera;
+deja vencer el GPS sin que llegue ninguna posición; juega 9 hoyos y mira el handicap; arma una ronda
+compartida con un nombre con HTML; cuenta cuántas veces se carga la primera visita; y al final dibuja
+todas las pantallas del socio y del panel buscando cuarenta frases de las que mentían. Contra la v25
+publicada da rojo en la primera sección y se corta en la segunda (ahí no existe
+`golpesDeMentira`).
+
+Entre las dieciséis suites son **608 comprobaciones**, más las **61** del esquema, las **69** del
+alta y las **78** del panel: **816** en total. Si alguna se pone en rojo después de un cambio
+tuyo, es un bug tuyo: estaban todas en verde el 27/10/2026, con la v26. **La primera visita ya no se
+recarga sola.** Hasta la v25, cuando el service worker tomaba el control por primera vez la página
+se recargaba (`controllerchange` → `location.reload()`): no servía para nada —la página ya tenía el
+código más nuevo—, cada pedido de la primera visita salía dos veces, y al que escaneaba el QR se le
+borraba el nombre que estaba escribiendo. Ahora se recarga sólo si ya había un service worker
+controlando (`habiaControl`), que es cuando llega una versión nueva. Igual, al contar pedidos de red
+en una prueba, contá los NUEVOS después de que la app se asentó.
 `test-pwa` es la única caprichosa, y tiene dos caprichos distintos: a
 veces corta a mitad de camino por un `ERR_ABORTED` del contenedor (da 9 o 14 en vez de 18, sin
 rojos), y a veces da **un** rojo, siempre el mismo: *"el atajo del ícono abre la pantalla pedida"*,
@@ -758,9 +865,10 @@ app que juega sin señal y sincroniza cada seis segundos no se notan.
 
 1. **Jugar 18 hoyos con el modo prueba prendido.** Es el paso que sigue pendiente desde el
    principio y el que más va a enseñar. Nada de lo construido vio una cancha todavía. **Con la
-   v25 o más nueva**: hasta la v24 la segunda vuelta arrancaba con la tarjeta de la primera y la
-   ronda compartida no se soltaba nunca. La guía está en `prueba-18-hoyos.md`, en el proyecto de
-   Claude.
+   v26 o más nueva**: hasta la v24 la segunda vuelta arrancaba con la tarjeta de la primera y la
+   ronda compartida no se soltaba nunca, y hasta la v25 la bolsa medía el último palo de cada hoyo
+   hasta el tee siguiente y un GPS que dejaba de mandar seguía diciendo "±5 m". La guía está en
+   `prueba-18-hoyos.md`, en el proyecto de Claude.
 2. Firma y entrega: que la tarjeta firmada le llegue de verdad al club.
 3. Cuentas de verdad: padrón real y verificación por DNI. Con la llave por teléfono ya nadie
    puede anotar en la tarjeta de otro ni suplantarlo, y desde la v14 nadie entra a una ronda sin
@@ -777,10 +885,10 @@ app que juega sin señal y sincroniza cada seis segundos no se notan.
 **El lunes 26/10/2026 (o el martes 27) se le presenta a la comisión** con un PDF y desde el
 teléfono de Mauro, sin repartir llaves. La condición que se propone para abrirla a los socios es
 una sola y concreta: **que salga limpia una vuelta de 18 hoyos con dos teléfonos.** (Si estás
-leyendo esto después de esa fecha, lo que la comisión haya dicho va acá.) La versión para la
-reunión es la v24, o la v23 si no llega a subirla —la diferencia es un parpadeo en la
-bienvenida—, y el guion dice no empezar una ronda ahí. La v25 cambia el ciclo entero de la
-vuelta y se sube después. El PDF y la lista de lo que el
+leyendo esto después de esa fecha, lo que la comisión haya dicho va acá.) La reunión se corrió
+a más adelante en la semana. La v25 se publicó el 26/10 a la noche, y la v26 —la que saca lo
+inventado de todas las pantallas— es la que conviene tener arriba para la reunión: si alguien
+escanea el QR, recorre la app solo. El PDF y el guion se rehacen contra la v26. El PDF y la lista de lo que el
 verificador encontró están en el proyecto de Claude, en `presentacion-comision.md`.
 5. ~~Rating y slope oficiales de las tres salidas.~~ **Resueltos en la v10**, y el club cerró
    las dos preguntas que quedaban el 22/9/2026: la tarjeta de papel nueva **ya está impresa**
@@ -795,16 +903,14 @@ verificador encontró están en el proyecto de Claude, en `presentacion-comision
 
 **Abierto y conocido**, sin apuro pero sin olvidarlo:
 
-- **La bolsa trae 368 golpes inventados** (el `n` de cada palo en `BAG`), y la pantalla dice
-  "Golpes que cargaste: 368 · Todas estas distancias son tuyas, medidas por vos". Es justo el
-  número inventado que esta app no muestra. Las pantallas de estadísticas también están escritas
-  a mano. Hay que pasarlas a `dibujo()` o calcularlas de "Mis rondas", que desde la v25 existe.
 - **"Mis rondas" vive en un solo teléfono.** No viaja al servidor: la copia de seguridad es lo
   único que la saca de ahí.
 - **La entrega de la tarjeta firmada al club no está construida.** Desde la v25 la pantalla de
-  firma lo dice; hasta la v24 prometía "le llegan a Félix al toque, sin caminar hasta la
-  secretaría". Y la pantalla de resultados del club (`vClub`) todavía promete "Notificación
-  apenas se publican", que no existe.
+  firma lo dice y desde la v26 también el arranque del torneo; hasta la v24 prometían "le llegan a
+  Félix al toque, sin caminar hasta la secretaría".
+- **Las estadísticas son pocas**: las que se pueden sacar de "Mis rondas" (promedios, mejor vuelta,
+  fairways, greens, putts). Strokes gained, el patrón del driver, el embocado por distancia, la
+  historia del index y el plan de práctica necesitan datos que la app no guarda, y lo dicen.
 - En un teléfono solo nadie llena `MARCA` (ver "Vacío no es coincide").
 - El atajo del ícono que a veces cae en Inicio (ver las pruebas).
 

@@ -403,6 +403,20 @@ const fechaCorta = d => d.getDate() + ' ' + MESES[d.getMonth()].slice(0,3);
 const fechaLarga = d => d.getDate() + ' de ' + MESES[d.getMonth()];
 const fechaBarra = d => String(d.getDate()).padStart(2,'0') + '/' +
                         String(d.getMonth()+1).padStart(2,'0');
+/* El torneo de ejemplo es "el del sábado": el que viene, contado desde hoy.
+   Decía "Mañana" escrito a mano, en cualquier día de la semana. */
+const elSabado = () => { const d = new Date(), n = (6 - d.getDay() + 7) % 7;
+  if(n === 0) return 'Hoy'; if(n === 1) return 'Mañana';
+  d.setDate(d.getDate() + n); return 'Sábado ' + fechaLarga(d); };
+/* La inscripción del torneo de ejemplo cierra el día antes. Decía "cierra el
+   01/11", un día DESPUÉS del sábado 31 (revisión adversaria de la v26). */
+const cierreSabado = () => { const d = new Date(), n = (6 - d.getDay() + 7) % 7;
+  d.setDate(d.getDate() + n - 1); return d; };
+/* El día de HOY en el teléfono, como "2026-10-26". No con `toISOString()`, que
+   da el día en Greenwich: acá son tres horas menos, y una vuelta empezada a las
+   21 quedaba con fecha de mañana. */
+const hoyISO = () => { const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); };
 /* La de la tarjeta lleva el año, porque una tarjeta se guarda y se mira
    meses después. Sale de `S.fecha`, que se fija al salir al hoyo 1; si no
    hay ronda empezada —se está mirando la tarjeta de ejemplo— va la de hoy. */
@@ -417,7 +431,7 @@ const fechaTarjeta = () => {
 const S = {
   tab:'home', mode:'player', hole:1, playing:false, statTab:'general', clubTab:'tee',
   socialTab:'amigos', persona:0, comoQuien:null, tipo:null, resultadosPublicos:true, onb:0, onboarded:false, pickedClub:null,
-  mat:'', fedOk:false, indexDias:9, chequeoRonda:false,
+  mat:'', fedOk:false, indexFecha:null, chequeoRonda:false, avisosVistos:null,
   dni:'', nsocio:'', padronOk:false, soloSeguir:false, vA:10, vB:18,
   fecha:null,           // el día que se salió al 1; lo fija empezarRonda()
   vueltaId:null,        // quién es esta vuelta en Mis rondas; lo fija empezarRonda()
@@ -852,7 +866,7 @@ const CLUBS_DB = {
     /* La modalidad de salida CAMBIA fin de semana a fin de semana, y también
        sobre la hora si se da vuelta el clima. Por eso no está fija: el club
        la cambia desde el panel y les llega a todos los socios al instante. */
-    torneo:{ n:'Torneo del sábado', fecha:'Mañana', fmt:'Medal play 18 hoyos',
+    torneo:{ n:'Torneo del sábado', fecha:elSabado(), fmt:'Medal play 18 hoyos',
              modo:'escalonada',        // 'escalonada' | 'simultanea'
              hora:'11:30',             // hora única, si es simultánea
              cupo:52, inscriptos:34, precio:'—',
@@ -911,6 +925,19 @@ const PADRON = [
    su propio nombre, para que vea el suyo y no el de otro mientras prueba.
    Cuando esté el servidor, esta función consulta el padrón de verdad y el código
    de verificación sale al contacto que el club ya tiene. */
+/* EL ALTA, MIENTRAS NO ESTÉ CONECTADA, SE MUESTRA COMO LO QUE ES. Con cualquier
+   DNI la pantalla decía "Código enviado a pr••••@trisquelia.com, el contacto que
+   Trisquelia tiene registrado", aceptaba cualquier código y contestaba "Identidad
+   verificada": un socio de verdad creía que estaba dado de alta y verificado
+   (revisión del 26/10/2026). Se puede recorrer igual —para eso está—, pero cada
+   paso dice que todavía no se manda ni se verifica nada. Cuando `padron.sql`
+   esté enchufado, esto pasa a false. */
+const ALTA_DE_PRUEBA = true;
+const cartelAlta = () => ALTA_DE_PRUEBA ? `<div class="card" style="background:var(--avisoBg);border-color:var(--avisoLn)">
+  <div style="font-weight:700;font-size:13px" class="gold">Así se va a ver el alta</div>
+  <div class="dim" style="font-size:12px;margin-top:3px;line-height:1.5">Todavía no está conectada al
+  padrón del club: no se manda ningún código ni se verifica quién sos, y la cuenta queda sólo en
+  este teléfono.</div></div>` : '';
 function buscarEnPadron(d){
   const n = String(d).replace(/\D/g,'');
   const real = PADRON.find(x=>x.dni===n);
@@ -1093,7 +1120,7 @@ const TRAZO = {
 };
 const ico = e => TRAZO[String(e||'').replace(/️/g,'')]
   ? `<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="${TRAZO[String(e).replace(/️/g,'')]}"/></svg>`
-  : (e ?? '');
+  : esc(e ?? '');      /* sin dibujo, el texto tal cual, ESCAPADO: el ícono de un aviso viene del servidor */
 
 function crest(size=44){
   const r=Math.max(8,Math.round(size*0.26));
@@ -1144,15 +1171,37 @@ const R = { scores:{}, putts:{}, fw:{}, gir:{}, shots:{}, bunker:{}, penal:{} };
 const MARCA = {};
 const OTRO  = {};
 const SC_DEMO = [[],[],[]];   // el grupo también arranca sin cargar nada
+/* A QUIÉN MARCO Y QUIÉN ME MARCA, CON EL NOMBRE DE VERDAD. Con la ronda
+   compartida, los nombres salen de ella. Hasta la v25 la pantalla de cierre
+   decía "Seguir · la tarjeta de Socio U." —el grupo de ejemplo— aunque
+   estuvieras marcando a alguien de verdad, y la firma decía "la que anotó
+   Socio C." (relevamiento del 26/10/2026). Sin ronda compartida el grupo es de
+   ejemplo, y `ejemplo` lo avisa para que la tarjeta y la firma lo digan. Los
+   nombres que vienen del servidor se escapan donde se dibujan. */
+function marcado(){
+  if(RONDA){ const j = (RONDA.jugadores || []).find(x => x.id === RONDA.marcoA);
+    return j ? { n: j.nombre, i: j.iniciales || '?', ejemplo:false } : { n: 'nadie todavía', i: '?', ejemplo:false }; }
+  const g = GROUP()[S.marco] || { n:'—', i:'?' }; return { n: g.n, i: g.i, ejemplo:true };
+}
+function marcador(){
+  if(RONDA){ const j = (RONDA.jugadores || []).find(x => x.marca_a === RONDA.yo);
+    return j ? { n: j.nombre, i: j.iniciales || '?', ejemplo:false } : { n: 'nadie todavía', i: '?', ejemplo:false }; }
+  const g = GROUP()[S.meMarca] || { n:'—', i:'?' }; return { n: g.n, i: g.i, ejemplo:true };
+}
+const deEjemplo = x => x.ejemplo ? ' <span class="dim2" style="font-weight:500">(de ejemplo)</span>' : '';
+/* Con la ronda compartida, hasta que no se elige a quién marcás no hay tarjeta
+   del otro que llevar: "La tarjeta de nadie todavía" se anotaba, no se mandaba
+   a ningún lado, y se firmaba (revisión adversaria de la v26). */
+const hayAQuienMarcar = () => !RONDA || !!RONDA.marcoA;
 function GROUP(){
   const m=CLUB.miembros;
   const ab=n=>n.split(' ')[0]+' '+n.split(' ')[1][0]+'.';
   /* el handicap que se muestra es el DE CANCHA, calculado con el index
      de cada uno y la salida elegida. No va escrito a mano. */
-  return [{n:nombreCorto(), i:yoIni(), index:S.user.hcp, hcp:hcpCancha(S.user.hcp),
+  return [{n:nombreCorto(), i:yoIni(), index:S.user.hcp, hcp:hcpJuego(),
            sc:played().map(x=>R.scores[x]), yo:true},
     ...[0,3,2].map((k,j)=>({n:ab(m[k].n), i:m[k].i, index:m[k].hcp,
-           hcp:hcpCancha(m[k].hcp), sc:SC_DEMO[j]}))];
+           hcp:hcpCancha(m[k].hcp, tee(), S.vuelta), sc:SC_DEMO[j]}))];
 }
 
 /* ---------- LA BOLSA: los palos del jugador y sus golpes reales ----------
@@ -1205,16 +1254,42 @@ const palo = c => BAG.find(b => b.c === c);
 const GRUPOS = ['Maderas','Híbridos','Hierros','Wedges','Otros'];
 const bagPorGrupo = () => GRUPOS.map(g => [g, BAG.map((b,i)=>({b,i})).filter(x=>x.b.g===g)])
                                 .filter(([,l]) => l.length);
-// generamos el historial inicial de forma determinista (como si el jugador ya hubiera cargado golpes)
-BAG.forEach((b,i)=>{
-  b.shots=[];
-  if(b.putter) return;
+/* LA BOLSA ARRANCA VACÍA. Hasta la v25 se le inventaban a cada palo `n` golpes
+   "como si el jugador ya los hubiera cargado": 368 en total, y la pantalla decía
+   "Golpes que cargaste: 368 · Todas estas distancias son tuyas, medidas por vos",
+   y el caddie "Dr · 238 yds · tuyo · 34 golpes" en un teléfono recién instalado.
+   Encima `guardarTodo()` los grababa, así que quedaron en el teléfono de todos
+   los que abrieron la app (relevamiento del 26/10/2026). Ahora cada palo arranca
+   en su `base` —que el caddie muestra como "estimado"— y sólo suma lo que se
+   mide en la cancha. `n` queda en la tabla para una sola cosa:
+   `golpesDeMentira()` vuelve a armar la lista inventada, idéntica, para que
+   `cargarTodo()` la reconozca y la saque de lo guardado. */
+BAG.forEach(b => { b.shots = []; });
+/* Lo guardado de un palo, limpio: distancias posibles y sin la lista de mentira
+   de antes de la v26 al principio. Lo usan la carga y el resumen de una copia,
+   que contaba los 368 como "golpes medidos" (revisión adversaria de la v26). */
+function golpesGuardados(x){
+  const i = BAG.findIndex(z => x && z.c === x.c);
+  if(i < 0 || !Array.isArray(x.shots)) return [];
+  let l = x.shots.filter(v => typeof v === 'number' && isFinite(v) && v > 0 && v <= TIRO_MAX);
+  const falsos = golpesDeMentira(BAG[i], i);
+  /* Contra lo guardado SIN filtrar: si se filtrara antes, un número imposible
+     en el medio de la lista vieja la haría irreconocible. */
+  const crudo = x.shots;
+  if(falsos.length && crudo.length >= falsos.length && falsos.every((v,k) => crudo[k] === v))
+    l = crudo.slice(falsos.length).filter(v => typeof v === 'number' && isFinite(v) && v > 0 && v <= TIRO_MAX);
+  return l;
+}
+function golpesDeMentira(b, i){
+  const l = [];
+  if(b.putter) return l;
   for(let k=0;k<b.n;k++){
     const w=((k*37+i*13)%21)-10;               // −10 .. +10
     const flyer=((k*7+i)%11===0)? 6 : 0;
-    b.shots.push(Math.round(b.base + w*(b.base/200) + flyer));
+    l.push(Math.round(b.base + w*(b.base/200) + flyer));
   }
-});
+  return l;
+}
 const avg  = b => b.shots.length ? Math.round(b.shots.reduce((a,c)=>a+c,0)/b.shots.length) : 0;
 
 /* La media que usa el caddie.
@@ -1283,11 +1358,11 @@ const RESULTADOS = [];
 /* Tarjetas que llegaron y todavía hay que pasar a la federación.
    El diferencial lo calcula la app: (113/slope) × (gross − rating). */
 let PARA_AAG = [
-  {n:'Socio Seis',   i:'S6', mat:'104905', fecha:fechaBarra(diasAtras(1)), gross:84, tee:'mixta', cargada:false},
-  {n:'Socio Uno',    i:'S1', mat:'104211', fecha:fechaBarra(diasAtras(1)), gross:79, tee:'negras', cargada:false},
-  {n:'Socio Tres',   i:'S3', mat:'110902', fecha:fechaBarra(diasAtras(1)), gross:88, tee:'mixta', cargada:false},
-  {n:'Socia Dos',    i:'S2', mat:'098554', fecha:fechaBarra(diasAtras(1)), gross:95, tee:'damas', cargada:false},
-  {n:'Socio Cuatro', i:'S4', mat:'103477', fecha:fechaBarra(diasAtras(2)), gross:92, tee:'mixta', cargada:true}
+  {n:'Socio Seis',   i:'S6', mat:'000101', fecha:fechaBarra(diasAtras(1)), gross:84, tee:'mixta', cargada:false},
+  {n:'Socio Uno',    i:'S1', mat:'000102', fecha:fechaBarra(diasAtras(1)), gross:79, tee:'negras', cargada:false},
+  {n:'Socio Tres',   i:'S3', mat:'000103', fecha:fechaBarra(diasAtras(1)), gross:88, tee:'mixta', cargada:false},
+  {n:'Socia Dos',    i:'S2', mat:'000104', fecha:fechaBarra(diasAtras(1)), gross:95, tee:'damas', cargada:false},
+  {n:'Socio Cuatro', i:'S4', mat:'000105', fecha:fechaBarra(diasAtras(2)), gross:92, tee:'mixta', cargada:true}
 ];
 /* El diferencial se calcula con la salida de la tarjeta. Si esa salida no
    está homologada —hoy, las negras— se usa la que el club usa en el papel.
@@ -1418,8 +1493,23 @@ function hcpCancha(index, t, hoyos){
 const ydsDe = t => t.y ? t.y.reduce((a,b)=>a+b,0)
   : t.f ? COURSE.holes.reduce((a,h)=>a+Math.round(h.y*t.f),0)
   : null;
-const diasIndex = () => S.indexDias;
-const indexViejo = () => S.indexDias >= 7;
+/* CUÁNDO SE ACTUALIZÓ EL INDEX. Hasta la v25 era `S.indexDias: 9`, escrito a
+   mano: sin index la app decía "lo actualizaste hace 9 días", y con index
+   "actualizado hace 0 días" para siempre, porque nada lo hacía crecer
+   (relevamiento del 26/10/2026). Ahora se guarda el DÍA en que se cargó
+   (`S.indexFecha`) y se cuenta con el reloj. Vence el jueves, que es cuando la
+   federación lo recalcula: si se cargó antes del último jueves, puede haber
+   cambiado. Sin fecha —un teléfono de antes de la v26— no se sabe, y se dice. */
+const ultimoJueves = () => { const d = new Date(); d.setHours(12,0,0,0);
+  d.setDate(d.getDate() - ((d.getDay() + 3) % 7)); return d; };
+const diasIndex = () => { if(!fechaReal(S.indexFecha)) return null;
+  const hoy = new Date(); hoy.setHours(12,0,0,0);
+  return Math.max(0, Math.round((hoy - new Date(S.indexFecha + 'T12:00:00')) / 864e5)); };
+const indexViejo = () => S.user.hcp != null
+  && (!fechaReal(S.indexFecha) || new Date(S.indexFecha + 'T12:00:00') < ultimoJueves());
+const haceCuanto = () => { const d = diasIndex();
+  return d == null ? 'La app no sabe cuándo lo actualizaste'
+       : d === 0 ? 'Lo actualizaste hoy' : 'Lo actualizaste hace ' + d + ' día' + (d === 1 ? '' : 's'); };
 
 /* Todo lo que venga del servidor pasa por acá antes de entrar a un innerHTML.
    Los nombres de los jugadores los escribe cualquiera que tenga el código de
@@ -1574,6 +1664,44 @@ function climaTarjeta(){
   return { grande:'Sin datos', linea:'Hace falta señal para saberlo' };
 }
 
+/* EL CLIMA EN LA PANTALLA DE JUGAR. Lo pidió Mau después de jugar el
+   27/10/2026: el clima estaba sólo en Inicio, y durante la vuelta —que es
+   cuando el viento cambia el palo— no se veía. Va en un renglón arriba del
+   plano, y sólo con un dato vivo: sin eso no se muestra nada, porque un "22°"
+   de hace cinco horas en la pantalla de jugar es peor que no decir nada.
+   Tocándolo se abre la hoja con el detalle y el link a Open-Meteo que pide la
+   licencia. El "a favor / en contra" de cada hoyo espera a que se confirme en
+   la cancha para qué lado sopla (ver EL VIENTO, más arriba). */
+function climaCorto(){
+  if(!climaVivo()) return '';
+  const c = CLIMA;
+  const v = !(c.kmh >= 0) ? '' : c.kmh < 3 ? 'sin viento'
+    : 'del ' + rumbo(c.grados) + ' ' + Math.round(c.kmh) + ' km/h'
+      + (c.rafaga >= c.kmh + 10 ? ' · ráf. ' + Math.round(c.rafaga) : '');
+  return Math.round(c.temp) + '°' + (v ? ' · ' + v : '');
+}
+/* Escribe el renglón sin redibujar la pantalla de jugar, que no se toca. */
+function pintarClima(){
+  const e = document.getElementById('climaPill');
+  if(!e) return;
+  const t = climaCorto();
+  if(e.textContent !== t) e.textContent = t;
+  e.style.display = t ? '' : 'none';
+}
+/* El detalle, igual en Inicio y en la hoja de jugar. */
+function climaDetalle(){
+  const k = climaTarjeta();
+  return k.vivo
+    ? `<div style="font-size:20px;font-weight:800;margin-top:4px">${esc(k.grande)}</div>
+       ${k.cielo ? `<div class="dim" style="font-size:12px">${esc(k.cielo)}</div>` : ''}
+       ${k.linea ? `<div class="dim" style="font-size:12px">${esc(k.linea)}</div>` : ''}
+       <div class="dim2" style="font-size:11px;margin-top:2px">${esc(k.pie)} ·
+         <a href="https://open-meteo.com/" target="_blank" rel="noopener"
+            style="color:inherit;white-space:nowrap">Open-Meteo.com</a></div>`
+    : `<div style="font-size:15px;font-weight:700;margin-top:4px" class="dim">${esc(k.grande)}</div>
+       <div class="dim2" style="font-size:11px">${esc(k.linea)}</div>`;
+}
+
 function cargarClima(){
   try{ CLIMA = JSON.parse(localStorage.getItem(CLIMA_KEY) || 'null'); }catch(e){ CLIMA = null; }
   /* Entero o nada, como la credencial de la comisión. */
@@ -1621,7 +1749,7 @@ async function traerClima(){
   return JSON.stringify(climaTarjeta()) !== antes;
 }
 async function traerClimaYDibujar(){
-  if(await traerClima()) redibujarSiSePuede(['home']);
+  if(await traerClima()){ redibujarSiSePuede(['home']); pintarClima(); }
 }
 
 /* Estado de la cancha. Lo carga quien tenga el permiso 'cancha' — hoy Chelo.
@@ -1725,6 +1853,35 @@ function arrancarGPS(){
     }
   }, 12000);
 }
+
+/* EL GUARDIÁN DEL GPS. `gpsVivo()` vence a los 30 segundos, pero nadie se
+   enteraba: si el teléfono deja de mandar posiciones SIN avisar un error —pasa
+   al bloquear la pantalla, o con el GPS apagado de golpe en algunos Android—,
+   ningún callback corre y la pantalla seguía diciendo "GPS ±5 m" con la
+   distancia de hace un rato. La revisión del 26/10/2026 lo midió: a los 36
+   segundos seguía así, con `gpsVivo()` en false. Cada cinco segundos se mira si
+   cambió la forma del estado (`firmaGps()`), y si cambió se dibuja de nuevo.
+   Casi siempre no hace nada. `render()` anota lo último que dibujó. */
+let _gpsVisto = null;
+setInterval(() => {
+  /* De paso, el renglón del clima: un dato que vence a las tres horas se va
+     solo, sin esperar a que algo redibuje. */
+  if(S.tab === 'play') pintarClima();
+  if(firmaGps() === _gpsVisto || !S.onboarded) return;
+  if(S.tab === 'play'){
+    /* El cierre del hoyo no muestra nada del GPS: rearmarlo con la animación
+       de entrada en el medio de anotar era molestia pura. Con una hoja abierta
+       se tocan sólo los números; la pantalla entera, cuando se cierre. */
+    if(S.cerrando) return;
+    const a = document.activeElement;
+    if(S.hoja || (a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA'))){ pintarDistancias(); return; }
+    render(); return;
+  }
+  /* En el arranque, `refrescarGPS()` no dibuja si alguien está escribiendo el
+     código de la ronda: entonces no se da por visto, y se vuelve a probar en
+     cinco segundos. Lo marca `render()` cuando dibuja de verdad. */
+  if(S.tab === 'arranque') refrescarGPS();
+}, 5000);
 
 function refrescarGPS(){
   if(!S.onboarded) return;
@@ -1879,7 +2036,13 @@ function gps(h){
   if(largo==null) return {front:null, mid:null, back:null, sinMedir:true,
                           desdeTee:dados===0, dados};
   const centro = Math.max(0, largo - dados);
-  const prof = par(h)===3 ? 9 : PROF_GREEN;
+  /* Frente y fondo: con la profundidad MEDIDA del green, si la hay. Era ±12
+     yardas fijas (±9 en un par 3) en todos los hoyos, con el largo de cada
+     green medido a pie en `formaHoyo()` sin usar. Sigue siendo una estimación,
+     y la pantalla lo dice. */
+  const fh = formaHoyo(h);
+  const prof = fh && fh.green && fh.green.largo > 4 ? Math.round(fh.green.largo/2)
+             : par(h)===3 ? 9 : PROF_GREEN;
   return {front: Math.max(0,centro-prof), mid: centro, back: centro+prof,
           desdeTee: dados===0, dados, esperandoGPS: GPS_REAL && !gpsVivo()};
 }
@@ -1962,8 +2125,8 @@ function vHome(){
         hayNombre()?', '+esc(primerNombre()):''}</h1></div></div>
     <div class="row" style="gap:8px">
       <button class="arrow" style="font-size:16px;position:relative"
-        onclick="go('notif')" aria-label="Avisos">${ico('🔔')}<span style="position:absolute;top:5px;right:6px;width:8px;height:8px;
-        border-radius:50%;background:var(--red)"></span></button>
+        onclick="go('notif')" aria-label="Avisos">${ico('🔔')}${hayAvisosNuevos() ? `<span style="position:absolute;top:5px;right:6px;width:8px;height:8px;
+        border-radius:50%;background:var(--red)"></span>` : ''}</button>
       <div class="avatar" style="cursor:pointer;width:44px;height:44px;font-size:15px"
            onclick="go('me')">${esc(yoIni())}</div>
     </div>
@@ -1982,7 +2145,7 @@ function vHome(){
         <div><div class="lbl">Handicap index</div><div class="big acc">${verIndex(S.user.hcp)}</div>
           <div style="font-size:12px" class="${S.user.hcp==null||indexViejo()?'gold':'dim'}">
             ${S.user.hcp==null ? 'Cargalo y sabés con cuánto jugás'
-              :(indexViejo()?'Actualizalo, cambió el jueves':'Al día')}</div></div>
+              :(indexViejo()?(diasIndex()==null?'Fijate si está al día':'Fijate si cambió el jueves'):'Al día')}</div></div>
         <div style="text-align:right"><div class="lbl">De cancha</div>
           <div class="big">${verHcp(hcpCancha(S.user.hcp))}</div>
           <div style="font-size:12px" class="dim">${tee().n.toLowerCase()} · ${
@@ -2014,16 +2177,7 @@ function vHome(){
       </div>
       <div class="card" style="margin:0">
         <div class="lbl">Clima en cancha</div>
-        ${(() => { const k = climaTarjeta();
-          return k.vivo
-          ? `<div style="font-size:20px;font-weight:800;margin-top:4px">${esc(k.grande)}</div>
-             ${k.cielo ? `<div class="dim" style="font-size:12px">${esc(k.cielo)}</div>` : ''}
-             ${k.linea ? `<div class="dim" style="font-size:12px">${esc(k.linea)}</div>` : ''}
-             <div class="dim2" style="font-size:11px;margin-top:2px">${esc(k.pie)} ·
-               <a href="https://open-meteo.com/" target="_blank" rel="noopener"
-                  style="color:inherit;white-space:nowrap">Open-Meteo.com</a></div>`
-          : `<div style="font-size:15px;font-weight:700;margin-top:4px" class="dim">${esc(k.grande)}</div>
-             <div class="dim2" style="font-size:11px">${esc(k.linea)}</div>`; })()}
+        ${climaDetalle()}
       </div>
     </div>
 
@@ -2036,7 +2190,7 @@ function vHome(){
         ${f.detalle?`<div class="dim" style="font-size:12px">${esc(f.detalle)}</div>`:''}
         <div class="dim2" style="font-size:11px">${esc(f.por||'')}${f.creado?' · '+hace(f.creado):''}</div>
         </div></div>`).join('')
-        : `<div class="dim" style="font-size:13px">${NUBE_ESTADO.conectado
+        : `<div class="dim" style="font-size:13px">${CLUB_VIVO.desde
              ? 'El club no publicó novedades.'
              : 'Todavía no se pudieron traer las novedades del club.'}</div>`}
     </div>
@@ -2292,8 +2446,12 @@ function cerrarGolpeAbierto(h){
   if(!a || !gpsVivo()) return null;
   const d = aYardas(metros([a.lat,a.lon],[POS.lat,POS.lon]));
   if(d < 5) return null;                       // no te moviste: no fue un golpe
-  a.d = d;
   const b = palo(a.c);
+  /* Un número imposible para ese palo no es un golpe: es alguien que caminó a
+     otro lado. Queda registrado el palo, sin distancia, y no entra a la bolsa. */
+  const tope = Math.min(TIRO_MAX, b && !b.putter ? Math.max(60, Math.round(media(b) * 1.7)) : 60);
+  if(d > tope){ a.lat = null; a.lon = null; return null; }
+  a.d = d;
   if(b && !b.putter) b.shots.push(d);
   return d;
 }
@@ -2352,7 +2510,11 @@ function shotPanel(h){
    opcional y sirve para otra cosa.
    ============================================================ */
 function abrirCierre(h){
-  cerrarGolpeAbierto(h);          // el último palo queda medido hasta acá
+  /* El último palo del hoyo NO se mide acá. El socio cierra el hoyo en el tee
+     siguiente, a propósito, y medir hasta donde está parado le sumaba a la bolsa
+     un wedge de 100 yardas como si hubiera volado 129, o un drive corregido
+     desde el tee del 6 como de 565 (revisión adversaria de la v26). Un golpe se
+     mide con el golpe que sigue, que es donde quedó la bola. */
   S.cerrando = true; S.shotOpen = false; S.cierrePaso = 1;
   render(); $('#screen').scrollTop = 0;
 }
@@ -2394,6 +2556,7 @@ function girDe(h){
 }
 function pasoMarcador(){
   if(R.scores[S.hole]===undefined){ toast('Poné cuántos golpes hiciste'); return; }
+  if(!hayAQuienMarcar()) return cerrarHoyo();      // sin a quién marcar, no hay tarjeta del otro
   S.cierrePaso = 2; render(); $('#screen').scrollTop = 0;
 }
 function cerrarHoyo(){
@@ -2478,8 +2641,10 @@ function panelCierre(){
     </div>`:''}
 
     <div class="guardar">
-      <button class="btn" onclick="${S.torneo?'pasoMarcador()':'cerrarHoyo()'}">
-        ${S.torneo ? 'Seguir · la tarjeta de '+GROUP()[S.marco].n
+      ${S.torneo && RONDA && !RONDA.marcoA ? `<div class="dim2" style="font-size:11.5px;margin-bottom:8px">
+        Todavía no elegiste a quién le llevás la tarjeta: se elige en la ronda del grupo, desde el arranque.</div>` : ''}
+      <button class="btn" onclick="${S.torneo && hayAQuienMarcar() ?'pasoMarcador()':'cerrarHoyo()'}">
+        ${S.torneo && hayAQuienMarcar() ? 'Seguir · la tarjeta de '+esc(marcado().n)
           : S.hole < S.vuelta ? 'Guardar y pasar al hoyo '+(S.hole+1) : 'Guardar y terminar la vuelta'}</button>
     </div>
   </div></div>`;
@@ -2489,7 +2654,7 @@ function panelCierre(){
    primero porque es otro acto mental —dejás de ser jugador y pasás a ser
    marcador— y porque juntos no entraban en una pantalla. */
 function panelMarcador(){
-  const h = S.hole, otro = GROUP()[S.marco];
+  const h = S.hole, otro = marcado();
   const nums = n => Array.from({length:n}, (_,i)=>i+1);
   return `<div class="fade">
   <div class="pad" style="padding-top:10px">
@@ -2502,7 +2667,7 @@ function panelMarcador(){
     <div class="card" style="border-color:var(--acc2);background:var(--tint)">
       <div class="row" style="align-items:flex-start;margin-bottom:11px">
         <div class="avatar">${esc(otro.i)}</div>
-        <div style="min-width:0"><div style="font-weight:800;font-size:15px">La tarjeta de ${esc(otro.n)}</div>
+        <div style="min-width:0"><div style="font-weight:800;font-size:15px">La tarjeta de ${esc(otro.n)}${deEjemplo(otro)}</div>
           <div class="dim" style="font-size:12px">Sos su marcador: anotá lo que hizo <b>él</b> en el hoyo ${h}.</div></div>
       </div>
       <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:7px">
@@ -2553,9 +2718,9 @@ function vPlay(){
   <div class="pad"><div class="card" style="background:var(--avisoBg);border-color:var(--avisoLn);margin-bottom:8px">
     <div class="row" style="align-items:flex-start"><div class="ico" style="background:var(--avisoIco)">${ico('🏅')}</div>
       <div style="min-width:0"><div style="font-weight:700;font-size:14px">¿Controlaste tu index?</div>
-        <div class="dim" style="font-size:12px">Lo actualizaste hace ${diasIndex()} días y el handicap
+        <div class="dim" style="font-size:12px">${haceCuanto()}, y el handicap
         cambia los jueves. Con index ${verIndex(S.user.hcp)} salís
-        ${verHcp(hcpCancha(S.user.hcp))} de ${tee().n.toLowerCase()}.</div></div></div>
+        ${verHcp(hcpJuego())} de ${tee().n.toLowerCase()}.</div></div></div>
     <div class="grid2" style="margin-top:11px">
       <button class="chip" onclick="go('handicap')">Actualizarlo</button>
       <button class="chip" onclick="S.chequeoRonda=true;render();toast('Listo, seguimos')">Está al día</button>
@@ -2572,6 +2737,8 @@ function vPlay(){
         style="border:0;font-family:inherit;cursor:pointer">${yards(h) ?? '—'} yds · ${teeDelHoyo(h)} ›</button>
       <span class="pill ${g.real?'':'gold'}" id="gpsPill">${
         g.real ? `GPS ±${g.acc} m` : (POS_ERR || 'Buscando señal…')}</span>
+      <button class="pill" id="climaPill" onclick="abrirHoja('clima')" aria-label="El clima en la cancha"
+        style="border:0;font-family:inherit;cursor:pointer;${climaCorto()?'':'display:none'}">${esc(climaCorto())}</button>
     </div>
 
     <div class="over tr">
@@ -2593,7 +2760,7 @@ function vPlay(){
 
     ${rec ? `<button class="palo flota" onclick="go('bag')">
       <span class="cual">${etiq(rec)}</span>
-      <span class="det"><b style="color:var(--txt)">${media(rec)} yds</b> de media ·
+      <span class="det"><b style="color:var(--txt)">${media(rec)} yds</b>${conf.nivel==='estimado'?'':' de media'} ·
         <span class="${conf.clase}">${conf.txt}</span></span>
       <span class="fl">›</span></button>`
     : `<button class="palo flota" onclick="go('bag')">
@@ -2705,15 +2872,18 @@ const HOJAS = {
 
   grupo: { t:'Tarjeta del grupo', c: () => RONDA ? grupoEnVivo() : `
     <table><thead><tr><th style="text-align:left">Jugador</th><th>Index</th><th>Cancha</th>
-      <th>Golpes</th><th>Neto</th><th>Stbl</th></tr></thead><tbody>
+      <th>Golpes</th><th>Al par</th><th>Stbl</th></tr></thead><tbody>
     ${GROUP().map((pl,i)=>{
-      const arr = i===0 ? played().map(x=>R.scores[x]) : pl.sc;
+      /* Los hoyos de verdad: con el par y la valuación de ESE hoyo, no los de
+         su posición en la lista (si te salteaste el 2, el 3 se contaba como 2). */
+      const hs  = i===0 ? played() : pl.sc.map((_,j)=>j+1);
+      const arr = i===0 ? hs.map(x=>R.scores[x]) : pl.sc;
       const t = arr.reduce((a,b)=>a+b,0);
-      const parr = arr.reduce((a,_,j)=>a+par(j+1),0);
+      const parr = hs.reduce((a,h)=>a+par(h),0);
       /* Sin handicap no hay stableford: con 0 saldría el de un scratch, que es
          un puntaje inventado para alguien que todavía no cargó su index. */
       const stb = pl.hcp==null ? null
-        : arr.reduce((a,s,j)=>a+stableford(s,par(j+1),COURSE.holes[j].hcp,pl.hcp),0);
+        : arr.reduce((a,s,j)=>a+stableford(s,par(hs[j]),COURSE.holes[hs[j]-1].hcp,pl.hcp),0);
       return `<tr><td class="name"><span class="avatar" style="width:22px;height:22px;font-size:9px;
         display:inline-flex;vertical-align:-6px;margin-right:7px">${esc(pl.i)}</span>${esc(pl.n)}</td>
         <td class="dim">${verIndex(pl.index)}</td><td class="dim">${verHcp(pl.hcp)}</td>
@@ -2722,7 +2892,7 @@ const HOJAS = {
         <td class="gold" style="font-weight:800">${arr.length&&stb!=null?stb:'–'}</td></tr>`;}).join('')}
     </tbody></table>
     <div class="dim2" style="font-size:11px;margin-top:10px">
-      Estos scores son de ejemplo. Para ver los de verdad, abrí una ronda con el grupo
+      Los otros tres son de ejemplo. Para ver tu grupo de verdad, abrí una ronda con el grupo
       desde <b>Empezar la ronda</b>: cada uno entra con el mismo código y se ven entre todos.</div>` },
 
   /* Registrar con qué palo pegaste. Antes estaba apilado en la pantalla de
@@ -2759,6 +2929,10 @@ const HOJAS = {
       <button class="btn" style="margin-bottom:4px" onclick="cerrarHoja();finish()">
         ${S.torneo?'Cerrar y firmar la tarjeta':'Guardar la tarjeta'}</button>`; } },
 
+  clima: { t:'El clima en la cancha', c: () => `${climaDetalle()}
+    <div class="dim2" style="font-size:11px;margin-top:10px;line-height:1.5">Es el de la cancha, no el de cada hoyo.
+    Se pide al abrir la app y al volver a ella, no más de una vez cada 15 minutos.</div>` },
+
   cancha: { t:'Estacas y banderas', c: () => `
     <div class="grid2">
       <div><div class="lbl" style="margin-bottom:8px">Estacas</div>
@@ -2782,13 +2956,56 @@ const HOJAS = {
     <div class="dim" style="font-size:12px;margin-bottom:8px">${esc(canchaNota())}</div>` }
 };
 
+/* ============================================================
+   TUS NÚMEROS, DE TUS VUELTAS
+   ============================================================
+   Hasta la v25 esta pantalla era un dibujo con cara de dato: "Score promedio
+   86.4", "Handicap 14.2 ↓ desde 16.1", "23 rondas este año", los strokes gained,
+   el patrón del driver, cuánto se emboca por distancia, un plan "generado con tus
+   últimas 8 rondas"… todo escrito a mano y presentado como tuyo (relevamiento
+   del 26/10/2026). Ahora sale de "Mis rondas" (`VUELTAS`, desde la v25) y de los
+   golpes medidos de la bolsa, y donde no hay dato va una raya. Lo que todavía no
+   se puede calcular con lo que se guarda —strokes gained, embocado por distancia,
+   la historia del index— se dice como lo que es, sin números.
+   `VUELTAS` puede venir de una copia armada a mano: `vueltaSana()` controla los
+   totales, pero lo de adentro de cada `R` se vuelve a mirar acá (`enteroEn`). */
+const hoyosDe = v => Object.keys((v && v.R && v.R.scores) || {})
+  .map(Number).filter(h => enteroEn(h,1,18) && enteroEn(v.R.scores[h],1,20));
+const vueltaEntera = v => (v.vuelta === 9 || v.vuelta === 18) && hoyosDe(v).length === v.vuelta;
+/* Los golpes de una vuelta se cuentan de su tarjeta, no del total guardado:
+   una copia armada a mano decía "Mejor vuelta 18" (revisión adversaria de la v26). */
+const golpesDe = v => hoyosDe(v).reduce((a,h) => a + v.R.scores[h], 0);
+/* "Por vuelta" estira a 18 hoyos lo que se anotó: con menos de nueve hoyos el
+   número no dice nada (un hoyo de 3 putts daba "54.0 putts por vuelta"). */
+const MIN_HOYOS = 9;
+const promedio = l => l.length ? l.reduce((x,y)=>x+y,0) / l.length : null;
+const un = (v, d=1) => v == null ? '–' : (Math.round(v*Math.pow(10,d))/Math.pow(10,d)).toFixed(d);
+const pct = (a, n) => n ? Math.round(a/n*100) + '%' : '–';
+/* Cada hoyo jugado de cada vuelta guardada, con lo que se anotó. */
+function hoyosJugados(){
+  const l = [];
+  VUELTAS.forEach(v => hoyosDe(v).forEach(h => {
+    const R_ = v.R, pt = R_.putts && R_.putts[h];
+    l.push({ h, par: par(h), sc: R_.scores[h],
+             putts: enteroEn(pt,0,15) ? pt : null,
+             fw: R_.fw && FW.some(([k]) => k === R_.fw[h]) ? R_.fw[h] : null,
+             gir: R_.gir && typeof R_.gir[h] === 'boolean' ? R_.gir[h] : null });
+  }));
+  return l;
+}
+const golpesMedidos = () => BAG.reduce((a,b)=>a + (b.putter ? 0 : b.shots.length), 0);
+const sinVueltas = () => `<div class="card" style="text-align:center;padding:22px 18px">
+  <div style="font-weight:700">Todavía no terminaste ninguna vuelta en este teléfono</div>
+  <div class="dim" style="font-size:13px;margin-top:5px">Cuando termines una, tus números salen de ahí.</div></div>`;
+
 function vStats(){
   const t=[['general','General'],['bolsa','Mi bolsa'],['juego','Juego largo'],
            ['corto','Juego corto'],['plan','Plan de práctica']];
   const body={general:statGeneral,bolsa:statBolsa,juego:statJuego,
               corto:statCorto,plan:statPlan}[S.statTab]();
+  const n = VUELTAS.length;
   return `<div class="fade">
-  <div class="hdr"><div><div class="lbl">Últimas 20 rondas</div><h1>Tus números</h1></div></div>
+  <div class="hdr"><div><div class="lbl">${n ? (n===1 ? '1 vuelta' : n+' vueltas')+' en este teléfono' : 'Todavía sin vueltas'}</div><h1>Tus números</h1></div></div>
   <div class="tabs">${t.map(([k,l])=>
     `<button class="tab ${S.statTab===k?'on':''}" onclick="S.statTab='${k}';render()">${l}</button>`).join('')}</div>
   <div class="pad" style="padding-top:10px">${body}</div></div>`;
@@ -2799,62 +3016,66 @@ function kpi(a){return `<div class="grid2">${a.map(([l,v,s,c])=>
    <div class="dim" style="font-size:12px">${s}</div></div>`).join('')}</div>`;}
 
 function statGeneral(){
-  const d=[16.1,15.8,15.9,15.4,15.2,14.9,15.1,14.6,14.4,14.2];
-  const mx=Math.max(...d),mn=Math.min(...d);
-  const pts=d.map((v,i)=>`${i*(300/(d.length-1))},${70-((v-mn)/(mx-mn))*60}`).join(' ');
-  return `${kpi([['Score promedio','86.4','–1.8 vs. hace 6 meses','acc'],
-    ['Mejor ronda','78',CLUB.corto+' · '+fechaCorta(diasAtras(190))],
-    ['Handicap','14.2','↓ desde 16.1','acc'],
-    ['Rondas','23','este año']])}
-  <div class="card"><h3>Evolución del handicap</h3>
-    <svg viewBox="0 0 300 80" style="width:100%;height:90px">
-      <polyline points="${pts}" fill="none" stroke="#1e6b47" stroke-width="2.5"
-        stroke-linecap="round" stroke-linejoin="round"/>
-      ${d.map((v,i)=>`<circle cx="${i*(300/(d.length-1))}" cy="${70-((v-mn)/(mx-mn))*60}" r="2.5" fill="#1e6b47"/>`).join('')}
-    </svg>
-    <div class="between dim2" style="font-size:11px"><span>oct</span><span>hoy</span></div>
-  </div>
+  if(!VUELTAS.length) return sinVueltas() + statViene();
+  /* Las de 18 y las de 9 no se promedian juntas: un 45 no es mejor que un 88. */
+  const de = n => VUELTAS.filter(v => v.vuelta === n && vueltaEntera(v));
+  const base = de(18).length ? 18 : de(9).length ? 9 : null;
+  const enteras = base ? de(base) : [];
+  const mejor = enteras.slice().sort((x,y)=>golpesDe(x)-golpesDe(y))[0];
+  const anio = String(new Date().getFullYear());
+  const H = hoyosJugados();
+  const porPar = [3,4,5].map(p => { const l = H.filter(x=>x.par===p).map(x=>x.sc);
+    return [p, promedio(l), l.length]; }).filter(([,m]) => m != null);
+  return `${kpi([[base ? `Promedio en ${base} hoyos` : 'Promedio', base ? un(promedio(enteras.map(golpesDe))) : '–',
+      base ? `${enteras.length} vuelta${enteras.length===1?'':'s'} completa${enteras.length===1?'':'s'}` : 'todavía ninguna completa'],
+    ['Mejor vuelta', mejor ? golpesDe(mejor) : '–', mejor ? `${base} hoyos · ${fechaCorta(new Date(mejor.fecha+'T12:00:00'))}` : 'falta una completa'],
+    ['Index', verIndex(S.user.hcp), S.user.hcp==null ? 'todavía no lo cargaste' : 'el que cargaste'],
+    ['Vueltas', VUELTAS.filter(v => String(v.fecha).slice(0,4) === anio).length, 'este año, en este teléfono']])}
   <div class="card"><h3>Promedio por par</h3>
-    ${[['Par 3','3.6',60],['Par 4','4.9',82],['Par 5','5.7',95]].map(([l,v,w])=>
-      `<div style="margin-bottom:12px"><div class="between" style="font-size:13px;margin-bottom:5px">
-        <span style="font-weight:600">${l}</span><span class="mono" style="font-weight:800">${v}</span></div>
-        <div class="bar"><i style="width:${w}%"></i></div></div>`).join('')}
+    ${porPar.length ? porPar.map(([p,m,n])=>`<div style="margin-bottom:12px"><div class="between" style="font-size:13px;margin-bottom:5px">
+        <span style="font-weight:600">Par ${p} <span class="dim2" style="font-weight:500;font-size:11px">${n} hoyo${n===1?'':'s'}</span></span>
+        <span class="mono" style="font-weight:800">${un(m)} <span class="dim2" style="font-size:11px">${fmtPar(Math.round((m-p)*10)/10)}</span></span></div>
+        <div class="bar"><i style="width:${Math.max(3, Math.min(100, (m-p)*50))}%"></i></div></div>`).join('')
+      : '<div class="dim" style="font-size:13px">Sin hoyos anotados todavía.</div>'}
+    <div class="dim2" style="font-size:11px">La barra es cuánto pasás el par: llena son dos golpes.</div>
   </div>
-  <div class="card" style="margin-bottom:24px"><h3>Dónde perdés golpes (strokes gained)</h3>
-    ${[['Salida','+0.8',true],['Approach','−2.1',false],['Juego corto','−1.4',false],['Putt','+0.3',true]]
-      .map(([l,v,ok])=>`<div class="between" style="padding:9px 0;border-bottom:1px solid var(--hair)">
-        <span>${l}</span><span class="mono" style="font-weight:800;color:${ok?'var(--acc)':'var(--red)'}">${v}</span></div>`).join('')}
-    <div class="dim" style="font-size:12px;margin-top:10px">
-      Tu approach de 100–150 yds es lo que más te cuesta: perdés 2.1 golpes por ronda contra un hcp 10.</div>
-  </div>`;
+  ${statViene()}`;
 }
+/* Lo que la app todavía no puede calcular, dicho sin números. */
+const statViene = () => `<div class="card" style="margin-bottom:24px"><h3>Lo que viene</h3>
+  <div class="dim" style="font-size:12px;line-height:1.55">La evolución de tu index y dónde perdés golpes
+  (strokes gained) necesitan datos que la app todavía no guarda: la historia del index y desde dónde
+  pegaste cada golpe. Cuando los guarde, van acá.</div></div>`;
+
 function statBolsa(){
-  const l = inBag().slice().sort((a,b)=>avg(b)-avg(a));
-  const mx = avg(l[0])||1;
-  const tot = BAG.reduce((a,b)=>a+b.shots.length,0);
+  const medidos = inBag().filter(b=>b.shots.length).sort((a,b)=>avg(b)-avg(a));
+  const mx = medidos.length ? avg(medidos[0]) : 1;
+  const tot = golpesMedidos();
   const G = gaps();
   const hueco = G.filter(x=>x.g>=20);
   return `
   <div class="card" style="background:linear-gradient(135deg,var(--tint),var(--card));border-color:var(--acc2)">
-    <div class="between"><div><div class="lbl">Golpes que cargaste</div>
+    <div class="between"><div><div class="lbl">Golpes medidos</div>
       <div class="big acc">${tot}</div>
-      <div class="dim" style="font-size:12px">Todas estas distancias son tuyas, medidas por vos</div></div>
+      <div class="dim" style="font-size:12px">${tot ? 'Medidos por vos con el GPS, en la cancha'
+        : 'Todavía ninguno: el caddie usa la distancia estimada de cada palo'}</div></div>
       <div style="text-align:right"><div class="lbl">Palos</div><div class="big">${BAG.filter(b=>b.on).length}</div></div>
     </div>
   </div>
 
-  <div class="card"><h3>Tus distancias reales</h3>
-    ${l.map(b=>`<div style="margin-bottom:13px">
+  <div class="card"><h3>Tus distancias medidas</h3>
+    ${medidos.length ? medidos.map(b=>`<div style="margin-bottom:13px">
       <div class="between" style="font-size:13px;margin-bottom:4px">
-        <span style="font-weight:700">${etiq(b)} <span class="dim2" style="font-weight:500;font-size:11px">${b.shots.length} golpes</span></span>
+        <span style="font-weight:700">${etiq(b)} <span class="dim2" style="font-weight:500;font-size:11px">${b.shots.length} golpe${b.shots.length===1?'':'s'}</span></span>
         <span class="mono" style="font-weight:800">${avg(b)} <span class="dim2" style="font-size:11px;font-weight:600">±${disp(b)}</span></span></div>
       <div style="position:relative;height:9px;background:var(--tint);border-radius:99px">
         <div style="position:absolute;left:${Math.max(0,((avg(b)-disp(b))/mx)*100)}%;
           width:${((disp(b)*2)/mx)*100}%;height:100%;background:#4ade8055;border-radius:99px"></div>
-        <div style="position:absolute;left:${((avg(b)/mx)*100)}%;width:3px;height:100%;
+        <div style="position:absolute;left:${Math.min(100,(avg(b)/mx)*100)}%;width:3px;height:100%;
           background:var(--acc);border-radius:2px;transform:translateX(-1px)"></div>
-      </div></div>`).join('')}
-    <div class="dim2" style="font-size:11px">La barra clara es tu dispersión: cuánto varía ese palo entre golpe y golpe.</div>
+      </div></div>`).join('') + `<div class="dim2" style="font-size:11px">La barra clara es tu dispersión: cuánto varía ese palo entre golpe y golpe.</div>`
+    : `<div class="dim" style="font-size:13px;line-height:1.5">Aparecen cuando midas golpes en la cancha:
+       registrás el palo al pegar, y la app mide hasta donde quedó la bola cuando cerrás el hoyo o pegás el siguiente.</div>`}
   </div>
 
   <div class="card"><h3>Huecos entre palos</h3>
@@ -2863,55 +3084,57 @@ function statBolsa(){
       <span class="pill ${x.g>=20?'red':x.g<=6?'gold':''}" style="font-size:11px">${x.g} yds</span></div>`).join('')}
     <div class="dim" style="font-size:12px;margin-top:10px">
       ${hueco.length
-        ? `⚠️ Tenés ${hueco.length} hueco${hueco.length>1?'s':''} de 20+ yds (${hueco.map(x=>etiq(x.a)+'–'+etiq(x.b)).join(', ')}). Ahí te quedan golpes "entre palos".`
-        : '✅ Tu bolsa está bien escalonada, sin huecos grandes.'}</div>
+        ? `Hay ${hueco.length} hueco${hueco.length>1?'s':''} de 20+ yds (${hueco.map(x=>etiq(x.a)+'–'+etiq(x.b)).join(', ')}). Ahí quedan golpes "entre palos".`
+        : 'La bolsa está bien escalonada, sin huecos grandes.'}
+      ${tot ? '' : ' Por ahora, con las distancias estimadas: se corrige sola a medida que midas.'}</div>
   </div>
 
   <div class="card" style="margin-bottom:24px"><h3>Qué palo usás más</h3>
-    ${BAG.filter(b=>b.on&&b.shots.length).slice().sort((a,b)=>b.shots.length-a.shots.length).slice(0,5)
+    ${medidos.length ? medidos.slice().sort((a,b)=>b.shots.length-a.shots.length).slice(0,5)
       .map(b=>{const w=Math.round(b.shots.length/Math.max(1,tot)*100*4);
         return `<div style="margin-bottom:11px"><div class="between" style="font-size:13px;margin-bottom:4px">
           <span style="font-weight:600">${b.name}</span><span class="mono" style="font-weight:800">${b.shots.length}</span></div>
-          <div class="bar"><i style="width:${Math.min(100,w)}%"></i></div></div>`}).join('')}
+          <div class="bar"><i style="width:${Math.min(100,w)}%"></i></div></div>`}).join('')
+      : '<div class="dim" style="font-size:13px">Sale de los golpes medidos.</div>'}
     <button class="btn ghost sm" style="margin-top:6px" onclick="go('bag')">Editar mi bolsa</button>
   </div>`;
 }
-function statJuego(){const dr=BAG.find(b=>b.c==='Dr');
-  return `${kpi([['Fairways','48%','7 de 14 · media hcp14: 46%'],
-  ['GIR','31%','5.6 greens por ronda'],['Distancia driver',avg(dr),'yds tuyos · '+dr.shots.length+' golpes'],
-  ['Dispersión','23%','tirás a la derecha','red']])}
-  <div class="card" style="margin-bottom:24px"><h3>Patrón del driver</h3>
-    <svg viewBox="0 0 200 130" style="width:100%;height:170px">
-      <path d="M60 125 L20 15 h160 L140 125 Z" fill="#cfe0c3"/>
-      <path d="M78 125 L58 15 h84 L122 125 Z" fill="#a7c97e"/>
-      ${[[118,42],[132,55],[104,38],[126,68],[95,50],[140,60],[112,30],[128,80],[100,72],[136,45],[121,95],[108,58]]
-        .map(([x,y])=>`<circle cx="${x}" cy="${y}" r="3.4" fill="#a97a06" opacity=".9"/>`).join('')}
-      <line x1="100" y1="125" x2="100" y2="15" stroke="#1e6b47" stroke-dasharray="4 4" stroke-width="1"/>
-    </svg>
-    <div class="dim" style="font-size:12px">Centro de dispersión 11 yds a la derecha. Apuntá al borde izquierdo del fairway.</div>
-  </div>`;}
-function statCorto(){return `${kpi([['Putts por ronda','32.1','media hcp14: 33.4','acc'],
-  ['Putts por GIR','1.87',''],['Up & down','34%','desde bunker: 18%','red'],
-  ['3 putts','2.4','por ronda','red']])}
-  <div class="card" style="margin-bottom:24px"><h3>% de embocado por distancia</h3>
-    ${[['< 1 m','96%',96],['1–2 m','61%',61],['2–3 m','34%',34],['3–5 m','18%',18],['> 5 m','6%',6]]
-      .map(([l,v,w])=>`<div style="margin-bottom:11px"><div class="between" style="font-size:13px;margin-bottom:5px">
-        <span>${l}</span><span class="mono" style="font-weight:800">${v}</span></div>
-        <div class="bar"><i style="width:${w}%"></i></div></div>`).join('')}
-  </div>`;}
-function statPlan(){return `<div class="card" style="background:linear-gradient(135deg,var(--tint),var(--card));border-color:var(--acc2)">
-    <div class="pill">Generado con tus últimas 8 rondas</div>
-    <div style="font-weight:800;font-size:17px;margin:9px 0 5px">Bajás a 12 de handicap en ~10 semanas</div>
-    <div class="dim" style="font-size:13px">Si arreglás el approach medio y el bunker, ganás 3.1 golpes por ronda.</div>
+function statJuego(){
+  const dr = BAG.find(b=>b.c==='Dr'), H = hoyosJugados();
+  const sal = H.filter(x=>x.fw), fw = sal.filter(x=>x.fw==='fw').length;
+  const izq = sal.filter(x=>x.fw==='izq').length, der = sal.filter(x=>x.fw==='der').length;
+  const g = H.filter(x=>x.gir!=null), gir = g.filter(x=>x.gir).length;
+  const lado = izq===der ? (izq ? 'tantas a un lado como al otro' : 'sin salidas erradas a los costados')
+             : `más a la ${izq>der?'izquierda':'derecha'}`;
+  return `${kpi([['Fairways', pct(fw, sal.length), sal.length ? `${fw} de ${sal.length} salidas anotadas` : 'anotá dónde quedó el drive'],
+    ['Greens en regulación', pct(gir, g.length), g.length ? `${gir} de ${g.length} hoyos` : 'sale de golpes y putts'],
+    ['Distancia driver', dr && dr.shots.length ? avg(dr) : '–', dr && dr.shots.length ? `yds · ${dr.shots.length} golpe${dr.shots.length===1?'':'s'} medido${dr.shots.length===1?'':'s'}` : 'sin golpes medidos'],
+    ['Salidas erradas', sal.length ? `${izq} · ${der}` : '–', sal.length ? `izquierda · derecha: ${lado}` : 'todavía sin datos', izq+der ? 'red' : '']])}
+  <div class="card" style="margin-bottom:24px">
+    <div class="dim" style="font-size:12px;line-height:1.55">Sale de lo que anotás al cerrar cada hoyo en tus vueltas
+    terminadas. El patrón del driver —cuánto y hacia dónde se abre— necesita la posición donde quedó cada
+    salida, que la app todavía no guarda.</div></div>`;
+}
+function statCorto(){
+  const H = hoyosJugados(), P = H.filter(x=>x.putts!=null);
+  const pg = P.filter(x=>x.gir===true);
+  const tres = P.filter(x=>x.putts>=3).length;
+  const sinGir = H.filter(x=>x.gir===false), salvo = sinGir.filter(x=>x.sc<=x.par).length;
+  const alcanza = P.length >= MIN_HOYOS, faltan = `hacen falta ${MIN_HOYOS} hoyos con putts (van ${P.length})`;
+  return `${kpi([['Putts por vuelta', alcanza ? un(promedio(P.map(x=>x.putts))*18) : '–', alcanza ? `de 18 hoyos · ${P.length} hoyos con putts` : faltan],
+    ['Putts en green en regulación', pg.length ? un(promedio(pg.map(x=>x.putts)),2) : '–', pg.length ? `${pg.length} hoyos` : 'todavía sin datos'],
+    ['Par o mejor sin green', pct(salvo, sinGir.length), sinGir.length ? `${salvo} de ${sinGir.length} hoyos` : 'todavía sin datos'],
+    ['3 putts', alcanza ? un(tres/P.length*18) : '–', alcanza ? `por vuelta de 18 · ${tres} en total` : faltan, alcanza && tres ? 'red' : '']])}
+  <div class="card" style="margin-bottom:24px">
+    <div class="dim" style="font-size:12px;line-height:1.55">Cuánto embocás según la distancia necesita saber de
+    dónde fue cada putt, y la app todavía no lo pregunta.</div></div>`;
+}
+function statPlan(){return `<div class="card" style="background:var(--avisoBg);border-color:var(--avisoLn)">
+    <div style="font-weight:700;font-size:14px" class="gold">Así se vería · todavía no está hecho</div>
+    <div class="dim" style="font-size:13px;margin-top:5px;line-height:1.55">Un plan de práctica armado con tus vueltas:
+    qué trabajar primero, con qué palo y cuántas bolas, según dónde se te van los golpes. Va a salir de los
+    mismos números de las otras solapas, cuando haya suficientes vueltas guardadas.</div>
   </div>
-  ${[['🎯','Approach 100–150 yds','3 sesiones/semana · 40 bolas alternando PW/9i/8i a target fijo','Prioridad alta'],
-     ['🏖️','Salida de bunker','2 sesiones · 20 bolas · apertura de cara y entrada 5 cm detrás','Prioridad alta'],
-     ['🎱','Putts de 2–3 m','15 min por sesión · circuito del reloj, 8 posiciones','Prioridad media'],
-     ['🚀','Dispersión del driver','1 sesión · alineación con varillas, apuntar borde izquierdo','Prioridad media']]
-    .map(([i,t,s,p])=>`<div class="card"><div class="row" style="align-items:flex-start">
-      <div class="ico">${ico(i)}</div><div style="min-width:0">
-      <div style="font-weight:700">${t}</div><div class="dim" style="font-size:12px;margin:3px 0 7px">${s}</div>
-      <span class="pill ${p.includes('alta')?'red':'gold'}">${p}</span></div></div></div>`).join('')}
   <div style="height:24px"></div>`;}
 
 function vClub(){
@@ -2919,13 +3142,19 @@ function vClub(){
            ['result','Resultados'],['shop','Pro shop'],['cancha','Cancha']];
   const body=({tee:clubTee,invierno:clubInvierno,torneo:clubTorneo,result:clubResultados,
               shop:clubShop,cancha:clubCancha}[S.clubTab] || clubTee)();
+  const ejemplo = {
+    invierno: ['El Torneo de Invierno · de ejemplo', 'Las tablas, las tarjetas y tu posición todavía son de ejemplo. Van a salir de las tarjetas firmadas en la app.'],
+    torneo:   ['Torneos · de ejemplo', 'La inscripción, la tabla en vivo y las apuestas todavía son de ejemplo, y los botones no hacen nada.'],
+    result:   ['Resultados · así se va a ver', 'Todavía no se publica ningún resultado desde la app.'],
+    shop:     ['Pro shop · de ejemplo', 'Los productos y los consumos todavía son de ejemplo, y comprar por la app no está hecho.']
+  }[S.clubTab];
   return `<div class="fade">
   <div class="hdr"><div class="row" style="gap:11px">${crest(40)}
-    <div><div class="lbl">${esSocio() ? 'Socio '+(S.nsocio||S.user.socio||'—')
+    <div><div class="lbl">${esSocio() ? 'Socio '+esc(S.nsocio||S.user.socio||'—')
       : 'Invitado'}</div><h1 style="font-size:23px">${CLUB.corto}</h1></div></div></div>
   <div class="tabs">${t.map(([k,l])=>
     `<button class="tab ${S.clubTab===k?'on':''}" onclick="S.clubTab='${k}';render()">${l}</button>`).join('')}</div>
-  <div class="pad" style="padding-top:10px">${body}</div></div>`;
+  <div class="pad" style="padding-top:10px">${ejemplo ? cartelEjemplo(...ejemplo) : ''}${body}</div></div>`;
 }
 const HOYOS9 = [1,2,3,4,5,6,7,8,9];
 const miHoyo = () => 4;   // el hoyo que le toca al socio en un tiro simultáneo
@@ -2950,6 +3179,8 @@ function salidaTorneo(){
   const mias = Object.keys(S.booked).filter(k=>S.booked[k]).sort();
 
   if(t.modo==='simultanea') return `
+    ${cartelEjemplo('El torneo · de ejemplo', 'Así se va a ver el tiro simultáneo: tu hoyo y tu grupo todavía son de ejemplo.')}
+    ${bannerCambio()}
     <div class="card">
       <div class="between">
         <div><div class="lbl">${t.fecha}</div>
@@ -2974,6 +3205,8 @@ function salidaTorneo(){
     </div>`;
 
   return `
+    ${cartelEjemplo('El torneo · de ejemplo', 'Así se van a ver las salidas: los horarios ocupados y los lugares todavía son de ejemplo, y anotarse por la app no está hecho.')}
+    ${bannerCambio()}
     <div class="card">
       <div class="between">
         <div><div class="lbl">${t.fecha}</div>
@@ -2996,20 +3229,20 @@ function salidaTorneo(){
         <div style="flex:1;min-width:0"><div style="font-weight:700">${t.fecha} · ${x}</div>
         <div class="dim" style="font-size:12px">Sumá hasta ${CLUB.horarios.porSalida-1} jugadores</div></div>
         <button class="chip" onclick="book('${x}')">Bajarme</button></div>`).join('')}
-      <button class="btn ghost sm" style="margin-top:10px" onclick="toast('Invitación enviada a tu grupo')">
+      <button class="btn ghost sm" style="margin-top:10px" onclick="dibujo('invitar a tu grupo')">
         Invitar a mi grupo</button></div>`:''}`;
 }
 
 function clubTee(){
   return `
-  ${bannerCambio()}
   <div class="card" style="background:linear-gradient(135deg,var(--tint),var(--card));border-color:var(--acc2)">
-    <div><div class="lbl">Hoy · viernes</div>
+    <div><div class="lbl">${hoyTxt()}</div>
       <div style="font-weight:800;font-size:17px">Salí cuando quieras</div>
       <div class="dim" style="font-size:12px">En Trisquelia no se reserva entre semana. Venís y salís.</div></div>
   </div>
 
   <h2>Cómo está la cancha ahora</h2>
+  ${cartelEjemplo('La cancha en vivo · así se va a ver', 'Los grupos y la espera van a salir solos de los socios que juegan con la app abierta. Hoy estos números son de ejemplo.')}
   <div class="card">
     <div class="grid3" style="text-align:center">
       <div><div class="big acc">3</div><div class="lbl" style="font-size:9px">Grupos en cancha</div></div>
@@ -3023,9 +3256,7 @@ function clubTee(){
       `<div class="item"><div class="ico">${ico(i2)}</div><div style="flex:1;min-width:0">
         <div style="font-weight:700;font-size:14px">${h2}</div>
         <div class="dim" style="font-size:12px">${d}</div></div></div>`).join('')}
-    <div class="dim2" style="font-size:11px;margin-top:10px">
-      Se arma solo con los socios que están jugando con la app abierta. Nadie carga nada a mano.</div>
-    <button class="btn sm" style="margin-top:11px" onclick="toast('⛳ Avisaste que salís. Tu grupo aparece en la cancha.')">
+    <button class="btn sm" style="margin-top:11px" onclick="dibujo('avisar que salís')">
       Voy a salir ahora</button>
   </div>
 
@@ -3134,11 +3365,11 @@ function clubInvierno(){
       En la Copa Trisquelia se dan el 85% de la diferencia de handicap.</div>
     <div class="grid2">
       <div><div class="lbl">Tu handicap</div>
-        <input value="${S.vA??10}" inputmode="decimal" oninput="S.vA=+this.value||0;pintarVentaja()"
+        <input value="${esc(S.vA??10)}" inputmode="decimal" oninput="S.vA=+this.value||0;pintarVentaja()"
           style="width:100%;margin-top:6px;padding:12px;border-radius:11px;background:var(--nav);
           border:1px solid var(--line);color:var(--txt);font-family:inherit;font-size:15px;font-weight:700;text-align:center"></div>
       <div><div class="lbl">El del rival</div>
-        <input value="${S.vB??18}" inputmode="decimal" oninput="S.vB=+this.value||0;pintarVentaja()"
+        <input value="${esc(S.vB??18)}" inputmode="decimal" oninput="S.vB=+this.value||0;pintarVentaja()"
           style="width:100%;margin-top:6px;padding:12px;border-radius:11px;background:var(--nav);
           border:1px solid var(--line);color:var(--txt);font-family:inherit;font-size:15px;font-weight:700;text-align:center"></div>
     </div>
@@ -3176,8 +3407,8 @@ function clubResultados(){
     </tbody></table>
     <div class="dim2" style="font-size:11px;margin-top:9px">${r.nota||''}</div>
     <div class="grid2" style="margin-top:11px">
-      <button class="chip" onclick="toast('Tu tarjeta del torneo')">Mi tarjeta</button>
-      <button class="chip" onclick="toast('Leaderboard completo')">Ver todos</button>
+      <button class="chip" onclick="dibujo('ver tu tarjeta del torneo')">Mi tarjeta</button>
+      <button class="chip" onclick="dibujo('ver la tabla completa')">Ver todos</button>
     </div>
   </div>`).join('')}
 
@@ -3185,7 +3416,7 @@ function clubResultados(){
     ${[['🔍','Se buscan','Un torneo de hace dos años sigue estando'],
        ['📇','Cada uno ve su tarjeta','Hoyo por hoyo, no una foto de la planilla'],
        ['📈','Suman a tu historial','El handicap y las estadísticas se actualizan solas'],
-       ['🔔','Llegan al toque','Notificación apenas se publican']].map(([i,t,d])=>
+       ['🔔','Se ven al abrir la app','Sin buscarlos en el grupo de WhatsApp']].map(([i,t,d])=>
       `<div class="item"><div class="ico">${ico(i)}</div><div style="min-width:0">
         <div style="font-weight:600;font-size:13px">${t}</div>
         <div class="dim" style="font-size:12px">${d}</div></div></div>`).join('')}
@@ -3203,7 +3434,7 @@ function clubTorneo(){return `
       <div><div class="lbl">Pro shop en premios</div>
         <div class="dim" style="font-size:11px">${CLUB.torneo.proshopNota}</div></div>
       <div class="gold" style="font-weight:800;font-size:24px">${CLUB.torneo.proshop}</div></div>`:''}
-    <button class="btn" onclick="toast('✅ Inscripto al ${CLUB.torneo.n}')">Inscribirme${CLUB.torneo.precio!=='—'?' — '+CLUB.torneo.precio:''}</button>
+    <button class="btn" onclick="dibujo('inscribirte desde la app')">Inscribirme${CLUB.torneo.precio!=='—'?' — '+CLUB.torneo.precio:''}</button>
   </div>
   <h2>Leaderboard en vivo · Copa Invierno</h2>
   <div class="card" style="padding:12px">
@@ -3222,14 +3453,14 @@ function clubTorneo(){return `
       `<div class="item"><div class="ico">${ico('💰')}</div><div style="flex:1;min-width:0">
         <div style="font-weight:700">${t}</div><div class="dim" style="font-size:12px">${s}</div></div>
         <div class="gold" style="font-weight:800">${v}</div></div>`).join('')}
-    <button class="btn ghost sm" style="margin-top:10px" onclick="toast('Liquidación enviada al grupo')">Liquidar al final de la ronda</button>
+    <button class="btn ghost sm" style="margin-top:10px" onclick="dibujo('liquidar las apuestas')">Liquidar al final de la ronda</button>
   </div>`;}
 function clubShop(){return `<div class="grid2">
     ${SHOP().map(p=>`<div class="card" style="margin:0 0 10px;text-align:center">
       <div style="font-size:34px">${p.ic}</div>
       <div style="font-weight:700;font-size:13px;margin:6px 0 2px">${p.n}</div>
       <div class="acc" style="font-weight:800">${p.p}</div>
-      <button class="btn sm" style="margin-top:9px" onclick="toast('Agregado. Se debita de tu cuenta de socio.')">Agregar</button>
+      <button class="btn sm" style="margin-top:9px" onclick="dibujo('comprar desde la app')">Agregar</button>
     </div>`).join('')}</div>
   ${esSocio()?`<div class="card" style="margin-bottom:24px"><div class="between">
     <div><div class="lbl">Cuenta de socio</div><div style="font-weight:700">Consumos del mes</div></div>
@@ -3304,18 +3535,22 @@ function clubCancha(){return `
     </div>
   </div>
   <div class="card"><h3>Estado de la cancha</h3>
-    ${[['Greens','Excelente · velocidad 10.5','acc'],['Fairways','Bueno','acc'],
-       ['Bunkers','Arena renovada hoyos 4-6','gold'],['Riego','Activo 05:00–06:30','gold']].map(([l,v,c])=>
-      `<div class="between" style="padding:10px 0;border-bottom:1px solid var(--hair)">
-        <span style="font-weight:600">${l}</span><span class="${c}" style="font-size:13px;font-weight:700">${v}</span></div>`).join('')}
+    <div class="between" style="padding:6px 0"><span style="font-weight:600">Hoy</span>
+      <span class="${canchaClase()}" style="font-weight:800">${canchaTxt()}</span></div>
+    <div class="dim" style="font-size:12px">${esc(canchaNota())}</div>
+    ${canchaFirma() ? `<div class="dim2" style="font-size:11px;margin-top:4px">${esc(canchaFirma())}</div>` : ''}
+    ${/* Decía "Greens · Excelente · velocidad 10.5" escrito a mano, aunque el club
+         la hubiera cerrado (relevamiento del 26/10/2026). */''}
+    <div class="dim2" style="font-size:11px;margin-top:10px">Lo publica la comisión. El detalle de greens,
+      fairways, bunkers y riego todavía no se carga desde la app.</div>
   </div>
   <div class="card"><h3>Reglas locales</h3>
     <p style="font-size:13px">${CLUB.reglas}</p>
-    <button class="btn ghost sm" onclick="toast('📖 Reglamento completo descargado')">Ver reglamento completo</button>
+    <button class="btn ghost sm" onclick="dibujo('bajar el reglamento')">Ver reglamento completo</button>
   </div>
   <div class="card" style="margin-bottom:24px"><h3>Reportar algo</h3>
-    <div class="grid2"><button class="chip" onclick="toast('Reporte enviado a mantenimiento')">🕳️ Divot / daño</button>
-    <button class="chip" onclick="toast('Reporte enviado a la comisión')">⏱️ Juego lento</button></div>
+    <div class="grid2"><button class="chip" onclick="dibujo('reportar a mantenimiento')">🕳️ Divot / daño</button>
+    <button class="chip" onclick="dibujo('reportar a la comisión')">⏱️ Juego lento</button></div>
   </div>`;}
 
 /* ---------- MI HANDICAP ---------- */
@@ -3330,12 +3565,12 @@ function vHandicap(){
         <div><div class="lbl">Handicap index</div>
           <div class="big acc">${verIndex(idx)}</div>
           <div class="dim" style="font-size:12px">${idx==null?'Todavía no lo cargaste'
-            :'Actualizado hace '+diasIndex()+' día'+(diasIndex()===1?'':'s')}</div></div>
+            :haceCuanto()}</div></div>
         <div style="text-align:right"><div class="lbl">Matrícula</div>
-          <div style="font-weight:700">${S.mat||'—'}</div></div>
+          <div style="font-weight:700">${esc(S.mat||'—')}</div></div>
       </div>
       ${indexViejo()?`<div style="margin-top:12px;background:var(--avisoBg);border:1px solid var(--avisoLn);border-radius:11px;padding:10px 12px">
-        <div style="font-size:12px;font-weight:700" class="gold">El handicap cambió el jueves</div>
+        <div style="font-size:12px;font-weight:700" class="gold">${diasIndex()==null ? 'Puede haber cambiado' : 'Puede haber cambiado el jueves'}</div>
         <div class="dim" style="font-size:11px">Entrá a la federación, mirá el tuyo y actualizalo acá abajo.</div></div>`:''}
 
       <div class="sep"></div>
@@ -3348,7 +3583,7 @@ function vHandicap(){
           onclick="setCat('dam')">Damas</button>
       </div>
       <div class="lbl">Tu index de hoy</div>
-      <input value="${S.hcpIn ?? (idx!=null?verIndex(idx):'')}" inputmode="decimal"
+      <input value="${esc(S.hcpIn ?? (idx!=null?verIndex(idx):''))}" inputmode="decimal"
         placeholder="Ej. 7.4 · los &quot;más&quot; van así: +2.3" oninput="S.hcpIn=this.value"
         style="width:100%;margin:7px 0 4px;padding:14px;border-radius:12px;background:var(--nav);
         border:1px solid var(--line);color:var(--txt);font-family:inherit;font-size:17px;font-weight:800">
@@ -3397,7 +3632,7 @@ function vHandicap(){
     <div class="card" style="margin-bottom:24px"><h3>Cómo funciona</h3>
       ${[['🗓️','El handicap cambia los jueves','La federación lo recalcula una vez por semana'],
          ['✍️','Lo actualizás vos','Entrás con tu clave a la federación y ponés el número acá'],
-         ['🔔','Te avisamos','Los jueves, y otra vez antes de empezar una ronda si está vencido'],
+         ['🔔','Te avisamos en la app','Cuando la abrís después del jueves, y otra vez antes de empezar una ronda si está vencido'],
          ['🧮','El de cancha sale solo','No tenés que buscar la tabla: la app lo calcula por salida'],
          ['🎫','La tarjeta física sigue igual','Félix te la sigue dando y controlando como siempre']].map(([i,t,d])=>
         `<div class="item"><div class="ico">${ico(i)}</div><div style="min-width:0">
@@ -3425,7 +3660,8 @@ function vBag(){
         <div style="min-width:0;flex:1">
           <div style="font-weight:800;font-size:15px">${etiq(b)} · ${b.name}</div>
           <div class="dim" style="font-size:12px">${b.putter?'Putter — no mide distancia'
-            :`Media <b class="acc">${avg(b)}</b> yds · mejor ${best(b)} · ±${disp(b)} · ${b.shots.length} golpes`}</div>
+            : !b.shots.length ? `Sin golpes medidos todavía · el caddie usa ${b.base} yds estimadas`
+            :`Media <b class="acc">${avg(b)}</b> yds · mejor ${best(b)} · ±${disp(b)} · ${b.shots.length} golpe${b.shots.length===1?'':'s'} medido${b.shots.length===1?'':'s'}`}</div>
         </div>
         <button class="chip ${b.on?'on':''}" style="width:52px;padding:9px 0" onclick="togBag(${i})">
           ${b.on?'En bolsa':'Fuera'}</button>
@@ -3437,7 +3673,7 @@ function vBag(){
       </div>
       <div class="dim2" style="font-size:10px;margin-top:4px">Tus últimos ${Math.min(24,b.shots.length)} golpes con este palo</div>`:''}
     </div>`).join('')}`).join('')}
-    <button class="btn ghost sm" style="margin-bottom:24px" onclick="toast('Escaneá el código del palo o buscalo por modelo')">
+    <button class="btn ghost sm" style="margin-bottom:24px" onclick="dibujo('agregar un palo')">
       + Agregar un palo</button>
   </div></div>`;
 }
@@ -3450,13 +3686,14 @@ function vSocial(){
   <div class="hdr"><div><div class="lbl">Comunidad</div><h1>Social</h1></div></div>
   <div class="tabs">${t.map(([k,l])=>
     `<button class="tab ${S.socialTab===k?'on':''}" onclick="S.socialTab='${k}';render()">${l}</button>`).join('')}</div>
-  <div class="pad" style="padding-top:10px">${body}</div></div>`;
+  <div class="pad" style="padding-top:10px">${cartelEjemplo('Social · así se va a ver',
+    'Amigos, retos y logros todavía no están hechos: lo de esta pantalla es de ejemplo, y los botones no hacen nada.')}${body}</div></div>`;
 }
 function socAmigos(){return `
   <div class="card" style="background:linear-gradient(135deg,var(--tint),var(--card));border-color:var(--acc2)">
     <div class="between"><div><div class="lbl">Ahora en cancha</div>
       <div style="font-weight:800;font-size:16px">2 amigos jugando</div></div>
-      <button class="chip" onclick="toast('👀 Siguiendo la ronda de Javier en vivo')">Ver en vivo</button></div>
+      <button class="chip" onclick="dibujo('seguir la ronda de un amigo')">Ver en vivo</button></div>
   </div>
   <div class="card">
     ${FRIENDS().map(f=>`<div class="item">
@@ -3467,8 +3704,8 @@ function socAmigos(){return `
       <div style="text-align:right"><div class="lbl">Hcp</div>
         <div style="font-weight:800">${f.hcp}</div></div></div>`).join('')}
     <div class="grid2" style="margin-top:12px">
-      <button class="chip" onclick="toast('Invitación enviada')">+ Invitar a jugar</button>
-      <button class="chip" onclick="toast('Link de invitación copiado')">🔗 Sumar amigo</button>
+      <button class="chip" onclick="dibujo('invitar amigos')">+ Invitar a jugar</button>
+      <button class="chip" onclick="dibujo('copiar el link de invitación')">🔗 Sumar amigo</button>
     </div>
   </div>
   <h2>Rondas de tus amigos</h2>
@@ -3479,7 +3716,7 @@ function socAmigos(){return `
       `<div class="item"><div class="avatar">${i}</div><div style="flex:1;min-width:0">
         <div style="font-weight:700;font-size:14px">${n}</div>
         <div class="dim" style="font-size:12px">${s}</div></div>
-        <button class="chip" onclick="toast('👏 Felicitaste a ${n}')">${l}</button></div>`).join('')}
+        <button class="chip" onclick="dibujo('felicitar a un amigo')">${l}</button></div>`).join('')}
   </div>`;}
 function socRetos(){return `${RETOS.map(r=>
   `<div class="card"><div class="row" style="align-items:flex-start">
@@ -3487,7 +3724,7 @@ function socRetos(){return `${RETOS.map(r=>
       <div style="font-weight:700">${r.t}</div>
       <div class="dim" style="font-size:12px;margin:3px 0 7px">${r.s}</div>
       <span class="pill ${r.c}">${r.st}</span></div></div></div>`).join('')}
-  <button class="btn sm" style="margin-bottom:24px" onclick="toast('Reto enviado a tus amigos')">
+  <button class="btn sm" style="margin-bottom:24px" onclick="dibujo('mandar retos')">
     + Crear un reto</button>`;}
 function socRanking(){
   if(esSocio()) return `<div class="card" style="margin-bottom:24px">
@@ -3526,22 +3763,35 @@ function socLogros(){return `<div class="card"><h3>Tus logros</h3>
   </div>`;}
 
 /* ---------- NOTIFICACIONES ---------- */
-function vNotif(){return `<div class="fade">
+/* LOS AVISOS DEL CLUB, Y NADA MÁS. Hasta la v25 acá había seis notificaciones
+   inventadas —"Tu tee time es en 2 horas", "Quedan 11 lugares en la Copa",
+   "Cuota de octubre $150.000"—, iguales para todos, invitados incluidos, y la
+   campanita de Inicio estaba siempre en rojo (relevamiento del 26/10/2026). Ahora
+   son los avisos que publicó la comisión, los mismos de Inicio, y la campanita se
+   prende sólo si hay uno que no viste. Que suene el teléfono no está hecho. */
+const avisosParaMi = () => FEED().filter(f=>!f.socios||esSocio());
+const nuevoAviso = f => !!f.creado && (!S.avisosVistos || new Date(f.creado) > new Date(S.avisosVistos));
+const hayAvisosNuevos = () => avisosParaMi().some(nuevoAviso);
+function vNotif(){
+  const lista = avisosParaMi(), nuevos = lista.map(nuevoAviso);
+  /* Mirarlos es haberlos visto. Se guarda en el próximo `render()`. */
+  if(lista.length) S.avisosVistos = new Date().toISOString();
+  return `<div class="fade">
   <div class="hdr"><div class="row"><button class="arrow" onclick="go('home')">‹</button>
-    <h1 style="font-size:22px">Notificaciones</h1></div></div>
-  <div class="pad"><div class="card" style="margin-bottom:24px">
-    ${[['⛳','Tu tee time es en 2 horas','Domingo 08:20 · Tee 1 · hacé el check-in','hace 5 min',true],
-       ['🏆','Quedan 11 lugares en la Copa','Cierra la inscripción el '+fechaLarga(enDias(6)),'hace 1 h',true],
-       ['👏','Javier felicitó tu ronda','"Ese birdie en el 6 fue tremendo"','hace 3 h',false],
-       ['🏅','Cambió el handicap de la semana','Fijate el tuyo y actualizalo en la app','jueves',true],
-       ['🌧️','Alerta de lluvia el domingo','70% de probabilidad entre 10 y 13 hs','ayer',false],
-       ['💳','Cuota de '+mesHoy(),`${pesos(cuotaSocio().v)} · del 1 al 10, ${pesos(cuotaSocio().b)}`,'hace 2 días',false]].map(([i,t,s,w,nw])=>
-      `<div class="item" style="${nw?'background:var(--tint);border-radius:12px;padding:12px 10px':''}">
-        <div class="ico">${ico(i)}</div><div style="flex:1;min-width:0">
-        <div style="font-weight:700;font-size:14px">${t}</div>
-        <div class="dim" style="font-size:12px">${s}</div>
-        <div class="dim2" style="font-size:11px;margin-top:2px">${w}</div></div></div>`).join('')}
-  </div></div></div>`;}
+    <h1 style="font-size:22px">Avisos del club</h1></div></div>
+  <div class="pad"><div class="card">
+    ${lista.length ? lista.map((f,k)=>`<div class="item" style="${nuevos[k]?'background:var(--tint);border-radius:12px;padding:12px 10px':''}">
+        <div class="ico">${ico(f.ic)}</div><div style="flex:1;min-width:0">
+        <div style="font-weight:700;font-size:14px">${esc(f.titulo)}</div>
+        ${f.detalle?`<div class="dim" style="font-size:12px">${esc(f.detalle)}</div>`:''}
+        <div class="dim2" style="font-size:11px;margin-top:2px">${esc(f.por||'')}${f.creado?' · '+hace(f.creado):''}${nuevos[k]?' · nuevo':''}</div></div></div>`).join('')
+      : `<div class="dim" style="font-size:13px">${CLUB_VIVO.desde
+           ? 'El club no publicó avisos.' : 'Todavía no se pudieron traer los avisos del club.'}</div>`}
+  </div>
+  <div class="dim2" style="font-size:11px;margin:0 4px 24px;line-height:1.5">Son los que publica la comisión,
+    y se ven al abrir la app. Que suene el teléfono cuando llega uno todavía no está hecho.</div>
+  </div></div>`;
+}
 
 /* ---------- LA TARJETA COMPLETA ----------
    Si la digital reemplaza al papel, tiene que decir exactamente lo mismo:
@@ -3571,7 +3821,7 @@ function tablaTarjeta(desde,hasta,rot){
     </tbody></table>`;
 }
 function vTarjeta(){
-  const g=GROUP(), mio=g[S.meMarca], suyo=g[S.marco];
+  const mio = marcador(), suyo = marcado();
   const p=played(), t=total();
   return `<div class="fade">
   <div class="hdr"><div class="row"><button class="arrow" onclick="go('play')">‹</button>
@@ -3582,16 +3832,16 @@ function vTarjeta(){
     <div class="card" style="padding:14px">
       <div class="grid2" style="gap:14px">
         ${[['Jugador',esc(yoNombre())],['Fecha',fechaTarjeta()],
-           ['Salida',tee().n],['Handicap','index '+verIndex(S.user.hcp)+' · cancha '+verHcp(hcpCancha(S.user.hcp))],
+           ['Salida',tee().n],['Handicap','index '+verIndex(S.user.hcp)+' · cancha '+verHcp(hcpJuego())],
            ['Rating / Slope',ratingTxt(tee(), S.vuelta)],['Recorrido',S.vuelta+' hoyos · par '+
              (S.vuelta===9?par9():parTotal())]].map(([l,v])=>
           `<div><div class="lbl">${l}</div><div style="font-weight:700;font-size:13px">${v}</div></div>`).join('')}
       </div>
       ${S.torneo?`<div class="sep"></div>
       <div class="between"><div><div class="lbl">Marcador</div>
-        <div style="font-weight:700;font-size:13px">${mio.n}</div></div>
+        <div style="font-weight:700;font-size:13px">${esc(mio.n)}${deEjemplo(mio)}</div></div>
         <div style="text-align:right"><div class="lbl">Vos marcás a</div>
-        <div style="font-weight:700;font-size:13px">${suyo.n}</div></div></div>`:''}
+        <div style="font-weight:700;font-size:13px">${esc(suyo.n)}${deEjemplo(suyo)}</div></div></div>`:''}
     </div>
 
     <h3>Ida — ${teeDelHoyo(1)}</h3>
@@ -3607,23 +3857,25 @@ function vTarjeta(){
         <div style="text-align:center"><div class="lbl">Al par</div>
           <div class="big ${toPar()<=0?'acc':''}">${p.length?fmtPar(toPar()):'–'}</div></div>
         <div style="text-align:right"><div class="lbl">Neto</div>
-          <div class="big">${t && hcpJuego()!=null ? t-hcpJuego() : '–'}</div></div>
+          <div class="big">${t && hcpJuego()!=null && p.length===S.vuelta ? t-hcpJuego() : '–'}</div></div>
       </div>
       <div class="dim2" style="font-size:11px;margin-top:9px">
         ${p.length} de ${S.vuelta} hoyos jugados.${
-          hcpJuego()==null ? ' Sin index cargado no hay neto: es sólo tu gross.' : ''}</div>
+          hcpJuego()==null ? ' Sin index cargado no hay neto: es sólo tu gross.'
+          : p.length<S.vuelta ? ' El neto se calcula con la vuelta completa.' : ''}</div>
     </div>
 
     ${S.torneo?`
     <div class="card" style="margin-bottom:24px"><h3>Firmas</h3>
       <div class="between" style="padding:10px 0;border-bottom:1px solid var(--hair)">
-        <span style="font-size:13px;font-weight:600">Marcador · ${mio.n}</span>
-        <span class="pill ${S.certifico?'':'gold'}">${S.certifico?'Firmada':'Pendiente'}</span></div>
+        <span style="font-size:13px;font-weight:600">Marcador · ${esc(mio.n)}${deEjemplo(mio)}</span>
+        <span class="pill gold">Firma en su teléfono</span></div>
       <div class="between" style="padding:10px 0">
         <span style="font-size:13px;font-weight:600">Jugador · ${esc(yoNombre())}</span>
         <span class="pill ${S.certifico?'':'gold'}">${S.certifico?'Certificada':'Pendiente'}</span></div>
       <div class="dim2" style="font-size:11px;margin-top:9px">
-        Se firma al terminar, desde Cerrar la tarjeta.</div>
+        Vos certificás al terminar, desde Cerrar y firmar la tarjeta. La firma de tu marcador
+        queda en su teléfono: todavía no viaja.</div>
     </div>`:`
     <div class="card" style="margin-bottom:24px">
       <div class="dim" style="font-size:13px">Ronda de práctica: no lleva firmas ni se entrega.</div>
@@ -3642,6 +3894,7 @@ function vCargaAAG(){
   <div class="hdr"><div class="row"><button class="arrow" onclick="go('dash')">‹</button>
     <div><div class="lbl">${CLUB.federacion}</div><h1 style="font-size:22px">Pasar a la federación</h1></div></div></div>
   <div class="pad">
+    ${cartelEjemplo('Pasar a la federación · de ejemplo', 'Las tarjetas y las matrículas de esta pantalla son de ejemplo: las de verdad van a llegar cuando la entrega de la tarjeta esté conectada.')}
 
     <div class="card" style="background:linear-gradient(135deg,var(--tint),var(--card));border-color:var(--acc2)">
       <div class="between">
@@ -3675,7 +3928,7 @@ function vCargaAAG(){
               <span class="mono" style="font-weight:700;font-size:13px">${v}</span></div>`).join('')}
         </div>
         <div class="grid2" style="margin-top:11px">
-          <button class="chip" onclick="toast('Datos copiados · pegalos en la AAG')">Copiar datos</button>
+          <button class="chip" onclick="dibujo('copiar los datos para la federación')">Copiar datos</button>
           <button class="btn sm" onclick="yaCargada(${PARA_AAG.indexOf(t)})">Ya la cargué</button>
         </div>
       </div>`}).join('')
@@ -3688,7 +3941,7 @@ function vCargaAAG(){
     <div class="card"><h3>Para hacerlo más rápido</h3>
       <div class="dim" style="font-size:12px;margin-bottom:11px">
         Si la federación acepta importar una planilla, se sube todo junto en vez de una por una.</div>
-      <button class="btn ghost sm" onclick="toast('Planilla generada con las ' + PARA_AAG.filter(t=>!t.cargada).length + ' pendientes')">
+      <button class="btn ghost sm" onclick="dibujo('bajar la planilla para la federación')">
         Bajar planilla de la fecha</button>
       <div class="dim2" style="font-size:11px;margin-top:10px">
         Lo ideal sería que la app las mande sola. Eso depende de que la AAG habilite el acceso:
@@ -3781,7 +4034,7 @@ function vArranque(){
     <div class="card" style="background:linear-gradient(135deg,var(--tint),var(--card));border-color:var(--acc2)">
       <div class="between">
         <div><div class="lbl">${CLUB.torneo.n} · tu salida</div>
-          <div style="font-weight:800;font-size:20px">12:20</div>
+          <div style="font-weight:800;font-size:16px">El horario lo da el club</div>
           <div class="dim" style="font-size:12px">Tee 1 · ${tee().n.toLowerCase()} · ${S.vuelta} hoyos</div></div>
         <div class="ico" style="width:44px;height:44px;font-size:20px">${ico('🏆')}</div>
       </div>
@@ -3791,7 +4044,8 @@ function vArranque(){
     <h3>Tu grupo</h3>
     <div class="card" style="padding:12px">
       <div class="dim" style="font-size:12px;margin-bottom:10px">
-        Sale de la grilla que armó el club. No cargás a nadie a mano.</div>
+        <b>Grupo de ejemplo.</b> El de verdad sale de la ronda compartida: armala abajo y
+        los demás entran con el código.</div>
       ${g.map((p,k)=>`<div class="item" style="padding:10px 0">
         <div class="avatar">${esc(p.i)}</div>
         <div style="flex:1;min-width:0"><div style="font-weight:700;font-size:14px">${esc(p.n)}${p.yo?' <span class="dim2" style="font-weight:500">· vos</span>':''}</div>
@@ -3815,14 +4069,15 @@ function vArranque(){
         `<button class="chip ${S.marco===k+1?'on':''}" style="padding:11px 3px;font-size:11px"
           onclick="S.marco=${k+1};render()">${p.n}</button>`).join('')}</div>
       <div class="dim2" style="font-size:11px;margin-top:10px">
-        Cuando lo elegís, en el celular del otro aparece igual. Nadie escribe DNI ni matrícula.</div>
+        Con el grupo de ejemplo esto queda en tu teléfono: nadie más lo ve.</div>
     </div>`}
 
     ${tarjetaGrupo()}
 
     ${bloqueSalir('Empezar el torneo')}
     <div class="dim2" style="font-size:11px;text-align:center;margin:10px 0 24px">
-      Al terminar, las tarjetas firmadas le llegan solas a ${CLUB.pro.n}.</div>`}
+      Al terminar, las firmás en este teléfono. Todavía no le llegan a ${CLUB.pro.n}:
+      la entrega al club no está conectada.</div>`}
   </div></div>`;
 }
 
@@ -3830,8 +4085,15 @@ function vArranque(){
    Regla 3.3b: la tarjeta la anota un marcador y la firman los dos.
    Sin las dos firmas no es válida. Acá se cruzan los dos anotadores
    antes de firmar, que es lo que en papel se descubre tarde. */
+/* LO QUE ANOTÓ MI MARCADOR, de donde esté: con la ronda compartida, en lo que
+   mandó al servidor; sin ella, en `MARCA`. Hasta la v26 la firma miraba sólo
+   `MARCA`, que en la ronda compartida nadie llena: con el nombre de verdad del
+   marcador decía "Ana todavía no anotó nada tuyo" mientras Jugar avisaba "No
+   coinciden en el hoyo 1", y dejaba certificar con el cruce abierto (revisión
+   adversaria de la v26). */
+const marcaDe = h => RONDA ? (loQueDiceMiMarcador(h) || {}).golpes : MARCA[h];
 function difs(){
-  return played().filter(h => MARCA[h]!==undefined && MARCA[h]!==R.scores[h]);
+  return played().filter(h => marcaDe(h)!==undefined && marcaDe(h)!==R.scores[h]);
 }
 /* VACÍO NO ES "COINCIDE".
    `MARCA` guarda lo que el marcador anotó de mí. Mientras no haya anotado
@@ -3844,27 +4106,29 @@ function difs(){
    que en papel termina en descalificación.
    Mientras el cruce de verdad viva en la ronda compartida, acá se dice la
    verdad: que todavía no hay nada del otro lado. */
-const hayMarca = () => played().some(h => MARCA[h] !== undefined);
+const hayMarca = () => played().some(h => marcaDe(h) !== undefined);
 function vFirma(){
-  const g = GROUP(), mio = g[S.meMarca], suyo = g[S.marco];
+  const mio = marcador(), suyo = marcado();
   const d = difs(), p = played();
   return `<div class="fade">
   <div class="hdr"><div class="row"><button class="arrow" onclick="go('play')">‹</button>
     <div><div class="lbl">${CLUB.corto} · ${p.length} hoyos</div><h1 style="font-size:22px">Cerrar la tarjeta</h1></div></div></div>
   <div class="pad">
+    ${mio.ejemplo ? cartelEjemplo('Sin la ronda del grupo', 'Tu marcador y el jugador que marcás son de ejemplo: lo que se firma acá queda sólo en este teléfono. Para cruzar la tarjeta de verdad, jugá con la ronda compartida.') : ''}
 
-    <h3>1 · Tu tarjeta, la que anotó ${mio.n}</h3>
+    <h3>1 · Tu tarjeta, la que anotó ${esc(mio.n)}</h3>
     <div class="card" style="padding:12px">
       <table><thead><tr><th style="text-align:left">H</th>
         ${p.map(h=>`<th>${h}</th>`).join('')}<th>TOT</th></tr></thead><tbody>
         <tr><td class="name dim2" style="font-size:11px">PAR</td>
           ${p.map(h=>`<td class="dim2">${par(h)}</td>`).join('')}
           <td class="dim2">${p.reduce((a,h)=>a+par(h),0)}</td></tr>
-        <tr><td class="name">${mio.i} anotó</td>
-          ${p.map(h=>`<td><span class="sq ${MARCA[h]!==undefined?scoreClass(MARCA[h],par(h)):''}">${MARCA[h]??'–'}</span></td>`).join('')}
-          <td style="font-weight:800">${hayMarca()?p.reduce((a,h)=>a+(MARCA[h]??R.scores[h]),0):'–'}</td></tr>
+        <tr><td class="name">${esc(mio.i)} anotó</td>
+          ${p.map(h=>{ const m = marcaDe(h);
+            return `<td><span class="sq ${m!==undefined?scoreClass(m,par(h)):''}">${m!==undefined?esc(m):'–'}</span></td>`; }).join('')}
+          <td style="font-weight:800">${p.length && p.every(h=>marcaDe(h)!==undefined) ? p.reduce((a,h)=>a+marcaDe(h),0) : '–'}</td></tr>
         <tr><td class="name dim2" style="font-size:11px">tus golpes</td>
-          ${p.map(h=>`<td class="${MARCA[h]!==undefined&&MARCA[h]!==R.scores[h]?'red':'dim2'}">${R.scores[h]}</td>`).join('')}
+          ${p.map(h=>`<td class="${marcaDe(h)!==undefined&&marcaDe(h)!==R.scores[h]?'red':'dim2'}">${R.scores[h]}</td>`).join('')}
           <td class="dim2">${total()}</td></tr>
       </tbody></table>
 
@@ -3872,12 +4136,12 @@ function vFirma(){
       <div style="background:var(--malBg);border:1px solid var(--malLn);border-radius:12px;padding:12px;margin-top:12px">
         <div style="font-weight:700;font-size:13px" class="red">No coincide en ${d.length} hoyo${d.length>1?'s':''}</div>
         <div class="dim" style="font-size:11px;margin-bottom:8px">
-          Resolvelo con ${mio.n} antes de certificar. En papel esto termina en descalificación.</div>
+          Resolvelo con ${esc(mio.n)} antes de certificar. En papel esto termina en descalificación.</div>
         ${d.map(h=>`<div class="between" style="padding:8px 0;border-top:1px solid var(--hair)">
           <span style="font-weight:700;font-size:13px">Hoyo ${h}</span>
           <div style="display:flex;gap:7px">
             <button class="chip" style="padding:7px 11px" onclick="resolver(${h},${R.scores[h]})">Van ${R.scores[h]}</button>
-            <button class="chip" style="padding:7px 11px" onclick="resolver(${h},${MARCA[h]})">Van ${MARCA[h]}</button>
+            <button class="chip" style="padding:7px 11px" onclick="resolver(${h},${+marcaDe(h)})">Van ${esc(marcaDe(h))}</button>
           </div></div>`).join('')}
       </div>`:!hayMarca()?`
       <div class="row" style="background:var(--ojoBg);border:1px solid var(--ojoLn);border-radius:11px;padding:10px 12px;margin-top:12px">
@@ -3887,7 +4151,9 @@ function vFirma(){
       </div>`:`
       <div class="row" style="background:var(--tint);border-radius:11px;padding:10px 12px;margin-top:12px">
         <div class="ico" style="width:30px;height:30px;font-size:14px">${ico('✅')}</div>
-        <div class="dim" style="font-size:12px">Lo que anotó ${mio.i} coincide con tus golpes en los ${p.length} hoyos.</div>
+        <div class="dim" style="font-size:12px">${(() => { const n = p.filter(h => marcaDe(h) !== undefined).length;
+          return n === p.length ? `Lo que anotó ${esc(mio.n)} coincide con tus golpes en los ${p.length} hoyos.`
+            : `Coincide en los ${n} hoyo${n===1?'':'s'} que anotó ${esc(mio.n)}. Le falta${p.length-n===1?'':'n'} ${p.length-n}: cruzalos antes de firmar.`; })()}</div>
       </div>`}
 
       ${S.presento===false?`
@@ -3904,22 +4170,22 @@ function vFirma(){
       <button class="btn sm" style="margin-top:12px" onclick="certificar()">Certificar y presentar</button>
       <button class="btn ghost sm" style="margin-top:8px" onclick="noPresentar()">No presentar mi tarjeta</button>
       <div class="dim2" style="font-size:11px;margin-top:9px">
-        Podés no presentarla, como en papel. La que llevás vos de ${suyo.n} se entrega igual.</div>`}
+        Podés no presentarla, como en papel. La que llevás vos de ${esc(suyo.n)} se entrega igual.</div>`}
     </div>
 
-    <h3>2 · La tarjeta de ${suyo.n}, que llevaste vos</h3>
+    <h3>2 · La tarjeta de ${esc(suyo.n)}, que llevaste vos</h3>
     <div class="card" style="padding:12px">
       <table><thead><tr><th style="text-align:left">H</th>
         ${p.map(h=>`<th>${h}</th>`).join('')}<th>TOT</th></tr></thead><tbody>
         <tr><td class="name dim2" style="font-size:11px">PAR</td>
           ${p.map(h=>`<td class="dim2">${par(h)}</td>`).join('')}
           <td class="dim2">${p.reduce((a,h)=>a+par(h),0)}</td></tr>
-        <tr><td class="name">${suyo.i}</td>
-          ${p.map(h=>`<td><span class="sq ${scoreClass(OTRO[h]??par(h),par(h))}">${OTRO[h]??'–'}</span></td>`).join('')}
-          <td style="font-weight:800">${p.reduce((a,h)=>a+(OTRO[h]??0),0)}</td></tr>
+        <tr><td class="name">${esc(suyo.i)}</td>
+          ${p.map(h=>`<td><span class="sq ${OTRO[h]!=null?scoreClass(OTRO[h],par(h)):''}">${OTRO[h]??'–'}</span></td>`).join('')}
+          <td style="font-weight:800">${p.length && p.every(h=>OTRO[h]!=null) ? p.reduce((a,h)=>a+OTRO[h],0) : '–'}</td></tr>
       </tbody></table>
       <div class="dim2" style="font-size:11px;margin-top:9px">
-        Él la está certificando en su celular. Vos la firmás como marcador.</div>
+        La suya la certifica él en su teléfono, y desde acá no se ve. Vos la firmás como marcador.</div>
       <button class="btn ${S.firmoLaOtra?'ghost':''} sm" style="margin-top:11px" onclick="firmarLaOtra()">
         ${S.firmoLaOtra?'✓ Firmada como marcador':'Firmar como marcador'}</button>
     </div>
@@ -3929,28 +4195,28 @@ function vFirma(){
       <div class="between" style="padding:10px 0;border-bottom:1px solid var(--hair)">
         <div style="min-width:0"><div style="font-size:13px;font-weight:700">Tu tarjeta</div>
           <div class="dim2" style="font-size:11px">${S.presento===false?'Queda para vos, no va al club'
-            :(S.certifico?'Certificada por vos y firmada por '+mio.i:'Falta certificar')}</div></div>
+            :(S.certifico?'Certificada por vos · la firma de tu marcador queda en su teléfono':'Falta certificar')}</div></div>
         <span class="pill ${S.presento===false?'red':(S.certifico?'':'gold')}">
           ${S.presento===false?'No presenta':(S.certifico?'Se entrega':'Falta')}</span>
       </div>
       <div class="between" style="padding:10px 0">
-        <div style="min-width:0"><div style="font-size:13px;font-weight:700">La tarjeta de ${suyo.n}</div>
+        <div style="min-width:0"><div style="font-size:13px;font-weight:700">La tarjeta de ${esc(suyo.n)}</div>
           <div class="dim2" style="font-size:11px">${S.firmoLaOtra?'Firmada por vos como marcador':'Falta que la firmes'}</div></div>
         <span class="pill ${S.firmoLaOtra?'':'gold'}">${S.firmoLaOtra?'Se entrega':'Falta'}</span>
       </div>
       ${((S.certifico||S.presento===false)&&S.firmoLaOtra)?`
       <button class="btn" style="margin-top:12px" onclick="entregar()">
-        ${S.presento===false?'Entregar solo la de '+suyo.n:'Entregar las dos tarjetas'}</button>
+        ${S.presento===false?'Entregar solo la de '+esc(suyo.n):'Entregar las dos tarjetas'}</button>
       <div class="dim2" style="font-size:11px;margin-top:9px">
         ${/* Decía "le llegan a Félix al toque, sin caminar hasta la secretaría", y
              la entrega al club no está construida: era el cartel que dice que
              salió algo que no salió. Lo vio la revisión de la v25. */
           S.presento===false
-          ? `La de ${suyo.n} queda cerrada en Mis rondas, con el aviso de que vos no presentaste. Todavía no le llega a ${CLUB.pro.n}: la entrega al club no está conectada.`
+          ? `La de ${esc(suyo.n)} queda cerrada en Mis rondas, con el aviso de que vos no presentaste. Todavía no le llega a ${CLUB.pro.n}: la entrega al club no está conectada.`
           : `Quedan cerradas en Mis rondas. Todavía no le llegan a ${CLUB.pro.n}: la entrega al club no está conectada.`}
         Una vez entregadas no se modifican.</div>`
       :`<div class="dim" style="font-size:13px;margin-top:11px;text-align:center">
-        ${!S.firmoLaOtra?'Falta que firmes la tarjeta de '+suyo.n+'. Esa se entrega sí o sí.'
+        ${!S.firmoLaOtra?'Falta que firmes la tarjeta de '+esc(suyo.n)+'. Esa se entrega sí o sí.'
           :'Decidí qué hacés con la tuya.'}</div>`}
     </div>
   </div></div>`;
@@ -3998,7 +4264,7 @@ function vSummary(){
       <div class="pill" style="font-size:14px;padding:6px 16px">${fmtPar(tp)} al par · ${p.length} hoyos</div>
       <div class="sep"></div>
       <div class="between"><div><div class="lbl">Handicap</div>
-        <div style="font-weight:800;font-size:18px">${verIndex(S.user.hcp)} · cancha ${verHcp(hcpCancha(S.user.hcp))}</div></div>
+        <div style="font-weight:800;font-size:18px">${verIndex(S.user.hcp)} · cancha ${verHcp(hcpJuego())}</div></div>
         <div style="text-align:right"><div class="lbl">Stableford</div>
         <div style="font-weight:800;font-size:18px">${stb == null ? '–' : stb + ' pts'}</div></div></div>
     </div>
@@ -4024,13 +4290,20 @@ function vSummary(){
     ${(()=>{const all=[].concat(...Object.values(R.shots));
       if(!all.length)return '';
       const by={};all.forEach(s=>{(by[s.c]=by[s.c]||[]).push(s.d)});
+      /* A la bolsa entra sólo lo MEDIDO, y nunca el putter (`cerrarGolpeAbierto`).
+         Decía "estos N golpes ya se sumaron" contando todos, y los sin medir
+         salían como huecos en la lista. */
+      const aLaBolsa = all.filter(s => s.d != null && !(palo(s.c)||{}).putter).length;
       return `<div class="card"><h3>Lo que cargaste esta ronda</h3>
-        ${Object.entries(by).map(([c,ds])=>
-          `<div class="between" style="padding:8px 0;border-bottom:1px solid var(--hair)">
-            <span style="font-weight:700">${c} <span class="dim2" style="font-weight:500;font-size:12px">×${ds.length}</span></span>
-            <span class="mono dim" style="font-size:13px">${ds.join(' · ')} yds</span></div>`).join('')}
+        ${Object.entries(by).map(([c,ds])=>{ const med = ds.filter(d => d != null);
+          return `<div class="between" style="padding:8px 0;border-bottom:1px solid var(--hair)">
+            <span style="font-weight:700">${esc(etiq(palo(c)))} <span class="dim2" style="font-weight:500;font-size:12px">×${ds.length}</span></span>
+            <span class="mono dim" style="font-size:13px">${med.length ? med.join(' · ') + ' yds' : ''}${med.length < ds.length
+              ? (med.length ? ' · ' : '') + (ds.length - med.length) + ' sin medir' : ''}</span></div>`; }).join('')}
         <div class="dim" style="font-size:12px;margin-top:10px">
-          Estos ${all.length} golpes ya se sumaron a las medias de tu bolsa.</div>
+          ${aLaBolsa ? (aLaBolsa === 1 ? 'El golpe medido ya se sumó' : `Los ${aLaBolsa} golpes medidos ya se sumaron`)
+            + ' a las medias de tu bolsa. Los del putter y los que no se pudieron medir no cuentan.'
+            : 'Ninguno se pudo medir —hace falta GPS al pegar y al llegar a la bola—, así que tu bolsa no cambió.'}</div>
         <button class="btn ghost sm" style="margin-top:10px" onclick="go('bag')">Ver mi bolsa</button>
       </div>`})()}
 
@@ -4132,12 +4405,13 @@ function vOnboard(){
 
     return `<div class="fade">${paso(1,'Verificamos que sos vos')}
     <div class="pad">
-    <p>Buscamos tu DNI en el padrón y te mandamos un código <b>al contacto que el club ya tiene</b>.
+    ${cartelAlta()}
+    <p>${ALTA_DE_PRUEBA ? 'Así va a funcionar: buscamos' : 'Buscamos'} tu DNI en el padrón y te mandamos un código <b>al contacto que el club ya tiene</b>.
     Así nadie puede anotarse con el DNI de otro.</p>
 
     <div class="card">
       <div class="lbl">Tu DNI</div>
-      <input value="${S.dni||''}" placeholder="30123456" inputmode="numeric" oninput="S.dni=this.value"
+      <input value="${esc(S.dni||'')}" placeholder="30123456" inputmode="numeric" oninput="S.dni=this.value"
         ${est&&est!=='nopadron'?'disabled':''}
         style="width:100%;margin-top:7px;padding:15px;border-radius:12px;background:var(--nav);
         border:1px solid ${(est==='usado'||est==='nopadron'||est==='sincontacto')?'var(--gold)':'var(--line)'};
@@ -4149,20 +4423,22 @@ function vOnboard(){
       ${est==='codigo'?`
       <div class="sep"></div>
       <div class="row" style="margin-bottom:12px"><div class="ico">${ico('📩')}</div>
-        <div style="min-width:0"><div style="font-weight:700;font-size:13px">Te mandamos un código</div>
-        <div class="dim" style="font-size:12px">A ${p.mail?tapar(p.mail):taparTel(p.tel)}, el contacto
-        que ${CLUB.corto} tiene registrado.</div></div></div>
-      <input value="${S.codigo||''}" placeholder="• • • • • •" inputmode="numeric" oninput="S.codigo=this.value"
+        <div style="min-width:0"><div style="font-weight:700;font-size:13px">${ALTA_DE_PRUEBA
+          ? 'Así se vería el código' : 'Te mandamos un código'}</div>
+        <div class="dim" style="font-size:12px">${ALTA_DE_PRUEBA
+          ? `Le llegaría al contacto que ${CLUB.corto} tiene registrado. Hoy no se manda nada: poné seis números cualquiera.`
+          : `A ${p.mail?tapar(p.mail):taparTel(p.tel)}, el contacto que ${CLUB.corto} tiene registrado.`}</div></div></div>
+      <input value="${esc(S.codigo||'')}" placeholder="• • • • • •" inputmode="numeric" oninput="S.codigo=this.value"
         style="width:100%;padding:15px;border-radius:12px;background:var(--nav);border:1px solid var(--line);
         color:var(--txt);font-family:inherit;font-size:22px;font-weight:800;letter-spacing:.35em;text-align:center">
       <button class="btn sm" style="margin-top:12px" onclick="verificarCodigo()">Verificar</button>
       <div class="grid2" style="margin-top:8px">
-        <button class="btn ghost sm" onclick="toast('Código reenviado')">Reenviar</button>
+        <button class="btn ghost sm" onclick="dibujo('reenviar el código')">Reenviar</button>
         <button class="btn ghost sm" onclick="reiniciarBusqueda()">Cambiar el DNI</button>
       </div>
       <div class="dim2" style="font-size:11px;margin-top:10px">
         ¿No te llega? Puede que el club tenga otro mail tuyo.
-        <a href="#" onclick="S.padronEstado='sincontacto';render();return false"
+        <a href="#" onclick="${ALTA_DE_PRUEBA ? "dibujo('pedirle al club que te habilite')" : "S.padronEstado='sincontacto';render()"};return false"
            style="color:var(--acc);display:inline-block;padding:12px 2px;font-size:13px;font-weight:700">Pedir habilitación</a></div>`:''}
 
       ${est==='verificado'? (p.deMentira ? `
@@ -4174,7 +4450,7 @@ function vOnboard(){
           quién sos. Escribí tu nombre y seguimos: es sólo para que veas el tuyo
           mientras probás.</div>
       </div>
-      <input value="${S.nombrePrueba||''}" placeholder="Nombre y apellido"
+      <input value="${esc(S.nombrePrueba||'')}" placeholder="Nombre y apellido"
         oninput="S.nombrePrueba=this.value"
         style="width:100%;margin-top:11px;padding:14px;border-radius:12px;background:var(--nav);
         border:1px solid var(--line);color:var(--txt);font-family:inherit;font-size:15px">
@@ -4185,7 +4461,8 @@ function vOnboard(){
         <div class="avatar">${p.n.split(' ').map(x=>x[0]).join('').slice(0,2)}</div>
         <div style="min-width:0"><div style="font-weight:800">${p.n}</div>
         <div class="dim" style="font-size:12px">Socio #${p.socio} · alta ${p.alta}</div>
-        <div class="acc" style="font-size:11px;font-weight:700">✓ Identidad verificada</div></div>
+        <div class="${ALTA_DE_PRUEBA?'gold':'acc'}" style="font-size:11px;font-weight:700">${ALTA_DE_PRUEBA
+          ? 'Socio de prueba · todavía no se verifica nada' : '✓ Identidad verificada'}</div></div>
       </div>
       <button class="btn sm" style="margin-top:12px" onclick="S.onb=3;render()">Continuar</button>`):''}
 
@@ -4194,15 +4471,15 @@ function vOnboard(){
       ${aviso('🔒','Ese DNI ya tiene cuenta',`Está registrado con <b>${p.cuenta}</b>. Cada socio tiene una sola cuenta.`)}
       <button class="btn sm" style="margin-top:11px" onclick="skipOnb()">Entrar con esa cuenta</button>
       <div class="grid2" style="margin-top:8px">
-        <button class="btn ghost sm" onclick="toast('Te mandamos un link a ${p.cuenta}')">Olvidé la clave</button>
-        <button class="btn ghost sm" onclick="toast('Aviso enviado al club · lo revisan y te contactan')">No fui yo</button>
+        <button class="btn ghost sm" onclick="dibujo('recuperar la clave')">Olvidé la clave</button>
+        <button class="btn ghost sm" onclick="dibujo('avisarle al club que no fuiste vos')">No fui yo</button>
       </div>`:''}
 
       ${est==='sincontacto'?`
       <div class="sep"></div>
       ${aviso('📇','El club no tiene tu contacto',`Figurás en el padrón pero sin mail ni teléfono cargado,
         así que no podemos mandarte el código. Te habilita alguien del club.`)}
-      <button class="btn sm" style="margin-top:11px" onclick="toast('Pedido enviado · el club te habilita y te avisa')">
+      <button class="btn sm" style="margin-top:11px" onclick="dibujo('pedirle al club que te habilite')">
         Pedir habilitación</button>
       <button class="btn ghost sm" style="margin-top:8px" onclick="reiniciarBusqueda()">Volver</button>`:''}
 
@@ -4211,7 +4488,7 @@ function vOnboard(){
       ${aviso('🤔','No figurás en el padrón','Puede ser que seas socio nuevo o que el club todavía no te haya cargado.')}
       <div class="grid2" style="margin-top:11px">
         <button class="btn ghost sm" onclick="reiniciarBusqueda()">Corregir</button>
-        <button class="btn sm" onclick="toast('Pedido enviado · el club te habilita y te avisa')">Pedir habilitación</button>
+        <button class="btn sm" onclick="dibujo('pedirle al club que te habilite')">Pedir habilitación</button>
       </div>`:''}
     </div>
 
@@ -4230,7 +4507,8 @@ function vOnboard(){
   if(S.onb===3) return `<div class="fade">${paso(2,'Tu usuario')}
     <div class="pad">
     <p>El usuario es tu email. Con eso recuperás la clave si te la olvidás.</p>
-    ${(S.hallado && S.hallado.mail) ? `
+    ${cartelAlta()}
+    ${(S.hallado && S.hallado.mail && !S.hallado.deMentira) ? `
     <div class="card" style="border-color:var(--acc);padding:13px">
       <div class="row" style="align-items:flex-start"><div class="ico">${ico('✉️')}</div>
       <div style="min-width:0">
@@ -4250,7 +4528,7 @@ function vOnboard(){
       <div class="dim2" style="font-size:11px;margin-bottom:14px">Es lo que ven los del grupo
       en la tarjeta compartida.</div>`}
       <div class="lbl">Email</div>
-      <input value="${S.email||''}" placeholder="nombre@correo.com" inputmode="email" oninput="S.email=this.value"
+      <input value="${esc(S.email||'')}" placeholder="nombre@correo.com" inputmode="email" oninput="S.email=this.value"
         style="width:100%;margin:6px 0 14px;padding:14px;border-radius:12px;background:var(--nav);
         border:1px solid var(--line);color:var(--txt);font-family:inherit;font-size:15px">
       <div class="lbl">Clave</div>
@@ -4273,7 +4551,8 @@ function vOnboard(){
     </div>
     <button class="btn" onclick="crearCuenta()">Crear la cuenta</button>
     <div class="dim2" style="font-size:11px;text-align:center;margin-top:10px">
-      Tu clave se guarda cifrada. El club no la ve ni la puede recuperar, solo restablecerla.</div>
+      ${ALTA_DE_PRUEBA ? 'Mientras el alta no esté conectada, la clave no se guarda en ningún lado.'
+        : 'Tu clave se guarda cifrada. El club no la ve ni la puede recuperar, solo restablecerla.'}</div>
     </div></div>`;
 
   /* ---- 4. handicap ---- */
@@ -4295,11 +4574,11 @@ function vOnboard(){
           onclick="setCat('dam')">Damas</button>
       </div>
       <div class="lbl">Número de matrícula</div>
-      <input value="${S.mat||''}" placeholder="Ej. 123456" inputmode="numeric" oninput="S.mat=this.value"
+      <input value="${esc(S.mat||'')}" placeholder="Ej. 123456" inputmode="numeric" oninput="S.mat=this.value"
         style="width:100%;margin-top:7px;padding:14px;border-radius:12px;background:var(--nav);
         border:1px solid var(--line);color:var(--txt);font-family:inherit;font-size:16px;font-weight:700;letter-spacing:.06em">
       <div class="lbl" style="margin-top:14px">Tu handicap index</div>
-      <input value="${S.hcpIn||''}" placeholder="Ej. 7.4 · los &quot;más&quot; van así: +2.3" inputmode="decimal" oninput="S.hcpIn=this.value"
+      <input value="${esc(S.hcpIn||'')}" placeholder="Ej. 7.4 · los &quot;más&quot; van así: +2.3" inputmode="decimal" oninput="S.hcpIn=this.value"
         style="width:100%;margin-top:7px;padding:14px;border-radius:12px;background:var(--nav);
         border:1px solid var(--line);color:var(--txt);font-family:inherit;font-size:16px;font-weight:700">
       ${S.fedOk?`
@@ -4365,9 +4644,11 @@ function vOnboard(){
     <p style="font-size:15px;margin-bottom:24px">${CLUB.corto} cargado con sus ${CLUB.cancha.hoyosFisicos} hoyos,
     las dos vueltas, las reglas locales y los torneos.</p>
     <div class="card" style="text-align:left">
-      ${[['✅','Cancha descargada','los 9 hoyos, funciona sin señal'],
-         ...(esSocio()?[['✅','Socio verificado','figurás en el padrón del club']]:[]),
-         ['✅','Cuenta creada', S.email||'con tu email'],
+      ${[APP_GUARDADA ? ['✅','Cancha descargada','los 9 hoyos, funciona sin señal']
+                      : ['🕐','Cancha cargada','para usarla sin señal, abrila una vez más con señal'],
+         ...(esSocio()?[ALTA_DE_PRUEBA ? ['🕐','Socio, todavía sin verificar','el alta por DNI no está conectada al padrón']
+                                      : ['✅','Socio verificado','figurás en el padrón del club']]:[]),
+         ['✅','Cuenta creada', ALTA_DE_PRUEBA ? (S.email ? esc(S.email)+' · ' : '')+'en este teléfono' : esc(S.email||'con tu email')],
          ['✅','Bolsa cargada',BAG.filter(b=>b.on).length+' palos listos para medir']].map(([i,t,d])=>
         `<div class="item"><div class="ico">${ico(i)}</div><div><div style="font-weight:700;font-size:14px">${t}</div>
           <div class="dim" style="font-size:12px">${d}</div></div></div>`).join('')}
@@ -4399,7 +4680,7 @@ function vMe(){
       <div class="avatar" style="width:56px;height:56px;font-size:20px">${esc(yoIni())}</div>
       <div style="flex:1;min-width:0"><div style="font-weight:800;font-size:17px">${esc(S.user.name)}</div>
         <div class="dim" style="font-size:13px">${esSocio()
-          ? 'Socio '+(S.nsocio||S.user.socio||'—') : 'Invitado'} · ${S.user.club}</div>
+          ? 'Socio '+esc(S.nsocio||S.user.socio||'—') : 'Invitado'} · ${esc(S.user.club)}</div>
         <div style="margin-top:5px"><span class="pill">Index ${verIndex(S.user.hcp)}</span>
           <span class="pill" style="margin-left:5px">Cancha ${verHcp(hcpCancha(S.user.hcp))}</span></div></div>
       ${crest(46)}
@@ -4440,8 +4721,9 @@ function vMe(){
       <div class="row" style="align-items:flex-start"><div class="ico">${ico('🧪')}</div>
       <div style="min-width:0">
         <div style="font-weight:700;font-size:13px">Estás probando la app</div>
-        <div class="dim" style="font-size:12px">Todo lo que cargues se guarda en este teléfono
-        y no sale a ningún lado: la tarjeta no le llega al club.</div></div></div>
+        <div class="dim" style="font-size:12px">Todo lo que cargues se guarda en este teléfono, y la tarjeta
+        no le llega al club. Lo único que sale es lo de una ronda compartida con tu grupo: tu nombre,
+        tu handicap y lo que anotás, para que lo vean los demás.</div></div></div>
       <button class="btn ghost sm" style="margin-top:11px" onclick="borrarTodoLocal()">
         Borrar todo y empezar de nuevo</button>
     </div>
@@ -4481,16 +4763,16 @@ function vMe(){
 
     <h2>Ajustes</h2>
     <div class="card" style="margin-bottom:24px">
-      ${[['🎒','Mi bolsa',BAG.filter(b=>b.on).length+' palos · '+BAG.reduce((a,b)=>a+b.shots.length,0)+' golpes cargados',"go('bag')"],
+      ${[['🎒','Mi bolsa',BAG.filter(b=>b.on).length+' palos · '+golpesMedidos()+' golpe'+(golpesMedidos()===1?'':'s')+' medido'+(golpesMedidos()===1?'':'s'),"go('bag')"],
          ['🏅','Mi handicap',verIndex(S.user.hcp)+' · sale '+verHcp(hcpCancha(S.user.hcp))+' de '+tee().n.toLowerCase(),"go('handicap')"],
-         ['📏','Unidades','Yardas',"toast('Cambiado a metros')"],
-         ['⌚','Reloj / wearable','Garmin conectado',"toast('Garmin sincronizado')"],
-         ['🔔','Notificaciones','Torneos y tee times',"go('notif')"],
+         ['📏','Unidades','Yardas',"dibujo('cambiar a metros')"],
+         ['⌚','Reloj / wearable','Ninguno conectado · todavía no está hecho',"dibujo('conectar un reloj')"],
+         ['🔔','Avisos del club','Los que publica la comisión',"go('notif')"],
          ['🧪','Modo prueba', (PRUEBA && PRUEBA.abierta) ? 'Grabando ahora'
             : PRUEBA ? 'Hay una prueba guardada' : 'Medir GPS y batería en la cancha', "go('prueba')"],
          ['💾','Copia de seguridad','Guardar todo en un archivo o traerlo de otro teléfono',"go('copia')"],
-         ...(esSocio()?[['💳','Cuota y pagos',`${pesos(cuotaSocio().v)} · del 1 al ${CLUB.cuotas.vence}, ${pesos(cuotaSocio().b)}`,"toast('Cuota al día')"],
-         ['👥','Invitados','2 pases disponibles',"toast('Pase de invitado enviado')"]]:[]),
+         ...(esSocio()?[['💳','Cuota y pagos','Tu estado de cuenta todavía no llega a la app',"dibujo('ver la cuota y los pagos')"],
+         ['👥','Invitados','Pases de invitado · todavía no está hecho',"dibujo('mandar pases de invitado')"]]:[]),
          /* Última a propósito: no es algo que el socio use, es lo primero que
             hay que preguntarle cuando dice "a mí no me anda". */
          ['📱','Versión de la app', versionTxt(), "copiarDiagnostico()"]].map(([i,t,s,f])=>
@@ -4556,7 +4838,7 @@ function vDash(){
     </div>`:''}
 
     ${puede('result')?`
-    <h2>Tarjetas que van llegando</h2>
+    <h2>Tarjetas que van llegando · de ejemplo</h2>
     <div class="card">
       <div class="between" style="margin-bottom:10px">
         <div><div class="lbl">${CLUB.torneo.n}</div>
@@ -4572,19 +4854,19 @@ function vDash(){
             <div class="dim" style="font-size:12px">${sc}</div></div>
           <span class="pill ${c||''}">${est}</span></div>`).join('')}
       <div class="grid2" style="margin-top:11px">
-        <button class="chip" onclick="toast('Tarjeta abierta · podés revisar hoyo por hoyo')">Revisar una</button>
+        <button class="chip" onclick="dibujo('revisar una tarjeta')">Revisar una</button>
         <button class="chip" onclick="dibujo('mandar recordatorios')">Recordar firmas</button>
       </div>
       <button class="btn sm" style="margin-top:11px" onclick="go('cargaaag')">
         Pasar a la federación · ${PARA_AAG.filter(t=>!t.cargada).length} pendientes</button>
       <div class="dim2" style="font-size:11px;margin-top:10px">
-        Ya no hay que juntar papeles: entran solas a medida que los grupos terminan.</div>
+        Así se va a ver: las tarjetas van a entrar solas a medida que los grupos terminan.</div>
     </div>
 
-    <h2>Resultados del torneo</h2>
+    <h2>Resultados del torneo · de ejemplo</h2>
     <div class="card">
       <div class="dim" style="font-size:12px;margin-bottom:11px">
-        Al terminar el torneo cargás el podio y sale la notificación. Reemplaza al grupo de WhatsApp:
+        Así se va a ver: al terminar el torneo se carga el podio y los socios lo ven al abrir la app, sin buscarlo en el grupo de WhatsApp:
         queda guardado, se puede buscar, y cada jugador ve su propia tarjeta.</div>
       <div style="background:var(--nav);border:1px solid var(--line);border-radius:14px;padding:13px">
         <div class="row" style="gap:10px;margin-bottom:8px">${crest(28)}
@@ -4593,7 +4875,7 @@ function vDash(){
         <div style="font-weight:700;font-size:13px">🏆 Resultados del ${CLUB.torneo.n}</div>
         <div class="dim" style="font-size:12px">Ya están publicados. Mirá el podio y tu tarjeta.</div>
       </div>
-      <div class="dim2" style="font-size:11px;margin:9px 0 11px">Así les llega al celular.</div>
+      <div class="dim2" style="font-size:11px;margin:9px 0 11px">Así lo van a ver en la app.</div>
       <div class="grid2">
         <button class="chip" style="padding:13px 6px" onclick="dibujo('cargar el podio')">Cargar podio</button>
         <button class="chip" style="padding:13px 6px" onclick="publicarResultados()">Publicar y avisar</button>
@@ -4612,10 +4894,10 @@ function vDash(){
         Queda fijado en Novedades y lo ve cualquier socio que abra la app.
         Todavía no suena el teléfono: eso es una notificación y no está hecha.</div>
       <div class="grid2">
-        ${[['🚧','Cancha cerrada'],['🌱','Aireación de greens'],
+        ${[['🏆','Inscripción abierta'],['🌱','Aireación de greens'],
            ['💳','Aumento de cuota'],['💰','Cuota extraordinaria'],
            ['🍽️','Evento en el hoyo 19'],['📋','Menú especial']].map(([i2,t2])=>
-          `<button class="chip" style="padding:14px 6px" onclick="avisar('${t2}')">
+          `<button class="chip" style="padding:14px 6px" onclick="avisoRapido('${t2}')">
             <div style="font-size:18px">${i2}</div>${t2}</button>`).join('')}
       </div>
       <div class="lbl" style="margin:15px 0 5px">O escribilo vos</div>
@@ -4663,7 +4945,7 @@ function vDash(){
           onclick="setCancha(false)">Cerrada</button>
       </div>
       <div class="lbl" style="margin:14px 0 5px">Aclaración, si hace falta</div>
-      <input id="notaCancha" value="${esc((CLUB_VIVO.cancha&&CLUB_VIVO.cancha.nota)||'')}"
+      <input id="notaCancha" value="${esc(notaCanchaEditando())}" oninput="notaCanchaTipeada(this.value)"
         placeholder="Ej: aireación de greens hasta el viernes"
         style="width:100%;padding:13px;border-radius:12px;background:var(--nav);
         border:1px solid var(--line);color:var(--txt);font-family:inherit;font-size:14px">
@@ -4675,7 +4957,7 @@ function vDash(){
     </div>`:''}
 
     ${puede('torneos')?`
-    <h2>Torneos</h2>
+    <h2>Torneos · de ejemplo</h2>
     <div class="card">
       <div class="between" style="margin-bottom:10px">
         <div><div class="lbl">${CLUB.torneo.fecha}</div>
@@ -4699,7 +4981,7 @@ function vDash(){
     </div>`:''}
 
     ${puede('cuotas')?`
-    <h2>Cuotas</h2>
+    <h2>Cuotas · de ejemplo</h2>
     <div class="card">
       <div class="dim" style="font-size:12px;margin-bottom:10px">
         Pagando <b style="color:var(--txt)">del 1 al ${CLUB.cuotas.vence}</b> se accede al precio con beneficio.</div>
@@ -4730,17 +5012,17 @@ function vDash(){
       </div>
       <div class="dim2" style="font-size:11px;margin-top:6px">${CLUB.torneoPrecios.nota}</div>
       <div class="dim" style="font-size:12px;margin:11px 0">
-        Los montos se definen en comisión. Los cargás acá y el aviso a los socios sale con los nuevos valores.</div>
+        Así se va a ver: los montos se definen en comisión, se cargan acá y sale un aviso con los valores nuevos. Todavía no está hecho.</div>
       <div class="grid2">
         <button class="chip" style="padding:13px 6px" onclick="dibujo('cambiar la cuota')">Cambiar el monto</button>
         <button class="chip" style="padding:13px 6px" onclick="dibujo('crear una cuota extraordinaria')">Cuota extraordinaria</button>
       </div>
-      <button class="btn sm" style="margin-top:11px" onclick="avisar('Nuevo valor de cuota')">
-        📣 Cargar y avisar en un paso</button>
+      <button class="btn sm" style="margin-top:11px" onclick="dibujo('cargar la cuota nueva y avisar')">
+        Cargar y avisar en un paso</button>
     </div>`:''}
 
     ${puede('padron')?`
-    <h2>Altas y accesos</h2>
+    <h2>Altas y accesos · de ejemplo</h2>
     <div class="card">
       <div class="between" style="margin-bottom:10px">
         <div><div class="lbl">Esperando habilitación</div>
@@ -4750,24 +5032,24 @@ function vDash(){
         <span style="font-size:12px;font-weight:600">Pueden habilitar</span>
         <span class="dim" style="font-size:12px">Quien tenga el permiso de padrón</span>
       </div>
-      ${[['Socio Sin Mail','DNI 20.456.789 · figura en el padrón, sin contacto'],
-         ['Persona Nueva','DNI 41.222.333 · no figura en el padrón']].map(([n,d])=>
+      ${[['Socio Sin Mail','DNI de ejemplo · figura en el padrón, sin contacto'],
+         ['Persona Nueva','DNI de ejemplo · no figura en el padrón']].map(([n,d])=>
         `<div class="item"><div class="ico">${ico('👤')}</div>
           <div style="flex:1;min-width:0"><div style="font-weight:700;font-size:14px">${n}</div>
             <div class="dim" style="font-size:12px">${d}</div></div>
           <div style="display:flex;gap:6px">
             <button class="chip" style="padding:8px 11px" onclick="dibujo('habilitar socios')">✓</button>
-            <button class="chip" style="padding:8px 11px" onclick="toast('Rechazado')">✕</button></div>
+            <button class="chip" style="padding:8px 11px" onclick="dibujo('rechazar pedidos')">✕</button></div>
         </div>`).join('')}
       <div class="sep"></div>
       <div class="lbl" style="margin-bottom:8px">Liberar un DNI</div>
       <div class="dim" style="font-size:12px;margin-bottom:10px">
         Si alguien se registró con el DNI de otro, lo liberás y el titular puede volver a darse de alta.</div>
-      <button class="btn ghost sm" onclick="toast('Buscá el DNI y liberalo')">Buscar y liberar</button>
+      <button class="btn ghost sm" onclick="dibujo('liberar un DNI')">Buscar y liberar</button>
     </div>
 
-    <h2>Padrón</h2>
-    ${kpi([['Socios',CLUB.socios,'padrón activo'],['Cuotas al día','94%','pendientes: 11']])}
+    <h2>Padrón · de ejemplo</h2>
+    ${kpi([['Socios',CLUB.socios,'padrón activo'],['Cuotas al día','94%',Math.round(CLUB.socios*0.06)+' con deuda']])}
     <button class="btn ghost sm" onclick="go('socios')">Ver el padrón</button>
     <div style="height:12px"></div>`:''}
 
@@ -4839,9 +5121,10 @@ function vTees(){return `<div class="fade">
   <div class="hdr"><div><div class="lbl">Panel</div><h1>Tee sheet</h1></div>
     <button class="chip" onclick="S.mode='player';S.tab='home';render()">Salir</button></div>
   <div class="pad">
+    ${cartelEjemplo('Tee sheet · de ejemplo', 'Así se van a ver las salidas del día: los horarios, los grupos y las multas todavía son de ejemplo.')}
     <div class="card" style="padding:12px">
       <table><thead><tr><th style="text-align:left">Hora</th><th style="text-align:left">Jugadores</th><th>Carro</th><th>Estado</th></tr></thead><tbody>
-      ${[['07:00','Pérez, Sosa, Molina, Rey','2','Salió'],['07:10','Domina +2','1','Salió'],
+      ${[['07:00','Pérez, Sosa, Molina, Rey','2','Salió'],['07:10','Socio +2','1','Salió'],
          ['07:20','Torneo — grupo A','4','Salió'],['07:30','Libre','–','—'],
          ['07:40','Gutiérrez +1','1','Check-in'],['07:50','Invitados (3)','2','Pendiente'],
          ['08:00','Comisión','4','Pendiente'],['08:10','Libre','–','—']].map(([h,j,c,e])=>
@@ -4863,6 +5146,7 @@ function vSocios(){return `<div class="fade">
   <div class="hdr"><div><div class="lbl">Panel</div><h1>Socios</h1></div>
     <button class="chip" onclick="S.mode='player';S.tab='home';render()">Salir</button></div>
   <div class="pad">
+    ${cartelEjemplo('Socios · de ejemplo', 'El padrón de verdad todavía no se carga en la app: los números de esta pantalla son de ejemplo.')}
     ${/* Esta pantalla todavía es un dibujo: el padrón de verdad vive en
          `padron.sql` y no está enchufado. Pero los números salen de
          `CLUB.socios` y no escritos a mano, porque decían 412 socios en un
@@ -4897,6 +5181,7 @@ function vTorneo(){return `<div class="fade">
   <div class="hdr"><div><div class="lbl">Panel</div><h1>Torneos</h1></div>
     <button class="chip" onclick="S.mode='player';S.tab='home';render()">Salir</button></div>
   <div class="pad">
+    ${cartelEjemplo('Torneos · de ejemplo', 'Los inscriptos, la recaudación y los lugares todavía son de ejemplo, y los botones no hacen nada.')}
     <div class="card"><h3>${CLUB.torneo.n} · ${CLUB.torneo.fecha}</h3>
       ${/* Decía 53 de 64 y $954k escritos a mano, mientras el Panel —leyendo
            `CLUB.torneo`— decía 34 de 52 para el mismo torneo. Y 954k entre 53
@@ -4909,7 +5194,7 @@ function vTorneo(){return `<div class="fade">
           <div class="big acc">${pesos(CLUB.torneo.inscriptos * CLUB.torneoPrecios.normal)}</div></div>
       </div>
       <div class="bar"><i style="width:${Math.round(100*CLUB.torneo.inscriptos/CLUB.torneo.cupo)}%"></i></div>
-      <div class="dim" style="font-size:12px;margin-top:7px">${CLUB.torneo.inscriptos} de ${CLUB.torneo.cupo} lugares · cierra el ${fechaBarra(enDias(5))}</div>
+      <div class="dim" style="font-size:12px;margin-top:7px">${CLUB.torneo.inscriptos} de ${CLUB.torneo.cupo} lugares · cierra el ${fechaBarra(cierreSabado())}</div>
       <div class="grid2" style="margin-top:12px">
         <button class="chip" onclick="dibujo('generar las salidas')">Generar salidas</button>
         <button class="chip" onclick="dibujo('mandar recordatorios')">Recordar a socios</button>
@@ -4976,7 +5261,12 @@ function setTee(id){S.tee=id;render();
   toast(homologada(tee())
     ? `${tee().n} · ${totalYds()} yds · rating ${tee().r} slope ${tee().s}`
     : `${tee().n} · ${totalYds()} yds · sin homologar: handicap de ${teeDelHcp(tee()).n.toLowerCase()}`);}
-function setVuelta(v){S.vuelta=v;if(S.hole>v)S.hole=v;render();
+function setVuelta(v){
+  /* Con hoyos de la vuelta ya anotados no se pasa a 9: la tarjeta escondía la
+     vuelta, decía "18 de 9 hoyos jugados" y el stableford salía con el
+     handicap de 9 sobre 18 hoyos (revisión adversaria de la v26). */
+  if(v === 9 && played().some(h => h > 9)){ toast('Ya anotaste hoyos de la vuelta: esta tarjeta es de 18'); return; }
+  S.vuelta=v;if(S.hole>v)S.hole=v;render();
   toast(v===9?'Recorrido de 9 hoyos (una vuelta)':'Recorrido de 18 hoyos (dos vueltas)');}
 function setScore(v){R.scores[S.hole]=v;
   const d=v-par(S.hole);
@@ -4984,7 +5274,7 @@ function setScore(v){R.scores[S.hole]=v;
   render();}
 function setPutt(v){R.putts[S.hole]=v;render();}
 function setOtro(v){ OTRO[S.hole]=v; render();
-  toast(`${GROUP()[S.marco].n}: ${v} en el hoyo ${S.hole}`); }
+  toast(`${marcado().n}: ${v} en el hoyo ${S.hole}`); }
 function tg(k){R[k][S.hole]=!R[k][S.hole];render();}   // sólo lo usa el GIR
 function yaCargada(i){ PARA_AAG[i].cargada=!PARA_AAG[i].cargada; render();
   toast(PARA_AAG[i].cargada?`${PARA_AAG[i].n} marcada como cargada`:`${PARA_AAG[i].n} vuelve a pendientes`); }
@@ -5043,7 +5333,7 @@ function empezarRonda(sinGps){
      saliera del reloj en el momento de abrirla, la del sábado diría "lunes"
      cuando el socio la muestra el lunes. Antes directamente estaba escrita a
      mano —31/07/2026— y decía lo mismo para todos y para siempre. */
-  S.fecha = new Date().toISOString().slice(0,10);
+  S.fecha = hoyISO();
   /* La vuelta nueva arranca de cero. Si había una sin terminar, la pantalla de
      arranque ya preguntó; esto es la red por si se llega por otro lado: antes
      de vaciar, se archiva. La ronda compartida NO se toca: si hay una, es la
@@ -5061,7 +5351,7 @@ function empezarRonda(sinGps){
   S.cerrando = false; S.cierrePaso = 1; S.teeVisto = null; S.hoja = null;
   S.hole=1; S.playing=true; go('play');
   toast(aCiegas ? 'Arrancó sin GPS · vas a anotar sin distancias'
-      : S.torneo?`Arrancó · llevás la tarjeta de ${GROUP()[S.marco].n}`:'Arrancó la ronda');
+      : S.torneo?`Arrancó · llevás la tarjeta de ${marcado().n}`:'Arrancó la ronda');
 }
 function finish(){
   /* El botón está a mano desde el hoyo 1 —para quien corta la vuelta por
@@ -5081,7 +5371,15 @@ function finish(){
   }
   go('firma');
 }
-function resolver(h,v){ R.scores[h]=v; MARCA[h]=v; render(); toast(`Hoyo ${h} corregido: ${v}`); }
+function resolver(h,v){
+  /* Con la ronda compartida, lo del marcador lo corrige él en su teléfono: acá
+     sólo se puede cambiar lo propio, y lo que se cambia viaja. */
+  if(RONDA){
+    if(v === R.scores[h]){ toast(`Si van ${v}, ${marcador().n} lo tiene que corregir en su teléfono`); return; }
+    R.scores[h] = v; anotarEnLaNube(h); render(); toast(`Hoyo ${h} corregido: ${v}`); return;
+  }
+  R.scores[h]=v; MARCA[h]=v; render(); toast(`Hoyo ${h} corregido: ${v}`);
+}
 function certificar(){
   if(difs().length){toast('Primero resolvé las diferencias con tu marcador');return;}
   S.certifico=true; S.presento=true; render(); toast('✍️ Certificaste tu tarjeta');
@@ -5091,8 +5389,9 @@ function noPresentar(){
   toast('No vas a presentar tu tarjeta · queda guardada para vos');
 }
 function firmarLaOtra(){
+  if(!hayAQuienMarcar()){ toast('Primero elegí a quién le llevás la tarjeta, en la ronda del grupo'); return; }
   S.firmoLaOtra=true; render();
-  toast(`✍️ Firmaste la tarjeta de ${GROUP()[S.marco].n} como su marcador`);
+  toast(`✍️ Firmaste la tarjeta de ${marcado().n} como su marcador`);
 }
 function entregar(){
   /* En torneo la vuelta termina acá, no en `finish()`: después de firmar y
@@ -5101,7 +5400,7 @@ function entregar(){
   if(!terminarVuelta()){ S.entregada=false; render(); return; }
   render(); go('summary');
   toast(S.presento===false
-    ? `📩 Cerraste la de ${GROUP()[S.marco].n} · la tuya no se presenta · la entrega al club todavía no está conectada`
+    ? `📩 Cerraste la de ${marcado().n} · la tuya no se presenta · la entrega al club todavía no está conectada`
     : '📩 Tarjetas cerradas · la entrega al club todavía no está conectada');
 }
 /* La app no supone que sos socio: hasta que lo digas, `S.tipo` es null. */
@@ -5120,7 +5419,8 @@ function buscarPadron(){
     toast('El club no tiene tu contacto cargado'); return; }
   // el código va al contacto que el CLUB ya tiene, no al que escribió quien se registra
   S.padronEstado='codigo'; S.codigo=''; render();
-  toast(`Código enviado a ${p.mail?tapar(p.mail):taparTel(p.tel)}`);
+  toast(ALTA_DE_PRUEBA ? 'Así se vería · el código todavía no se manda'
+                       : `Código enviado a ${p.mail?tapar(p.mail):taparTel(p.tel)}`);
 }
 function verificarCodigo(){
   if((S.codigo||'').replace(/\D/g,'').length<6){toast('Poné los 6 dígitos del código');return;}
@@ -5133,9 +5433,10 @@ function verificarCodigo(){
   if(S.hallado && !S.hallado.deMentira && S.hallado.n) ponerNombre(S.hallado.n);
   if(S.hallado && S.hallado.socio) S.user.socio = S.hallado.socio;
   // Dejamos cargado el mail que el club ya tiene: es el que conviene usar de usuario.
-  if(!S.email && S.hallado && S.hallado.mail) S.email = S.hallado.mail;
+  // El del socio de prueba no: es inventado, y terminaba como "tu" cuenta.
+  if(!S.email && S.hallado && S.hallado.mail && !S.hallado.deMentira) S.email = S.hallado.mail;
   render();
-  toast('✅ Identidad verificada');
+  toast(ALTA_DE_PRUEBA ? 'Así se vería · todavía no se verifica nada' : '✅ Identidad verificada');
 }
 function reiniciarBusqueda(){ S.padronEstado=null; S.padronOk=false; S.hallado=null; S.codigo=''; render(); }
 /* Claves: nos importa el largo, no las mayúsculas ni los símbolos.
@@ -5189,15 +5490,15 @@ function crearCuenta(){
   // el DNI queda tomado: nadie más puede registrarse con él
   if(S.hallado) S.hallado.cuenta = S.email;
   S.nombreIn = null;
-  S.onb=4; render(); toast('Cuenta creada · te mandamos un mail de confirmación');
+  S.onb=4; render(); toast(ALTA_DE_PRUEBA ? 'Cuenta creada en este teléfono' : 'Cuenta creada · te mandamos un mail de confirmación');
 }
 /* "Entrar con código, sin clave" saltea la clave, no el nombre. */
 function entrarConCodigo(){
   if(!hayNombre() && !ponerNombre(S.nombreIn)){toast('Escribí tu nombre y tu apellido');return;}
-  S.email = S.email || 'socio@trisquelia.com';
   S.clave = 8; S.claveOk = true; S.claveMsg = '';
   S.nombreIn = null; S.onb = 4; render();
-  toast('Entrás con código al email');
+  toast(ALTA_DE_PRUEBA ? 'Cuenta creada en este teléfono · el código por email todavía no está hecho'
+                       : 'Entrás con código al email');
 }
 /* En modo prueba la persona escribe su nombre, así ve el suyo y no el de otro. */
 function usarNombrePrueba(){
@@ -5231,10 +5532,10 @@ function guardarIndex(){
   const idx = leerIndex(S.hcpIn);
   if(idx===null){ toast('Poné tu index. Va de +5.0 a 54.0'); return; }
   const antes = S.user.hcp;
-  S.user.hcp = idx; S.indexDias = 0; S.chequeoRonda = true; S.editHcp = false; S.hcpIn = null;
+  S.user.hcp = idx; S.indexFecha = hoyISO(); S.chequeoRonda = true; S.editHcp = false; S.hcpIn = null;
   const sal = salidaPorIndex(idx, S.user.cat);
   S.tee = sal.tee;
-  const hc = verHcp(hcpCancha(idx, teePorId(sal.hcpCon)));
+  const hc = verHcp(hcpCancha(idx, teePorId(sal.hcpCon), S.vuelta));
   toast(antes===idx ? `Index confirmado · seguís con ${hc} de cancha`
                     : `Index ${verIndex(idx)} · ahora salís de ${teePorId(sal.tee).n.toLowerCase()} con ${hc}`);
   render();
@@ -5244,10 +5545,15 @@ function actualizarIndex(){ S.editHcp=true; S.hcpIn=null; render(); }
    campo de abajo manda lo que la persona escriba. En los dos casos lo
    firma el servidor con quien ocupa el puesto, no con lo que diga el
    teléfono. */
+/* Mientras un aviso va en camino, otro toque no publica otro igual: un doble
+   toque ponía dos en el Inicio de todos (revisión adversaria de la v26). */
+let _publicando = false;
 async function avisar(t, socios){
   if(!puede('avisos')){ toast('No tenés permiso para esto'); return; }
   const titulo = String(t || '').trim();
   if(titulo.length < 3){ toast('El aviso necesita un título'); return; }
+  if(_publicando) return;
+  _publicando = true;
   try{
     const r = await rpc('aviso_poner',
       { p_llave: COMISION.llave, p_ic: avisoIcono(titulo), p_titulo: titulo,
@@ -5257,8 +5563,19 @@ async function avisar(t, socios){
     toast('📣 Publicado · lo ven los socios en Novedades');
   }catch(e){
     toast('Sin conexión · no se publicó');
-  }
+  }finally{ _publicando = false; }
   render();
+}
+/* Los botones de aviso rápido publican con un toque, y lo publicado lo ve
+   cualquiera que abra la app hasta que alguien lo baje. Sin preguntar, un toque
+   de más —o una demo en la reunión de comisión— lo ponía en el Inicio de todos
+   (revisión del 26/10/2026). Por eso preguntan. El aviso escrito a mano no: ahí
+   tocar "Publicar" ya es la confirmación. Y "Cancha cerrada" dejó de ser un aviso
+   rápido: la cancha se cierra con su propio control, y un aviso aparte quedaba
+   diciendo "cerrada" después de reabrirla. */
+function avisoRapido(t){
+  if(!confirm(`Publicar el aviso «${t}» ahora. Lo ve cualquiera que abra la app, hasta que lo bajes. ¿Publicar?`)) return;
+  avisar(t);
 }
 /* El ícono se deduce del texto para que la comisión no tenga que elegir
    uno: son tres palabras y el dibujo lo pone la app. */
@@ -5283,6 +5600,7 @@ async function avisarEscrito(){
    dijo sigue habiendo sido dicho. */
 async function bajarAviso(id){
   if(!puede('avisos')){ toast('No tenés permiso para esto'); return; }
+  if(!confirm('Bajar este aviso: deja de verse para todos. ¿Bajarlo?')) return;
   try{
     const r = await rpc('aviso_bajar', { p_llave: COMISION.llave, p_id: id });
     if(!r || r.error){ toast(r && r.error ? r.error : 'No se pudo bajar'); return; }
@@ -5317,6 +5635,15 @@ function setRol(){ toast('Los permisos los da el club desde el servidor'); }
    Cuando una de estas cosas se construya de verdad, su botón deja de llamar
    a `dibujo()`. Mientras tanto, todos dicen lo mismo y lo mismo es cierto. */
 function dibujo(que){ toast('Así se vería · ' + que + ' todavía no está hecho'); }
+/* UN DIBUJO SE DICE. Hay pantallas del socio que todavía son de ejemplo —la
+   cancha en vivo, el torneo, los amigos— y está bien que existan: es más barato
+   discutir un dibujo que algo construido. Pero hasta la v25 se presentaban como
+   reales: "Leaderboard en vivo", "Estás anotado", "Tus logros", seis
+   notificaciones inventadas (relevamiento del 26/10/2026). Ésta es la etiqueta
+   que dice lo que son, arriba de lo que es de ejemplo. */
+const cartelEjemplo = (titulo, texto) => `<div class="card" style="background:var(--avisoBg);border-color:var(--avisoLn)">
+  <div style="font-weight:700;font-size:13px" class="gold">${titulo}</div>
+  <div class="dim" style="font-size:12px;margin-top:3px;line-height:1.5">${texto}</div></div>`;
 
 function setModo(m){
   CLUB.torneo.modo=m;
@@ -5389,7 +5716,7 @@ function traer(){
   if(!S.user.cat){ toast('Elegí desde qué salidas jugás'); return; }
   const idx = leerIndex(S.hcpIn);
   if(idx===null){ toast('Poné tu index. Va de +5.0 a 54.0'); return; }
-  S.user.hcp = idx; S.indexDias = 0; S.fedOk = true;
+  S.user.hcp = idx; S.indexFecha = hoyISO(); S.fedOk = true;
   const sal = salidaPorIndex(idx, S.user.cat);
   S.tee = sal.tee;
   toast(`Salís de ${teePorId(sal.tee).n.toLowerCase()} con ${verHcp(hcpCancha(idx, teePorId(sal.hcpCon)))} de cancha`);
@@ -5404,22 +5731,52 @@ function setCat(c){ S.user.cat = c; if(S.fedOk) S.fedOk=false; render(); }
    Los dos botones sólo preparan lo que se va a publicar. Mientras no se
    toque "Guardar y avisar", lo que el socio ve sigue siendo lo anterior:
    nadie cierra la cancha sin querer por rozar un botón. */
-let CANCHA_BORRADOR = null;      // {abierta} mientras se edita
+let CANCHA_BORRADOR = null;      // {abierta, nota, base, tocada} mientras se edita
+/* Sobre qué estado publicado se empezó el borrador. Si mientras tanto llegó otro
+   —alguien de la comisión la reabrió desde otro teléfono—, el borrador viejo ya
+   no vale: "Guardar y avisar" la volvía a cerrar con la aclaración de antes
+   (revisión adversaria de la v26). */
+const baseCancha = () => CLUB_VIVO.cancha ? (CLUB_VIVO.cancha.desde || 'sin fecha') : null;
+const borradorVigente = () => {
+  if(CANCHA_BORRADOR && CANCHA_BORRADOR.base !== baseCancha()) CANCHA_BORRADOR = null;
+  return CANCHA_BORRADOR;
+};
 
 /* Lo que muestran los botones del panel: el borrador si lo hay, y si no,
    lo que dice el servidor. */
-const canchaEditando = () => CANCHA_BORRADOR
+const canchaEditando = () => borradorVigente() && CANCHA_BORRADOR.abierta != null
   ? CANCHA_BORRADOR.abierta
   : (CLUB_VIVO.cancha ? !!CLUB_VIVO.cancha.abierta : null);
+const notaCanchaEditando = () => borradorVigente() && CANCHA_BORRADOR.nota !== undefined
+  ? CANCHA_BORRADOR.nota : ((CLUB_VIVO.cancha && CLUB_VIVO.cancha.nota) || '');
+/* Lo que se escribe en la aclaración queda en el borrador letra por letra, sin
+   redibujar: se perdía al primer redibujo —un aviso publicado, o el club que
+   contestaba— si todavía no se había tocado Abierta o Cerrada. */
+function notaCanchaTipeada(v){
+  const b = borradorVigente() || { abierta: null, base: baseCancha() };
+  CANCHA_BORRADOR = Object.assign(b, { nota: String(v), tocada: true });
+}
 
 function setCancha(abierta){
-  CANCHA_BORRADOR = { abierta: !!abierta };
+  /* La aclaración es de un estado. Al reabrir, "Prueba en la reunión" o "lluvia
+     hasta el mediodía" quedaban precargadas y se publicaban igual: los socios
+     veían "Abierta · Prueba en la reunión" (revisión del 26/10/2026). Si el
+     estado cambia y nadie escribió una aclaración nueva, se vacía; lo que sí se
+     escribió, se respeta. */
+  const inp = $('#notaCancha');
+  const mostrada = notaCanchaEditando();
+  const escrita = inp ? inp.value : mostrada;
+  const tocada = !!(borradorVigente() && CANCHA_BORRADOR.tocada) || escrita !== mostrada;
+  const publicada = (CLUB_VIVO.cancha && CLUB_VIVO.cancha.nota) || '';
+  const otroEstado = !CLUB_VIVO.cancha || CLUB_VIVO.cancha.abierta !== !!abierta;
+  CANCHA_BORRADOR = { abierta: !!abierta, base: baseCancha(), tocada,
+                      nota: tocada ? escrita : (otroEstado ? '' : publicada) };
   render();
 }
 async function publicarCancha(){
   if(!puede('cancha')){ toast('No tenés permiso para esto'); return; }
   const inp = $('#notaCancha');
-  const nota = inp ? inp.value : ((CLUB_VIVO.cancha&&CLUB_VIVO.cancha.nota)||'');
+  const nota = inp ? inp.value : notaCanchaEditando();
   const abierta = canchaEditando();
   if(abierta === null){ toast('Elegí si está abierta o cerrada'); return; }
   try{
@@ -5443,9 +5800,10 @@ function togBag(i){
   if(!BAG[i].on && on>=14){toast('Ya llevás 14. Sacá uno para poder poner otro');return;}
   BAG[i].on=!BAG[i].on;render();
 }
-function book(t){if(FULL().includes(t))return;
-  S.booked[t]=!S.booked[t];
-  toast(S.booked[t]?'Así se vería · anotarse por la app todavía no está hecho':'Te bajaste de la salida');render();}
+/* Anotarse es un dibujo. Decía "Así se vería · todavía no está hecho" y en el
+   mismo toque marcaba la salida y mostraba "Estás anotado": las dos cosas a la
+   vez no pueden ser ciertas. */
+function book(t){ if(FULL().includes(t)) return; dibujo('anotarte por la app'); }
 
 
 /* ============================================================
@@ -5552,6 +5910,13 @@ function aplicarVersion(){
    número que mostrar, y eso también es información: la app todavía no quedó
    guardada en el teléfono. */
 let APP_VERSION = null;
+/* ¿Está la app guardada en el teléfono, para abrir sin señal? Se mira de
+   verdad, en la caché: el final del alta decía "funciona sin señal" sin
+   comprobar nada, y si el primer guardado fallaba no era cierto. */
+let APP_GUARDADA = false;
+function mirarSiEstaGuardada(){
+  try{ caches.match('./index.html').then(r => { APP_GUARDADA = !!r; }).catch(()=>{}); }catch(e){}
+}
 function preguntarVersion(){
   try{
     const sw = navigator.serviceWorker && navigator.serviceWorker.controller;
@@ -5596,9 +5961,23 @@ function copiarDiagnostico(){
 }
 
 if('serviceWorker' in navigator){
+  /* Se recarga sólo cuando cambia un control que YA había, que es cuando llega
+     una versión nueva. En la primera visita no hay service worker, y cuando el
+     nuevo toma el control la página ya tiene el código más nuevo: recargarla no
+     servía para nada y hacía daño. El que escaneaba el QR en la reunión estaba
+     escribiendo su nombre y la recarga se lo borraba (revisión del 26/10/2026),
+     y cada pedido de la primera visita salía dos veces. */
+  /* `habiaControl` cambia: la primera vez que el service worker toma el control
+     no se recarga —y ahí recién se le puede preguntar la versión, que si no
+     quedaba "todavía no está guardada" toda la sesión—, pero desde ese momento
+     sí hay control, y si en la misma sesión llega otra versión, ésa sí recarga.
+     La v26 lo tenía fijo y una segunda versión entraba sin que la página se
+     enterara (revisión adversaria de la v26). */
+  let habiaControl = !!navigator.serviceWorker.controller;
   let recargando = false;
   navigator.serviceWorker.addEventListener('controllerchange', () => {
-    if(recargando) return;          // una sola recarga, no un bucle
+    if(!habiaControl){ habiaControl = true; preguntarVersion(); mirarSiEstaGuardada(); return; }
+    if(recargando) return;                     // una sola recarga, no un bucle
     recargando = true; location.reload();
   });
   window.addEventListener('load', async () => {
@@ -5606,7 +5985,8 @@ if('serviceWorker' in navigator){
     preguntarVersion();
     /* Y otra vez cuando el service worker toma el control, que en la primera
        visita pasa después de esto. */
-    navigator.serviceWorker.ready.then(preguntarVersion).catch(()=>{});
+    navigator.serviceWorker.ready.then(() => { preguntarVersion(); mirarSiEstaGuardada(); }).catch(()=>{});
+    mirarSiEstaGuardada();
     try{
       const reg = await navigator.serviceWorker.register('./sw.js', {scope:'./'});
       if(reg.waiting) hayVersionNueva(reg.waiting);
@@ -5714,6 +6094,10 @@ async function muestraPrueba(){
    Es la única forma de saber si la medición de la cancha quedó bien. */
 function marcarEstaca(yds){
   if(!PRUEBA || !PRUEBA.abierta){ toast('Primero prendé el modo prueba'); return; }
+  /* Sin GPS, `gps()` devuelve la ESTIMACIÓN con el largo del hoyo, y se
+     guardaba como "la app dijo" y entraba al promedio que valida la cancha
+     medida (revisión adversaria de la v26). */
+  if(!gpsVivo()){ toast('Sin GPS no hay con qué comparar la estaca · esperá a que vuelva la señal'); return; }
   const g = gps(S.hole);
   PRUEBA.estacas.push({ t:Date.now(), hoyo:S.hole, estaca:yds,
     centro:g.mid ?? null, frente:g.front ?? null, fondo:g.back ?? null,
@@ -5766,7 +6150,7 @@ function resumenPrueba(){
                 porHora: horas > 0.08 ? Math.round(caida / horas) : null };
   }
 
-  const difs = PRUEBA.estacas.filter(e => e.centro != null).map(e => e.centro - e.estaca);
+  const difs = PRUEBA.estacas.filter(e => e.centro != null && e.gpsReal !== false).map(e => e.centro - e.estaca);
 
   return {
     horas: +horas.toFixed(2),
@@ -5980,11 +6364,11 @@ function vPrueba(){
         <div style="margin-top:10px">
           ${PRUEBA.estacas.slice().reverse().slice(0, 8).map(e => `
             <div class="item" style="padding:8px 0">
-              <div class="ico" style="font-size:12px;font-weight:800">${e.estaca}</div>
+              <div class="ico" style="font-size:12px;font-weight:800">${esc(e.estaca)}</div>
               <div style="flex:1;min-width:0">
-                <div style="font-weight:700;font-size:13px">Hoyo ${e.hoyo}</div>
+                <div style="font-weight:700;font-size:13px">Hoyo ${esc(e.hoyo)}</div>
                 <div class="dim" style="font-size:11.5px">
-                  la app dijo ${e.centro ?? '—'} al centro${e.acc != null ? ' · ±' + e.acc + ' m' : ''}</div></div>
+                  la app dijo ${esc(e.centro ?? '—')} al centro${e.acc != null ? ' · ±' + esc(e.acc) + ' m' : ''}</div></div>
               <div style="font-weight:800;font-size:15px" class="${
                 e.centro == null ? 'dim2' : Math.abs(e.centro - e.estaca) <= 8 ? 'ok' : 'gold'}">
                 ${e.centro == null ? '—' : (e.centro - e.estaca >= 0 ? '+' : '') + (e.centro - e.estaca)}</div>
@@ -6002,8 +6386,8 @@ function vPrueba(){
     <div class="card">
       <h3>Lo que te molestó</h3>
       ${PRUEBA.notas.slice().reverse().map(n => `<div class="item" style="padding:9px 0">
-        <div class="ico" style="font-size:12px;font-weight:800">${n.hoyo}</div>
-        <div style="flex:1;min-width:0;font-size:13px">${n.txt}</div></div>`).join('')}
+        <div class="ico" style="font-size:12px;font-weight:800">${esc(n.hoyo)}</div>
+        <div style="flex:1;min-width:0;font-size:13px">${esc(n.txt)}</div></div>`).join('')}
     </div>` : ''}
 
     <div class="card" style="margin-bottom:24px">
@@ -6346,9 +6730,24 @@ function guardarRonda(){
              : localStorage.removeItem(RONDA_KEY); }catch(e){}
 }
 function cargarRonda(){
-  try{ RONDA = JSON.parse(localStorage.getItem(RONDA_KEY) || 'null'); }
+  try{ RONDA = rondaSana(JSON.parse(localStorage.getItem(RONDA_KEY) || 'null')); }
   catch(e){ RONDA = null; }
   if(RONDA) arrancarLatido();
+}
+/* La ronda guardada también puede venir de una copia armada a mano: el código
+   se dibujaba tal cual en el arranque y en la hoja del grupo. Lo que no tiene
+   forma de ronda no entra; los nombres se escapan igual donde se dibujan. */
+function rondaSana(r){
+  if(!r || typeof r !== 'object' || !/^[A-Za-z0-9]{4,12}$/.test(String(r.codigo))) return null;
+  const t = (v, n) => typeof v === 'string' ? v.slice(0, n) : null;
+  return { codigo: r.codigo, yo: t(r.yo, 64), llave: t(r.llave, 200),
+    jugadores: (Array.isArray(r.jugadores) ? r.jugadores : []).filter(j => j && typeof j === 'object' && typeof j.id === 'string')
+      .map(j => Object.assign({}, j, { nombre: t(j.nombre, 40) || '—', iniciales: t(j.iniciales, 3) || '?' })),
+    anot: Object.fromEntries(Object.entries(r.anot && typeof r.anot === 'object' ? r.anot : {})
+      .filter(([, a]) => a && typeof a === 'object' && (a.golpes == null || enteroEn(a.golpes, 1, 20))
+                         && (a.putts == null || enteroEn(a.putts, 0, 15)) && enteroEn(a.hoyo, 1, 18))),
+    cola: (Array.isArray(r.cola) ? r.cola : []).filter(opSana),
+    desde: t(r.desde, 40), marcoA: t(r.marcoA, 64) };
 }
 
 /* ---------- abrir y sumarse ----------
@@ -6498,7 +6897,10 @@ const fechaReal = f => { if(!/^\d{4}-\d{2}-\d{2}$/.test(String(f))) return false
 const enteroEn = (v, a, b) => Number.isInteger(v) && v >= a && v <= b;
 const vueltaSana = v => !!v && typeof v === 'object' && fechaReal(v.fecha)
   && enteroEn(v.hoyos, 1, 18) && enteroEn(v.golpes, v.hoyos, v.hoyos * 20)
-  && enteroEn(v.alPar, -3 * v.hoyos, 20 * v.hoyos);
+  && enteroEn(v.alPar, -3 * v.hoyos, 20 * v.hoyos)
+  /* Si trae la tarjeta, los totales tienen que ser los de la tarjeta: una copia
+     armada decía 18 golpes en 18 hoyos (revisión adversaria de la v26). */
+  && (v.R == null || (typeof v.R === 'object' && hoyosDe(v).length === v.hoyos && golpesDe(v) === v.golpes));
 const opSana = o => !!o && typeof o === 'object' && (o.fn === 'anotar' || o.fn === 'marcar_a')
   && !!o.args && typeof o.args === 'object'
   && /^[A-Za-z0-9]{4,12}$/.test(String(o.args.p_codigo))
@@ -6523,7 +6925,7 @@ function archivarVuelta(){
   const copia = o => JSON.parse(JSON.stringify(o));
   const v = {
     id:      S.vueltaId,
-    fecha:   fechaReal(S.fecha) ? S.fecha : new Date().toISOString().slice(0,10),
+    fecha:   fechaReal(S.fecha) ? S.fecha : hoyISO(),
     club:    CLUB.corto, salida: tee().n, vuelta: S.vuelta, torneo: !!S.torneo,
     estado:  !S.torneo ? 'práctica'
            : S.presento === false ? 'no presentada'
@@ -6844,7 +7246,7 @@ function tarjetaGrupo(){
       <div class="sep"></div>
       <div class="lbl" style="margin-bottom:7px">o entrá con el código que te dictaron</div>
       <input class="codigo-in" maxlength="6" placeholder="A B C D E F"
-        value="${S.codigoIn||''}" oninput="S.codigoIn=this.value.toUpperCase()">
+        value="${esc(S.codigoIn||'')}" oninput="S.codigoIn=this.value.toUpperCase()">
       <button class="btn ghost sm" style="margin-top:9px" onclick="unirseRonda()"
         ${S.uniendo?'disabled':''}>Entrar</button>
     </div>`;
@@ -6854,7 +7256,7 @@ function tarjetaGrupo(){
     <div class="card" style="border-color:var(--acc2)">
       <div class="between">
         <div><div class="lbl">Código de la ronda</div>
-          <div class="codigo">${RONDA.codigo}</div></div>
+          <div class="codigo">${esc(RONDA.codigo)}</div></div>
         <div style="text-align:right">${pillNube()}
           <div class="dim2" style="font-size:11px;margin-top:4px">${js.length} en el grupo</div></div>
       </div>
@@ -6884,13 +7286,13 @@ function avisoCruce(h){
   const c = cruceHoyo(h);
   if(!c || c.esperando) return '';
   if(c.coincide) return `<div class="cruce ok" style="margin-bottom:12px">
-    <div style="font-size:12.5px;font-weight:700" class="ok">✓ Coincide con ${c.quien}</div>
-    <div class="dim" style="font-size:11.5px">Los dos anotaron ${c.mio} en el hoyo ${h}.</div></div>`;
+    <div style="font-size:12.5px;font-weight:700" class="ok">✓ Coincide con ${esc(c.quien)}</div>
+    <div class="dim" style="font-size:11.5px">Los dos anotaron ${esc(c.mio)} en el hoyo ${h}.</div></div>`;
   return `<div class="cruce" style="margin-bottom:12px">
     <div style="font-size:13px;font-weight:800" class="gold">No coinciden en el hoyo ${h}</div>
     <div class="dim" style="font-size:12px;line-height:1.55;margin-top:3px">
-      Vos anotaste <b style="color:var(--txt)">${c.mio}</b> y ${c.quien} anotó
-      <b style="color:var(--txt)">${c.golpes}</b>. Arréglenlo ahora, antes de firmar.</div>
+      Vos anotaste <b style="color:var(--txt)">${esc(c.mio)}</b> y ${esc(c.quien)} anotó
+      <b style="color:var(--txt)">${esc(c.golpes)}</b>. Arréglenlo ahora, antes de firmar.</div>
     <button class="chip" style="margin-top:9px;padding:9px 13px;font-size:12px"
       onclick="abrirCierre(${h})">Corregir mi tarjeta</button>
   </div>`;
@@ -6913,7 +7315,7 @@ function grupoEnVivo(){
   });
   return `
     <table><thead><tr><th style="text-align:left">Jugador</th><th>Hoyos</th>
-      <th>Golpes</th><th>Neto</th><th>Stbl</th></tr></thead><tbody>
+      <th>Golpes</th><th>Al par</th><th>Stbl</th></tr></thead><tbody>
     ${filas.map(({j,hoyos,golpes,parr,stb,ajeno}) => `<tr>
       <td class="name"><span class="avatar" style="width:22px;height:22px;font-size:9px;
         display:inline-flex;vertical-align:-6px;margin-right:7px">${esc(j.iniciales||'?')}</span>${esc(j.nombre)}${
@@ -6927,7 +7329,7 @@ function grupoEnVivo(){
         porque él todavía no cargó</td></tr>`:''}`).join('')}
     </tbody></table>
     <div class="between" style="margin-top:12px">
-      <div class="lbl">Ronda ${RONDA.codigo}</div>${pillNube()}</div>
+      <div class="lbl">Ronda ${esc(RONDA.codigo)}</div>${pillNube()}</div>
     ${(() => { const d = crucesAbiertos();
       if(!d.length) return `<div class="dim2" style="font-size:11.5px;margin-top:8px">
         Ninguna diferencia con tu marcador hasta acá.</div>`;
@@ -6935,7 +7337,7 @@ function grupoEnVivo(){
         <div style="font-size:12.5px;font-weight:800" class="gold">
           ${d.length} hoyo${d.length===1?'':'s'} sin coincidir</div>
         <div class="dim" style="font-size:11.5px;margin-top:3px">
-          ${d.map(x=>`Hoyo ${x.hoyo}: vos ${x.mio}, ${x.quien} ${x.golpes}`).join(' · ')}</div>
+          ${d.map(x=>`Hoyo ${x.hoyo}: vos ${esc(x.mio)}, ${esc(x.quien)} ${esc(x.golpes)}`).join(' · ')}</div>
       </div>`; })()}`;
 }
 
@@ -6955,16 +7357,17 @@ function vCopia(){
 
     <div class="card">
       <h3>Qué hay en este teléfono</h3>
-      <div class="dim" style="font-size:12.5px;margin-bottom:10px">Todo esto vive acá adentro y en
-      ningún otro lado. Si cambiás de teléfono o el navegador limpia el sitio, se va con él.</div>
+      <div class="dim" style="font-size:12.5px;margin-bottom:10px">Todo esto vive acá adentro. De una ronda
+      compartida, el servidor tiene lo que anotó cada uno, pero tu bolsa, tus vueltas y tu cuenta están sólo
+      acá: si cambiás de teléfono o el navegador limpia el sitio, se van con él.</div>
       ${[['👤','Cuenta', r.cuenta || 'sin cargar'],
-         ['🎒','Bolsa', `${r.palos} palos · ${r.golpes} golpes cargados`],
+         ['🎒','Bolsa', `${r.palos} palos · ${r.golpes} golpes medidos`],
          ['⛳','Ronda en curso', r.hoyos ? `${r.hoyos} hoyo${r.hoyos===1?'':'s'} anotados` : 'ninguna'],
          ['📡','Ronda del grupo', r.ronda || 'ninguna'],
          ['🧪','Modo prueba', r.prueba ? `${r.prueba} mediciones` : 'sin datos']].map(([i,t,v])=>
         `<div class="item"><div class="ico">${ico(i)}</div><div style="flex:1;min-width:0">
           <div style="font-weight:600">${t}</div></div>
-          <div class="dim" style="font-size:12.5px;text-align:right">${v}</div></div>`).join('')}
+          <div class="dim" style="font-size:12.5px;text-align:right">${esc(v)}</div></div>`).join('')}
     </div>
 
     <div class="card">
@@ -7043,9 +7446,9 @@ const EN_OTRA_APP = /FBAN|FBAV|FB_IAB|Instagram|WhatsApp|Line\/|MicroMessenger|;
 
 const LS_KEY = 'trisquelia_v1';
 const GUARDAR = ['user','tee','cat','mat','hcpIn','fedOk','onboarded','tipo','dni','nsocio',
-                 'email','indexDias','hole','vuelta','playing','torneo','marco','meMarca',
+                 'email','indexFecha','hole','vuelta','playing','torneo','marco','meMarca',
                  'certifico','firmoLaOtra','entregada','presento','booked','soloSeguir',
-                 'instalarVisto',
+                 'instalarVisto','avisosVistos',
                  /* El identificador de la vuelta: es lo que hace que archivarla
                     dos veces la actualice en vez de duplicarla. Tiene que
                     sobrevivir a una recarga, o la segunda vez sería otra. */
@@ -7079,6 +7482,41 @@ function guardarTodo(){
     }
   }
 }
+/* LO DE `GUARDAR` TAMBIÉN ENTRA SANO. Es lo mismo que puede traer una copia de
+   seguridad armada a mano, y se copiaba tal cual: la revisión adversaria de la
+   v26 metió HTML que corría al abrir Inicio, Club, Perfil, Mi handicap y el
+   arranque —por `hole`, `nsocio`, `mat`, `user.club`—, y un `user.hcp` de texto
+   dejaba la app en blanco, porque `verIndex()` hace `toFixed`. Cada campo vuelve
+   con su tipo y su rango, o con el valor de siempre. */
+function sanearS(){
+  const txt = (v, n, rx) => typeof v === 'string' && (!rx || rx.test(v)) ? v.slice(0, n) : '';
+  const ent = (v, a, b, def) => Number.isInteger(v) && v >= a && v <= b ? v : def;
+  const sn  = v => v === true;
+  const num = v => { const x = typeof v === 'string' && v.trim() !== '' ? Number(v) : v;
+    return typeof x === 'number' && isFinite(x) && x >= -10 && x <= 54 ? Math.round(x*10)/10 : null; };
+  const u = S.user && typeof S.user === 'object' ? S.user : {};
+  const nombre = typeof u.name === 'string' && u.name.trim().length >= 3 ? u.name.trim().slice(0, 60) : null;
+  S.user = { name: nombre, ini: nombre ? iniciales(nombre) : null, hcp: num(u.hcp),
+             socio: txt(u.socio, 12, /^[\w#—\-. ]*$/) || null, club: txt(u.club, 60) || CLUB.nombre,
+             cat: u.cat === 'cab' || u.cat === 'dam' ? u.cat : null };
+  S.tee = CLUB.tees.some(t => t.id === S.tee) ? S.tee : 'mixta';
+  S.cat = typeof S.cat === 'string' ? S.cat.slice(0, 10) : S.cat;
+  S.vuelta = S.vuelta === 9 ? 9 : 18;
+  S.hole = ent(S.hole, 1, S.vuelta, 1);
+  S.marco = ent(S.marco, 1, 3, 1); S.meMarca = ent(S.meMarca, 1, 3, 2);
+  S.mat = txt(S.mat, 12, /^\d*$/); S.dni = txt(S.dni, 9, /^\d*$/);
+  S.nsocio = txt(S.nsocio, 12, /^[\w#\-. ]*$/); S.email = txt(S.email, 120, /^[^<>"'\s]*$/);
+  S.hcpIn = S.hcpIn == null ? null : txt(String(S.hcpIn), 6, /^[+\d.,]*$/);
+  S.tipo = S.tipo === 'socio' || S.tipo === 'invitado' ? S.tipo : null;
+  ['fedOk','onboarded','playing','torneo','certifico','firmoLaOtra','entregada','soloSeguir','instalarVisto']
+    .forEach(k => { S[k] = sn(S[k]); });
+  S.presento = S.presento === true || S.presento === false ? S.presento : null;
+  S.fecha = fechaReal(S.fecha) ? S.fecha : null;
+  S.indexFecha = fechaReal(S.indexFecha) && S.indexFecha <= hoyISO() ? S.indexFecha : null;
+  S.avisosVistos = typeof S.avisosVistos === 'string' && !isNaN(new Date(S.avisosVistos)) ? S.avisosVistos : null;
+  S.vueltaId = typeof S.vueltaId === 'string' && /^[a-z0-9]{4,24}$/.test(S.vueltaId) ? S.vueltaId : null;
+  S.booked = {};
+}
 /* Un mapa hoyo → valor, reconstruido de cero: sólo claves "1" a "18" propias y
    valores que pasan el control. Como el objeto es nuevo y las claves son
    números, ni "__proto__" ni nada raro puede viajar adentro. */
@@ -7089,6 +7527,15 @@ function mapaHoyos(src, vale){
   return o;
 }
 const mapaEnteros = (src, a, b) => mapaHoyos(src, v => Number.isInteger(v) && v >= a && v <= b);
+/* Un golpe guardado vuelve con su palo; si la distancia o la posición no
+   sirven, vuelve sin ellas, pero no se lo borra: el golpe se pegó. La v26
+   tiraba el golpe entero si la distancia pasaba de 450, y el hoyo quedaba con
+   un golpe menos registrado (revisión adversaria de la v26). */
+const golpeLimpio = s => !s || typeof s !== 'object' || !BAG.some(b => b.c === s.c) ? null : {
+  c: s.c,
+  lat: typeof s.lat === 'number' && isFinite(s.lat) ? s.lat : null,
+  lon: typeof s.lon === 'number' && isFinite(s.lon) ? s.lon : null,
+  d: typeof s.d === 'number' && isFinite(s.d) && s.d >= 0 && s.d <= TIRO_MAX ? s.d : null };
 const golpeSano = s => !!s && typeof s === 'object' && BAG.some(b => b.c === s.c)
   && (s.d == null || (typeof s.d === 'number' && isFinite(s.d) && s.d >= 0 && s.d <= 450))
   && (s.lat == null || (typeof s.lat === 'number' && isFinite(s.lat)))
@@ -7099,6 +7546,7 @@ function cargarTodo(){
     const d = JSON.parse(localStorage.getItem(LS_KEY) || 'null');
     if(!d || d.v !== 1) return false;
     GUARDAR.forEach(k=>{ if(d[k]!==undefined) S[k]=d[k]; });
+    sanearS();
     /* Lo que vuelve del teléfono —o de una copia importada a mano— entra limpio:
        números enteros y en rango, en hoyos que existen, palos que existen. Se
        copiaba tal cual, y una copia armada con HTML en un score (desde siempre)
@@ -7115,12 +7563,19 @@ function cargarTodo(){
       R.fw     = mapaHoyos(d.R.fw,  v => FW.some(([k]) => k === v));
       R.gir    = mapaHoyos(d.R.gir, v => typeof v === 'boolean');
       R.shots  = mapaHoyos(d.R.shots, v => Array.isArray(v));
-      Object.keys(R.shots).forEach(h => { R.shots[h] = R.shots[h].filter(golpeSano); });
+      Object.keys(R.shots).forEach(h => { R.shots[h] = R.shots[h].map(golpeLimpio).filter(Boolean); });
     }
     Object.assign(MARCA, mapaEnteros(d.marca, 1, 20));
     Object.assign(OTRO,  mapaEnteros(d.otro,  1, 20));
-    if(d.bag) d.bag.forEach(x=>{ const b=BAG.find(z=>z.c===x.c);
-      if(b){ b.on=x.on; if(Array.isArray(x.shots)) b.shots=x.shots; } });
+    /* Lo guardado de la bolsa entra limpio —distancias de golpe posibles— y SIN
+       los golpes inventados de antes de la v26: si lo guardado empieza con la
+       lista de mentira de ese palo, se la saca; lo que el socio midió de verdad
+       quedó después y se queda. */
+    if(Array.isArray(d.bag)) d.bag.forEach(x=>{
+      const i = BAG.findIndex(z=>z && x && z.c===x.c); if(i < 0) return;
+      BAG[i].on = !!x.on;
+      BAG[i].shots = golpesGuardados(x);
+    });
     return true;
   }catch(e){ return false; }
 }
@@ -7168,7 +7623,7 @@ function resumenCopia(c){
   return {
     cuenta : pr.user && pr.user.name ? pr.user.name : null,
     hoyos  : Object.keys(scores).length,
-    golpes : Array.isArray(pr.bag) ? pr.bag.reduce((a,b)=>a+((b.shots||[]).length),0) : 0,
+    golpes : Array.isArray(pr.bag) ? pr.bag.reduce((a,b)=>a+golpesGuardados(b).length,0) : 0,
     palos  : Array.isArray(pr.bag) ? pr.bag.filter(b=>b.on).length : 0,
     ronda  : ro && ro.codigo ? ro.codigo : null,
     prueba : pb && Array.isArray(pb.muestras) ? pb.muestras.length : 0,
@@ -7248,7 +7703,7 @@ function aplicarCopia(texto){
   const r = resumenCopia(c);
   const de = r.fecha ? new Date(r.fecha).toLocaleDateString('es-AR') : 'fecha desconocida';
   if(!confirm(`Traer la copia del ${de}\n\n`
-    + `${r.cuenta || 'sin nombre'} · ${r.palos} palos · ${r.golpes} golpes cargados\n`
+    + `${r.cuenta || 'sin nombre'} · ${r.palos} palos · ${r.golpes} golpes medidos\n`
     + `${r.hoyos} hoyo${r.hoyos===1?'':'s'} anotados`
     + (r.ronda ? ` · ronda ${r.ronda}` : '')
     + `\n\nEsto reemplaza lo que hay en ESTE teléfono. Vas a poder deshacerlo.`)) return false;
@@ -7326,6 +7781,7 @@ function borrarTodoLocal(){
 }
 
 function render(){
+  _gpsVisto = firmaGps();          // lo que el guardián del GPS ya ve dibujado
   guardarTodo();
   if(VERSION_ESPERANDO && momentoDeActualizar()) aplicarVersion();
   /* Arrancamos limpiando: las pantallas que ocupan todo el marco —el aviso de
@@ -7389,6 +7845,10 @@ if(S.playing && !S.vueltaId){
   S.vueltaId = nuevoIdVuelta();
   S.certifico = false; S.firmoLaOtra = false; S.entregada = false; S.presento = null;
 }
+/* Anotarse a una salida es un dibujo desde la v26, pero hasta la v25 marcaba la
+   salida y la guardaba: lo que quedó en el teléfono no es una salida de verdad,
+   y la pantalla decía "Estás anotado". */
+S.booked = {};
 /* Lo que el club dijo y quién sos para él. Primero lo que quedó guardado
    —así la app abre con algo aunque no haya señal— y recién después se le
    pregunta al servidor, que es lo que puede tardar. */

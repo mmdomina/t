@@ -16,11 +16,11 @@
    teléfonos que ya tienen la app pueden seguir con la vieja.
    ============================================================ */
 
-const VERSION = 'trisquelia-v25';
+const VERSION = 'trisquelia-v26';
 
 /* Todo lo que tiene que estar en el teléfono para que la app abra sola.
 
-   Ojo con la tentación de agregar './' acá: index.html pesa unos 400 KB y el
+   Ojo con la tentación de agregar './' acá: index.html pesa casi medio mega y el
    handler de navegación de más abajo SIEMPRE guarda y busca con la
    clave './index.html', nunca './'. Tenerla en la lista bajaba el
    archivo dos veces y ocupaba el doble en el teléfono, para nada. */
@@ -38,10 +38,14 @@ const SHELL = [
 self.addEventListener('install', e => {
   e.waitUntil((async () => {
     const c = await caches.open(VERSION);
-    /* Uno por uno y sin cortar por un error: si falla un ícono no
-       queremos que se caiga la instalación entera y el jugador se
-       quede sin app offline por una pavada. */
-    await Promise.all(SHELL.map(u =>
+    /* La app misma tiene que quedar guardada, o la instalación no vale: si
+       falla, la instalación falla y se reintenta la próxima vez que se abra.
+       Antes se tragaba ese error también, el service worker tomaba el control
+       sin tener la app, y sin señal no abría (revisión adversaria de la v26).
+       El resto va uno por uno y sin cortar: si falla un ícono no queremos que
+       se caiga la instalación entera por una pavada. */
+    await c.add(new Request('./index.html', { cache: 'reload' }));
+    await Promise.all(SHELL.filter(u => u !== './index.html').map(u =>
       c.add(new Request(u, { cache: 'reload' })).catch(() => {})
     ));
   })());
@@ -75,8 +79,13 @@ self.addEventListener('fetch', e => {
   if (url.origin !== self.location.origin) return;   // nada de afuera
 
   /* ---- Abrir la app ----
-     Primero lo guardado, que abre al toque incluso sin señal, y
-     mientras tanto pedimos la versión fresca para la próxima vez. */
+     Lo guardado, que abre al toque incluso sin señal. Lo nuevo entra SÓLO con
+     un service worker nuevo, que es el que trae su `VERSION`: hasta la v26 acá
+     se pedía la versión fresca "para la próxima vez" y se guardaba en la caché
+     de ESTA versión, así que con una vuelta en curso la segunda recarga ya
+     corría el código nuevo debajo del service worker viejo —saltándose el
+     "entra al terminar la vuelta"— y Perfil decía la versión vieja (revisión
+     adversaria de la v26). Si no hay nada guardado, se pide y se guarda. */
   if (req.mode === 'navigate') {
     const clave = url.pathname.endsWith('/medir.html')
       ? './medir.html'
@@ -84,11 +93,14 @@ self.addEventListener('fetch', e => {
     e.respondWith((async () => {
       const c = await caches.open(VERSION);
       const guardado = await c.match(clave);
-      const red = fetch(req)
-        .then(r => { if (r && r.ok) c.put(clave, r.clone()); return r; })
-        .catch(() => null);
-      e.waitUntil(red);                       // que no lo maten a mitad de camino
-      return guardado || (await red) || sinConexion();
+      if (guardado) return guardado;
+      try {
+        const r = await fetch(req);
+        if (r && r.ok) await c.put(clave, r.clone());
+        return r;
+      } catch (err) {
+        return sinConexion();
+      }
     })());
     return;
   }
