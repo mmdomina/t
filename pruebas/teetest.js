@@ -8,12 +8,13 @@
    medida a pie. Se corre con las coordenadas REALES de Trisquelia, no con
    puntos inventados: si alguien mueve una medición, esta suite se entera. */
 const { chromium } = require('playwright');
+const HOY = (d => d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'))(new Date());   // el index se cargó hoy: no vence
 const EXE = process.env.CHROME_PATH || undefined;
 const APP = 'http://localhost:8000/index.html';
 const ok = (c, m) => console.log((c ? '  ✓ ' : '  ✗ ') + m);
 
 const SEMILLA = { v:1, onboarded:true, tipo:'socio', tee:'mixta', vuelta:18, hole:5,
-  playing:true, torneo:false, indexDias:2,
+  playing:true, torneo:false, indexFecha:HOY,
   user:{ name:'Mauro Domina', ini:'MD', hcp:7.4, socio:'—', club:'Trisquelia Golf Club', cat:'cab' } };
 
 (async () => {

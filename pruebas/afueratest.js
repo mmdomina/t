@@ -208,12 +208,12 @@ const conNumero = t => /-?\d+\s*°|km\/h/.test(t);
 
     /* Volver a la app enseguida no vuelve a preguntar: el dato se renueva
        cada 15 minutos y preguntar antes es gastar batería.
-       Se cuentan los pedidos NUEVOS, no el total: la primera vez que se abre
-       la app, el service worker se instala, toma el control y la página se
-       recarga una vez sola (`controllerchange` → `location.reload()`), así que
-       una instalación nueva hace dos pedidos al arrancar —uno por cada carga—
-       y eso no es el freno fallando. La primera versión de esta prueba contaba
-       el total y daba rojo por eso. */
+       Se cuentan los pedidos NUEVOS, no el total: hasta la v25, la primera vez
+       que se abría la app la página se recargaba sola cuando el service worker
+       tomaba el control, y una instalación nueva hacía dos pedidos al arrancar.
+       La primera versión de esta prueba contaba el total y daba rojo por eso.
+       Desde la v26 ya no se recarga, pero contar los nuevos sigue siendo lo
+       correcto. */
     const yaHabia = t.meteo.pedidos.length;
     await t.p.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
     await t.p.evaluate(() => window.dispatchEvent(new Event('online')));
@@ -289,6 +289,49 @@ const conNumero = t => /-?\d+\s*°|km\/h/.test(t);
     const txt = await clima(t.p);
     ok(/Sin datos recientes/.test(txt) && !/31°/.test(txt),
        `un dato de hace 4 horas no se muestra: el clima de la mañana no es el de ahora (${txt})`);
+    await t.ctx.close();
+  }
+
+  /* ══ 4 · El clima en la pantalla de jugar ══════════════════════════════ */
+  /* Lo pidió Mau después de jugar el 27/10/2026: en Inicio estaba, pero
+     durante la vuelta, que es cuando el viento importa, no se veía. */
+  console.log('\n4. El clima en la pantalla de jugar');
+  {
+    const t = await telefono(b, { clima:'bueno', socio: Object.assign({}, SOCIO, { playing:true }) });
+    errores.push(...t.errores);
+    await t.p.evaluate(() => { S.tab = 'play'; render(); window.__mapa = document.querySelector('.mapa'); });
+    await t.p.waitForTimeout(1600);
+    const r = await t.p.evaluate(() => { const e = document.getElementById('climaPill');
+      return { txt: e ? e.textContent.trim() : null, visible: !!e && e.style.display !== 'none',
+               mismaPantalla: document.querySelector('.mapa') === window.__mapa }; });
+    ok(r.visible && r.txt === '22° · del NE 18 km/h', `aparece arriba del plano: "${r.txt}"`);
+    ok(r.mismaPantalla, 'y llega sin redibujar la pantalla de jugar, que no se toca');
+    await t.p.evaluate(() => document.getElementById('climaPill').click());
+    await t.p.waitForTimeout(300);
+    const hoja = await t.p.evaluate(() => ({ txt: document.getElementById('hoja').innerText.replace(/\s+/g,' '),
+      link: [...document.querySelectorAll('#hoja a')].some(a => a.href.replace(/\/$/,'') === 'https://open-meteo.com') }));
+    ok(/El clima en la cancha/i.test(hoja.txt) && /Nublado/.test(hoja.txt) && hoja.link,
+       'tocándolo se abre el detalle, con el link a open-meteo.com que pide la licencia');
+    await t.ctx.close();
+  }
+  {
+    /* Un dato de hace cuatro horas, y sin señal para renovarlo: no se muestra. */
+    const t = await telefono(b, { clima:'caido', socio: Object.assign({}, SOCIO, { playing:true }),
+      climaGuardado: { temp:22, cod:3, kmh:18, grados:45, rafaga:24, hora: Date.now() - 4*3600e3 } });
+    errores.push(...t.errores);
+    await t.p.evaluate(() => { S.tab = 'play'; render(); });
+    await t.p.waitForTimeout(900);
+    const r = await t.p.evaluate(() => { const e = document.getElementById('climaPill');
+      return { txt: e ? e.textContent.trim() : '', visible: !!e && e.style.display !== 'none' }; });
+    ok(!r.visible && r.txt === '', 'con un dato de hace cuatro horas, en jugar no aparece nada');
+    /* Y uno que vence mientras se juega se va solo, sin esperar a que algo redibuje. */
+    await t.p.evaluate(() => { CLIMA = { temp:20, cod:0, kmh:2, grados:0, rafaga:3, hora: Date.now() }; pintarClima(); });
+    const calmo = await t.p.evaluate(() => document.getElementById('climaPill').textContent.trim());
+    ok(calmo === '20° · sin viento', `con viento calmo no inventa dirección: "${calmo}"`);
+    await t.p.evaluate(() => { CLIMA.hora = Date.now() - 3*3600e3 - 1000; });
+    await t.p.waitForTimeout(5600);
+    ok(await t.p.evaluate(() => document.getElementById('climaPill').style.display === 'none'),
+       'el que vence mientras se juega se va solo a los pocos segundos');
     await t.ctx.close();
   }
 

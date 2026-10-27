@@ -169,10 +169,19 @@ const pantalla = p => p.evaluate(() =>
 
   const conIndex = await t1.p.evaluate(() => {
     S.user.cat = 'cab'; S.user.hcp = 12.0; S.tee = 'mixta'; S.vuelta = 18;
-    return { hcp: hcpJuego(), tarjeta: VIEWS.tarjeta().replace(/<[^>]*>/g,' ') };
+    const aMedias = VIEWS.tarjeta().replace(/<[^>]*>/g,' ');
+    /* El neto es de la vuelta entera: restarle el handicap completo a medio
+       recorrido daba un número que no existe (desde la v26). */
+    const antes = Object.assign({}, R.scores);
+    for (let h = 1; h <= 18; h++) if (R.scores[h] === undefined) R.scores[h] = par(h);
+    const entera = VIEWS.tarjeta().replace(/<[^>]*>/g,' ');
+    R.scores = antes;
+    return { hcp: hcpJuego(), aMedias, entera };
   });
   ok(conIndex.hcp === 11, `con index 12.0 de blancas el handicap de cancha es 11 (dio ${conIndex.hcp})`);
-  ok(/Neto\s*(\d+)/.test(conIndex.tarjeta), 'y ahí sí aparece el neto');
+  ok(/Neto\s*–/.test(conIndex.aMedias) && /con la vuelta completa/.test(conIndex.aMedias),
+     'a mitad de la vuelta el neto queda en raya, y dice por qué');
+  ok(/Neto\s*(\d+)/.test(conIndex.entera), 'y con la vuelta entera sí aparece el neto');
 
   /* ══ 5 · A una ronda compartida no se entra con nombre prestado ═════ */
   console.log('\n5. A una ronda compartida no se entra con nombre prestado');

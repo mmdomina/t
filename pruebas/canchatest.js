@@ -12,6 +12,7 @@
    alguien se entere.
    Los índices de prueba son inventados: acá no va el de nadie. */
 const { chromium } = require('playwright');
+const HOY = (d => d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'))(new Date());   // el index se cargó hoy: no vence
 const EXE = process.env.CHROME_PATH || undefined;
 const APP = 'http://localhost:8000/index.html';
 let hechas = 0, fallas = 0;
@@ -45,7 +46,7 @@ const whs9  = (idx, t) => Math.round((Math.round(idx*5)/10)*(t.nueve.ida.s/113)
 const INDICES = [-2.0, 0, 3.7, 5.0, 10.3, 11.2, 14.6, 18.0, 25.5, 36.0, 54.0];
 
 const SEMILLA = { v:1, onboarded:true, tipo:'socio', tee:'mixta', vuelta:18, hole:1,
-  playing:false, torneo:false, indexDias:2,
+  playing:false, torneo:false, indexFecha:HOY,
   user:{ name:'Socio Uno', ini:'S1', hcp:12.0, socio:'—', club:'Trisquelia Golf Club', cat:'cab' } };
 
 (async () => {

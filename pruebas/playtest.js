@@ -4,6 +4,7 @@
    Si Playwright no encuentra Chromium solo, pasále la ruta en CHROME_PATH. */
 /* Prueba de interacción de la pantalla de jugar nueva. */
 const { chromium, devices } = require('playwright');
+const HOY = (d => d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'))(new Date());   // el index se cargó hoy: no vence
 const EXE = process.env.CHROME_PATH || undefined;   // si está vacío, Playwright busca solo
 const ok = (c, m) => console.log((c ? '  ✓ ' : '  ✗ ') + m);
 
@@ -16,16 +17,16 @@ const ok = (c, m) => console.log((c ? '  ✓ ' : '  ✗ ') + m);
   p.on('pageerror', e => errores.push(e.message));
   p.on('console', m => { if (m.type() === 'error') errores.push(m.text()); });
 
-  await p.addInitScript(() => {
+  await p.addInitScript(HOY => {
     /* `playing:true` desde la v25: la pantalla de jugar es de una vuelta
        empezada, y sin una lleva a empezarla. Antes se podía mirar "fuera" de
        una vuelta, y por ahí la vuelta terminada se reabría y la siguiente se
        escribía encima (revisión adversaria de la v25). */
     try { localStorage.setItem('trisquelia_v1', JSON.stringify({ v: 1, onboarded: true, tipo: 'socio',
-      tee: 'mixta', vuelta: 18, hole: 1, indexDias: 2, playing: true,
+      tee: 'mixta', vuelta: 18, hole: 1, indexFecha: HOY, playing: true,
       user: { name: 'Mauro Domina', ini: 'MD', hcp: 7.4, socio: '#1',
               club: 'Trisquelia Golf Club', cat: 'cab' } })); } catch (e) {}
-  });
+  }, HOY);
   await p.goto('http://localhost:8000/', { waitUntil: 'load' });
   await p.waitForTimeout(1500);
   await p.evaluate(() => go('play'));
