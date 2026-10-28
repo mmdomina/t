@@ -134,6 +134,14 @@ const EXE = process.env.CHROME_PATH || undefined;   // si está vacío, Playwrig
         revisar(`onboarding paso ${i} · ${tipo}`, vOnboard);
       });
     }
+    /* El paso 0 son dos pantallas en un teléfono: primero "Agregala a tu
+       teléfono" y, con "Ahora no", la bienvenida. Este teléfono es un Pixel,
+       así que arriba se vio la primera; acá, la otra. */
+    S.onb = 0; S.instalarSalteado = true;
+    revisar('onboarding paso 0 · después de "Ahora no"', vOnboard);
+    S.instalarSalteado = false; S.seInstalo = true;
+    revisar('onboarding paso 0 · ya instalada desde este navegador', vOnboard);
+    S.seInstalo = false;
     S.onboarded = onbGuardado; S.onb = 0; S.tipo = 'socio';
 
     /* 6 · firma y resumen, con y sin tarjeta presentada */
