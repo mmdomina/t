@@ -347,16 +347,40 @@ td.name{text-align:left;font-weight:600;font-size:13px}
     border-radius:0;border:0;box-shadow:none}
   #status{height:auto;padding-top:calc(env(safe-area-inset-top, 0px) + 7px);padding-bottom:7px}
 }
-/* barra de instalación */
-.instalar{display:flex;gap:12px;align-items:center;background:var(--tint);
-  border:1px solid var(--acc2);border-radius:var(--r);padding:14px;margin:0 0 14px}
-.instalar .txt{min-width:0;flex:1}
-.instalar .txt b{display:block;font-size:14px;font-weight:800}
-.instalar .txt span{display:block;font-size:12px;color:var(--dim);line-height:1.45;margin-top:2px}
-.instalar button{flex:0 0 auto;padding:11px 15px;border-radius:11px;border:0;cursor:pointer;
-  font-family:inherit;font-size:13px;font-weight:800;background:var(--acc2);color:var(--ink);min-height:44px}
-.instalar .x{background:transparent;color:var(--dim2);border:0;padding:8px 4px;font-size:17px;
-  cursor:pointer;font-family:inherit;min-width:44px;min-height:44px}
+/* barra de instalación: el recordatorio de Inicio */
+.instalar{background:var(--tint);border:1.5px solid var(--acc2);border-radius:var(--r);
+  padding:12px 12px 14px 16px;margin:0 0 14px}
+.instCab{display:flex;align-items:center;gap:12px}
+.instCab b{flex:1;min-width:0;font-size:18px;font-weight:800;line-height:1.25}
+.instCab .x{background:transparent;color:var(--dim2);border:0;padding:0;font-size:24px;
+  cursor:pointer;font-family:inherit;min-width:44px;min-height:44px;flex:0 0 auto}
+.instTxt{font-size:15px;color:var(--dim);line-height:1.45;margin-top:8px;padding-right:4px}
+.pasoCorto{display:flex;align-items:center;gap:10px;margin-top:10px;font-size:15px;font-weight:600}
+.pasoCorto .dibBoton{color:var(--acc);flex:0 0 auto}
+.pasoNota{font-size:13px;color:var(--dim);line-height:1.4;margin:2px 0 0 32px}
+/* lo primero al abrir el link: agregarla al teléfono */
+.instPrimero{min-height:100%;display:flex;flex-direction:column;justify-content:center;
+  padding:14px 18px 10px}
+.instOjo{background:var(--avisoBg);border:1px solid var(--avisoLn);border-radius:14px;
+  padding:10px 14px;font-size:14px;line-height:1.45;font-weight:600;margin:0 0 12px}
+.pasosInst{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:4px 14px}
+.pasoInst{display:flex;gap:12px;align-items:center;padding:11px 0;border-bottom:1px solid var(--hair)}
+.pasoInst:last-child{border-bottom:0}
+.numInst{flex:0 0 34px;height:34px;border-radius:50%;background:var(--acc);color:var(--ink);
+  display:flex;align-items:center;justify-content:center;font-weight:800;font-size:17px}
+.txtInst{flex:1;min-width:0}
+.tInst{font-size:17px;font-weight:700;line-height:1.3}
+.dInst{font-size:13.5px;color:var(--dim);line-height:1.45;margin-top:3px}
+.dibInst{flex:0 0 auto;color:var(--acc);display:flex}
+.dibBoton{display:inline-flex;vertical-align:middle}
+.dibBoton svg{width:100%;height:100%}
+.instBtn{font-size:17px;padding:18px 14px;display:flex;align-items:center;justify-content:center;gap:10px}
+.instOk{background:var(--okBg);border:1px solid var(--okLn);border-radius:var(--r);padding:18px;text-align:center}
+.instOk b{display:block;font-size:18px;margin-bottom:6px}
+.instOk span{font-size:15px;color:var(--dim);line-height:1.5}
+.linkInst{display:flex;align-items:center;justify-content:center;gap:6px;margin:14px auto 0;
+  background:transparent;border:0;color:var(--acc);font-family:inherit;font-size:14px;
+  font-weight:700;cursor:pointer;min-height:44px;padding:0 10px}
 </style>
 </head>
 <body>
@@ -455,6 +479,8 @@ const S = {
   verDatos:null,         // cuadro de texto con los datos de la prueba
   codigoIn:'', uniendo:false,   // entrar a la ronda de un grupo
   instalarVisto:false,   // cerró el aviso de "agregala al teléfono"
+  instalarSalteado:false,// tocó "Ahora no" en la pantalla de agregarla, al abrir
+  seInstalo:false,       // el navegador avisó que la agregó (Android: `appinstalled`)
   booked:{}, // "07:30": true
 };
 
@@ -2139,6 +2165,9 @@ function vHome(){
       <div class="dim" style="font-size:12px">Es lo que ven los del grupo en la tarjeta compartida.
       Sin nombre no podés entrar a la ronda de un grupo.</div></div></div>
     </div>`}
+    ${/* Arriba de todo: el que tocó "Ahora no" al abrir lo tiene que ver igual
+         (lo pidió Mau el 28/10/2026). Se cierra con la cruz. */ ''}
+    ${bannerInstalar()}
     <div class="card" style="cursor:pointer;background:linear-gradient(135deg,var(--tint),var(--card));border-color:${S.user.hcp==null||indexViejo()?'var(--gold)':'var(--acc2)'}"
       onclick="go('handicap')">
       <div class="between">
@@ -2180,8 +2209,6 @@ function vHome(){
         ${climaDetalle()}
       </div>
     </div>
-
-    ${bannerInstalar()}
 
     <h2>Novedades del club</h2>
     <div class="card">
@@ -4331,8 +4358,11 @@ function paso(n,t){ return `<div class="hdr" style="padding-top:20px">
 function vOnboard(){
   const S_ = S;
 
-  if(S.onb===0) return `<div class="fade" style="height:100%;display:flex;flex-direction:column;
-    justify-content:center;padding:0 26px;text-align:center">
+  /* Antes que nada, agregarla al teléfono (ver `pedirInstalarPrimero`). */
+  if(S.onb===0 && pedirInstalarPrimero()) return vInstalarPrimero();
+
+  if(S.onb===0) return `<div class="fade" style="min-height:100%;display:flex;flex-direction:column;
+    justify-content:center;padding:16px 26px;text-align:center">
     <div style="display:flex;justify-content:center">${crestWord()}</div>
     <div class="lbl" style="margin:20px 0 14px">${CLUB.lema}</div>
     <p style="font-size:15px;margin-bottom:26px">La app del club. Tu tarjeta, tus distancias,
@@ -4347,6 +4377,9 @@ function vOnboard(){
     </div>
     <button class="btn" onclick="S.onb=1;render()">Crear mi cuenta</button>
     <button class="btn ghost sm" style="margin-top:8px" onclick="skipOnb()">Ya tengo cuenta · entrar</button>
+    ${!S.seInstalo && !INSTALADA() && !EN_OTRA_APP && (ES_IOS() || ES_ANDROID())
+      ? `<button class="linkInst" onclick="verComoInstalar()">
+           ${dibBoton('agregar', 18)} Cómo agregarla al teléfono</button>` : ''}
   </div>`;
 
   /* ---- ¿cómo te llamás? ----
@@ -4354,8 +4387,8 @@ function vOnboard(){
      esa puerta te dejaba adentro con el nombre de otro; ahora pide lo mínimo
      para que la tarjeta del grupo diga quién sos. No es un paso numerado: es
      el atajo, y tiene que poder resolverse en diez segundos. */
-  if(S.onb==='nombre') return `<div class="fade" style="height:100%;display:flex;
-    flex-direction:column;justify-content:center;padding:0 26px">
+  if(S.onb==='nombre') return `<div class="fade" style="min-height:100%;display:flex;
+    flex-direction:column;justify-content:center;padding:16px 26px">
     <div style="font-size:52px;text-align:center">🙋</div>
     <h1 style="font-size:26px;margin:14px 0 8px;text-align:center">¿Cómo te llamás?</h1>
     <p style="font-size:15px;text-align:center;margin-bottom:22px">Es lo que van a ver los del
@@ -5817,49 +5850,161 @@ const INSTALADA = () =>
   (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches)
   || navigator.standalone === true;
 
-/* iPhone no ofrece botón de instalar: hay que explicar los dos toques. */
+/* iPhone no ofrece botón de instalar: hay que explicar los toques. */
 const ES_IOS = () => /iPad|iPhone|iPod/.test(navigator.userAgent)
   || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+const ES_ANDROID = () => /Android/i.test(navigator.userAgent || '');
+/* Chrome de verdad. Los otros navegadores de Android también dicen "Chrome/"
+   cuando se presentan, pero sus menús son otros y sus pasos también. */
+const ES_CHROME_ANDROID = () => ES_ANDROID() && /Chrome\//.test(navigator.userAgent || '')
+  && !/SamsungBrowser|OPR\/|EdgA|Firefox|YaBrowser|UCBrowser|MiuiBrowser|HuaweiBrowser|DuckDuckGo/i
+       .test(navigator.userAgent || '');
 
+/* El botón de un toque existe sólo en Android, y no enseguida: Chrome avisa
+   (`beforeinstallprompt`) recién cuando la persona tocó la página al menos una
+   vez y la miró 30 segundos (web.dev, "install criteria"). Hasta ese momento se
+   muestran los pasos del menú, que andan siempre. */
 let PROMPT_INSTALAR = null;
 window.addEventListener('beforeinstallprompt', e => {
   e.preventDefault();               // el navegador no muestra el suyo
   PROMPT_INSTALAR = e;              // lo guardamos para nuestro botón
-  if(S.onboarded) render();
+  /* En el alta no se redibuja la pantalla: la persona puede estar escribiendo
+     su nombre, y `render()` se lo borraría. Se cambia sólo el bloque de los pasos. */
+  if(S.onboarded) render(); else pintarComoInstalar();
 });
+/* Android avisa cuando se instaló, venga del botón o del menú. Queda anotado:
+   la app instalada comparte los datos con Chrome, y la pestaña del navegador no
+   tiene por qué seguir pidiendo que la agreguen. */
 window.addEventListener('appinstalled', () => {
   PROMPT_INSTALAR = null;
+  S.seInstalo = true; guardarTodo();
   toast('Listo, ya la tenés en el teléfono');
-  if(S.onboarded) render();
+  if(S.onboarded) render(); else pintarComoInstalar();
 });
 
 async function instalar(){
-  if(!PROMPT_INSTALAR) return;
-  PROMPT_INSTALAR.prompt();
-  await PROMPT_INSTALAR.userChoice;
-  PROMPT_INSTALAR = null;
-  render();
+  const p = PROMPT_INSTALAR;
+  if(!p) return;
+  p.prompt();
+  try{ await p.userChoice; }catch(e){}
+  PROMPT_INSTALAR = null;           // el aviso de Chrome se usa una sola vez
+  if(S.onboarded) render(); else pintarComoInstalar();
 }
 function ocultarInstalar(){ S.instalarVisto = true; render(); }
 
+/* Los botones que hay que buscar en el teléfono, dibujados como se ven allá:
+   un emoji no se parece al botón de verdad. Toman el color de lo que los rodea. */
+const BOTON_DIBUJO = {
+  compartir: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+    stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="M8 7l4-4 4 4"/>
+    <path d="M7 10H6a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2h-1"/></svg>`,
+  agregar: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+    stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="4"/>
+    <path d="M12 8v8M8 12h8"/></svg>`,
+  puntos: `<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/>
+    <circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>`,
+  menu: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+    stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>`
+};
+const dibBoton = (k, t) => `<span class="dibBoton" style="width:${t}px;height:${t}px">${BOTON_DIBUJO[k]}</span>`;
+
+/* Los pasos, según el teléfono. El botón Compartir del iPhone se movió dos
+   veces: desde iOS 26 quedó adentro del menú ⋯ de al lado de la dirección, y
+   en iOS 27 pasó al menú de la izquierda de la dirección (MacRumors, Cult of
+   Mac; revisado el 28/10/2026). Por eso se lo describe por su dibujo y no por
+   el lugar. Si Apple lo vuelve a mover, se toca acá y en el cartel de Inicio. */
+function pasosInstalar(){
+  if(ES_IOS()) return [
+    ['compartir', 'Tocá <b>Compartir</b>',
+     'Si no lo ves, está en el menú de al lado de la dirección.'],
+    ['agregar', 'Elegí <b>Agregar a inicio</b>', 'Bajá en la lista. Si no está, abrí el link en Safari.'],
+    ['listo', 'Tocá <b>Agregar</b> y abrila desde el ícono',
+     'Si aparece «Abrir como app web», dejalo prendido.']];
+  if(ES_CHROME_ANDROID()) return [
+    ['puntos', 'Tocá los tres puntitos <b>⋮</b>', 'Arriba a la derecha.'],
+    ['agregar', 'Elegí <b>Agregar a la pantalla principal</b>', 'En algunos teléfonos dice «Instalar app».'],
+    ['listo', 'Tocá <b>Instalar</b> y abrila desde el ícono', '']];
+  return [
+    ['menu', 'Abrí el menú del navegador', 'Son los tres puntitos o las tres rayitas.'],
+    ['agregar', 'Elegí agregarla a la <b>pantalla de inicio</b>',
+     'Puede decir «Instalar», «Agregar página a» o «Pantalla de inicio».'],
+    ['listo', 'Confirmá y abrila desde el ícono', '']];
+}
+
+/* El bloque que cambia solo: los pasos, el botón de un toque cuando Chrome lo
+   habilita, o "listo" cuando avisó que se instaló. Lleva adentro el botón de
+   salida, que dice otra cosa en cada caso. */
+function comoInstalar(){
+  const seguir = t => `<button class="btn ghost" style="margin-top:16px"
+    onclick="saltearInstalar()">${t}</button>`;
+  if(S.seInstalo) return `<div class="instOk">
+      <b>Listo, ya está en tu pantalla de inicio</b>
+      <span>Abrila desde el ícono de ${esc(CLUB.corto)}: así anda sin señal en la cancha.</span>
+    </div>${seguir('Seguir acá igual')}`;
+  if(PROMPT_INSTALAR) return `
+    <button class="btn instBtn" onclick="instalar()">${dibBoton('agregar', 24)}
+      Agregar a la pantalla de inicio</button>
+    <div class="dim" style="font-size:14px;margin-top:10px;text-align:center;line-height:1.5">
+      El teléfono te pregunta si la querés instalar: tocá <b>Instalar</b>.</div>
+    ${seguir('Ahora no, seguir en el navegador')}`;
+  return `<div class="pasosInst">${pasosInstalar().map(([k, t, d], i) => `
+      <div class="pasoInst"><div class="numInst">${i + 1}</div>
+        <div class="txtInst"><div class="tInst">${t}</div>${d ? `<div class="dInst">${d}</div>` : ''}</div>
+        <div class="dibInst">${k === 'listo' ? crest(32) : dibBoton(k, 28)}</div></div>`).join('')}
+    </div>
+    ${ES_IOS() ? '' : `<div class="dim2" style="font-size:13px;margin-top:10px;text-align:center;line-height:1.5">
+      ¿No aparece? Abrí el link en Chrome y probá de nuevo.</div>`}
+    ${seguir('Ahora no, seguir en el navegador')}`;
+}
+/* Las dos puertas entre esta pantalla y la bienvenida. Arrancan arriba de todo:
+   en un teléfono chico la de agregarla se scrollea, y la bienvenida aparecía
+   por la mitad. */
+function saltearInstalar(){ S.instalarSalteado = true; render(); $('#screen').scrollTop = 0; }
+function verComoInstalar(){ S.instalarSalteado = false; render(); $('#screen').scrollTop = 0; }
+function pintarComoInstalar(){
+  const e = document.getElementById('comoInstalar');
+  if(e) e.innerHTML = comoInstalar();
+}
+
+/* LO PRIMERO, AGREGARLA AL TELÉFONO. Lo pidió Mau el 28/10/2026: el aviso estaba
+   en Inicio, chico y después de pasar por el alta, y el que escanea el QR tiene
+   que verlo antes que nada. En iPhone, además, no es comodidad: la app del ícono
+   no comparte los datos con Safari (WebKit la guarda aparte), así que el que pone
+   su nombre en el navegador y después la agrega arranca de cero en el ícono. Va
+   sólo en teléfonos, en el navegador, y una vez: "Ahora no" no vuelve a
+   preguntar, y queda el cartel de Inicio como recordatorio. */
+const pedirInstalarPrimero = () => !S.instalarSalteado && !S.seInstalo && !INSTALADA()
+  && !EN_OTRA_APP && (ES_IOS() || ES_ANDROID());
+function vInstalarPrimero(){
+  return `<div class="fade instPrimero">
+    <div style="display:flex;justify-content:center">${crest(48)}</div>
+    <h1 style="font-size:28px;margin:10px 0 6px;text-align:center">Agregala a tu teléfono</h1>
+    <p style="font-size:16px;line-height:1.45;text-align:center;margin:0 0 14px">Queda con su ícono,
+      como cualquier app, y anda sin señal. No se baja de ninguna tienda.</p>
+    ${ES_IOS() ? `<div class="instOjo">Hacelo antes de poner tu nombre: lo que cargues acá no
+      pasa a la app del ícono.</div>` : ''}
+    <div id="comoInstalar">${comoInstalar()}</div>
+  </div>`;
+}
+
+/* El recordatorio de Inicio, para el que tocó "Ahora no". Más grande que antes,
+   y con los mismos pasos que la primera pantalla. */
 function bannerInstalar(){
-  if(INSTALADA() || S.instalarVisto || EN_OTRA_APP) return '';
-  if(PROMPT_INSTALAR) return `<div class="instalar">
-    ${crest(38)}
-    <div class="txt"><b>Agregala al teléfono</b>
-      <span>Abre sin navegador y funciona sin señal en la cancha.</span></div>
-    <button onclick="instalar()">Agregar</button>
-    <button class="x" onclick="ocultarInstalar()" aria-label="Cerrar">&times;</button>
+  if(INSTALADA() || S.instalarVisto || S.seInstalo || EN_OTRA_APP) return '';
+  if(!PROMPT_INSTALAR && !ES_IOS() && !ES_ANDROID()) return '';
+  const [p1, p2] = pasosInstalar();
+  return `<div class="instalar">
+    <div class="instCab">${crest(40)}<b>Agregala a tu teléfono</b>
+      <button class="x" onclick="ocultarInstalar()" aria-label="Cerrar">&times;</button></div>
+    <div class="instTxt">Queda con su ícono y anda sin señal en la cancha.</div>
+    ${PROMPT_INSTALAR
+      ? `<button class="btn instBtn" style="margin-top:12px" onclick="instalar()">${dibBoton('agregar', 22)}
+           Agregar a la pantalla de inicio</button>`
+      : [p1, p2].map(([k, t, d], i) => `<div class="pasoCorto">${dibBoton(k, 22)}<span>${i + 1}. ${t}</span></div>
+           ${d ? `<div class="pasoNota">${d}</div>` : ''}`).join('') + `
+         ${ES_IOS() ? `<div class="instTxt" style="font-size:13px">En iPhone la app del ícono arranca de
+           cero: lo que cargaste acá queda en el navegador.</div>` : ''}`}
   </div>`;
-  if(ES_IOS()) return `<div class="instalar" style="align-items:flex-start">
-    ${crest(38)}
-    <div class="txt"><b>Agregala al teléfono</b>
-      <span>Tocá <b style="display:inline;color:var(--txt)">Compartir</b> abajo y elegí
-      <b style="display:inline;color:var(--txt)">Agregar a inicio</b>. Así abre sin navegador,
-      anda sin señal y el iPhone deja de borrarte los datos.</span></div>
-    <button class="x" onclick="ocultarInstalar()" aria-label="Cerrar">&times;</button>
-  </div>`;
-  return '';
 }
 
 /* Que el teléfono no borre la vuelta a medio cargar.
@@ -7448,7 +7593,7 @@ const LS_KEY = 'trisquelia_v1';
 const GUARDAR = ['user','tee','cat','mat','hcpIn','fedOk','onboarded','tipo','dni','nsocio',
                  'email','indexFecha','hole','vuelta','playing','torneo','marco','meMarca',
                  'certifico','firmoLaOtra','entregada','presento','booked','soloSeguir',
-                 'instalarVisto','avisosVistos',
+                 'instalarVisto','instalarSalteado','seInstalo','avisosVistos',
                  /* El identificador de la vuelta: es lo que hace que archivarla
                     dos veces la actualice en vez de duplicarla. Tiene que
                     sobrevivir a una recarga, o la segunda vez sería otra. */
@@ -7508,7 +7653,8 @@ function sanearS(){
   S.nsocio = txt(S.nsocio, 12, /^[\w#\-. ]*$/); S.email = txt(S.email, 120, /^[^<>"'\s]*$/);
   S.hcpIn = S.hcpIn == null ? null : txt(String(S.hcpIn), 6, /^[+\d.,]*$/);
   S.tipo = S.tipo === 'socio' || S.tipo === 'invitado' ? S.tipo : null;
-  ['fedOk','onboarded','playing','torneo','certifico','firmoLaOtra','entregada','soloSeguir','instalarVisto']
+  ['fedOk','onboarded','playing','torneo','certifico','firmoLaOtra','entregada','soloSeguir','instalarVisto',
+   'instalarSalteado','seInstalo']
     .forEach(k => { S[k] = sn(S[k]); });
   S.presento = S.presento === true || S.presento === false ? S.presento : null;
   S.fecha = fechaReal(S.fecha) ? S.fecha : null;

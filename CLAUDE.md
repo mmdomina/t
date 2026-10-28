@@ -25,7 +25,7 @@ una razón concreta (claves de servidor que no puedan ir en el código, o un des
 
 ## 2. Mapa de `index.html`
 
-Son ~7.900 líneas. Los números se corren al editar; buscá el texto, no la línea.
+Son ~8.000 líneas. Los números se corren al editar; buscá el texto, no la línea.
 
 | Dónde | Qué |
 |---|---|
@@ -52,7 +52,8 @@ Son ~7.900 líneas. Los números se corren al editar; buscá el texto, no la lí
 | `function vArranque` (~3929) | Empezar la ronda, y la pregunta si quedó una sin terminar |
 | `function vSummary` (~4197) | El resumen de la vuelta terminada: todo sale de `R`, nada a mano |
 | `PANTALLAS — CLUB` (~4750) | El panel de la comisión |
-| `INSTALARLA Y QUE ANDE SIN SEÑAL` (~5772) | Service worker, instalación, actualizaciones |
+| `INSTALARLA Y QUE ANDE SIN SEÑAL` (~5843) | Service worker, instalación, actualizaciones |
+| `LO PRIMERO, AGREGARLA AL TELÉFONO` (~5969) | Lo primero que ve el que abre el link en un teléfono, y el recordatorio de Inicio |
 | `MODO PRUEBA` (~5971) | Medir GPS y batería en la cancha |
 | `const NUBE` (~6444) | ⚠️ **Las dos direcciones del servidor**: la Data API y la de autenticación. Vacías = todo local |
 | `EL CICLO DE UNA VUELTA` (~6789) | **Dónde empieza y dónde termina una vuelta**: `terminarVuelta()`, "Mis rondas", `COLA_VIEJA` |
@@ -79,7 +80,7 @@ una vuelta en curso la segunda recarga ya corría el código nuevo debajo del se
 salteándose el "entra al terminar la vuelta" (revisión adversaria de la v26). Lo nuevo entra sólo
 con un service worker nuevo, y su instalación falla —y se reintenta— si no pudo guardar la app.
 
-Va en `trisquelia-vN`. Al día de hoy: **v26**.
+Va en `trisquelia-vN`. Al día de hoy: **v27**.
 
 ---
 
@@ -483,6 +484,26 @@ le borra lo que venía tecleando. Está comentado en el código; tocá sólo lo 
 **El navegador de WhatsApp no da GPS ni deja instalar nada.** El link se comparte por ahí, así
 que la app lo detecta (`EN_OTRA_APP`) y explica cómo salir a Chrome. No lo saques.
 
+**Agregarla al teléfono va antes que nada, y en iPhone no es un detalle.** Hasta la v26 el aviso
+estaba en Inicio, chico y después del alta; Mau lo vio con el QR de la reunión en la mano
+(28/10/2026). Desde la v27, en un teléfono y en el navegador, lo primero es `vInstalarPrimero()`:
+"Agregala a tu teléfono", con los pasos de ESE teléfono (`pasosInstalar()`) y "Ahora no" a la vista
+en un iPhone 13 y en un Android de 360×640. Tres cosas para no romper. **En iPhone la app del ícono
+no comparte los datos con Safari**: WebKit la guarda aparte, y al agregarla copia sólo las cookies.
+El que pone su nombre en el navegador y después la agrega arranca de cero en el ícono; por eso la
+pantalla dice "hacelo antes de poner tu nombre". **El botón Compartir del iPhone se mueve**: en iOS
+26 quedó adentro del menú ⋯ de al lado de la dirección, y en iOS 27 en el de la izquierda. La v26
+decía "Tocá Compartir abajo", que ya no era cierto. Los pasos lo describen por su dibujo
+(`BOTON_DIBUJO`) y no por el lugar: si Apple lo vuelve a mover, se toca `pasosInstalar()` y nada
+más. **El botón de un toque de Android no está al abrir**: Chrome manda `beforeinstallprompt` recién
+cuando la persona tocó la página y la miró 30 segundos. Primero van los pasos del menú, que andan
+siempre, y el botón aparece después con `pintarComoInstalar()`, que cambia sólo ese bloque: en el
+alta no se llama a `render()`, porque la persona puede estar escribiendo su nombre. `appinstalled`
+deja `S.seInstalo` (en Android la app instalada comparte los datos con Chrome, así que la pestaña
+deja de pedirlo); "Ahora no" deja `S.instalarSalteado`, y queda el recordatorio arriba de todo en
+Inicio (`bannerInstalar()`). Los dos van en `GUARDAR` y en `sanearS()`. No aparece instalada, en el
+navegador de WhatsApp —que no deja instalar— ni en una computadora. `instalartest` lo cuida.
+
 **Las tres salidas están homologadas desde la v10** (recategorización de la AAG, septiembre de
 2026): yardas, rating y slope oficiales, de 18 hoyos y de cada nueve. Las negras dejaron de
 tomar prestada la tabla de blancas/azules. `homologada(t)` y `teeDelHcp(t)` se quedan igual —
@@ -721,6 +742,7 @@ node pruebas/paneltest.js              # el portón del panel del club   (40 ✓
 node pruebas/afueratest.js             # lo que llega de afuera: club y clima (32 ✓)
 node pruebas/vueltatest.js             # que no se pierda una tarjeta   (59 ✓)
 node pruebas/honestotest.js            # nada inventado con cara de real (75 ✓)
+node pruebas/instalartest.js           # agregarla al teléfono, primero  (46 ✓)
 ```
 
 El esquema del servidor se prueba aparte, contra un Postgres de verdad — no
@@ -801,9 +823,16 @@ todas las pantallas del socio y del panel buscando cuarenta frases de las que me
 publicada da rojo en la primera sección y se corta en la segunda (ahí no existe
 `golpesDeMentira`).
 
-Entre las dieciséis suites son **608 comprobaciones**, más las **61** del esquema, las **69** del
-alta y las **78** del panel: **816** en total. Si alguna se pone en rojo después de un cambio
-tuyo, es un bug tuyo: estaban todas en verde el 27/10/2026, con la v26. **La primera visita ya no se
+`instalartest` abre la app como la abre el que escanea el QR: un iPhone, un Android con Chrome, uno
+con el navegador de Samsung, un iPhone chico de 320, la app ya instalada, el navegador de WhatsApp y
+una computadora. En los teléfonos lo primero tiene que ser "Agregala a tu teléfono", con los pasos de
+ese teléfono y "Ahora no" a la vista. El aviso de Chrome se imita, y tiene que cambiar sólo el bloque
+de los pasos, sin borrarle el nombre al que está escribiendo. "Ahora no" no vuelve a preguntar y deja
+el recordatorio arriba en Inicio. Contra la v26 da rojo desde la primera comprobación.
+
+Entre las diecisiete suites son **654 comprobaciones**, más las **61** del esquema, las **69** del
+alta y las **78** del panel: **862** en total. Si alguna se pone en rojo después de un cambio
+tuyo, es un bug tuyo: estaban todas en verde el 28/10/2026, con la v27. **La primera visita ya no se
 recarga sola.** Hasta la v25, cuando el service worker tomaba el control por primera vez la página
 se recargaba (`controllerchange` → `location.reload()`): no servía para nada —la página ya tenía el
 código más nuevo—, cada pedido de la primera visita salía dos veces, y al que escaneaba el QR se le
@@ -885,7 +914,9 @@ app que juega sin señal y sincroniza cada seis segundos no se notan.
 **El lunes 26/10/2026 (o el martes 27) se le presenta a la comisión** con un PDF y desde el
 teléfono de Mauro, sin repartir llaves. La condición que se propone para abrirla a los socios es
 una sola y concreta: **que salga limpia una vuelta de 18 hoyos con dos teléfonos.** (Si estás
-leyendo esto después de esa fecha, lo que la comisión haya dicho va acá.) La reunión se corrió
+leyendo esto después de esa fecha, lo que la comisión haya dicho va acá.) Desde la v27, el que
+escanea el QR ve primero cómo agregarla al teléfono: para la demo alcanza con "Ahora no, seguir en
+el navegador" y después "Ya tengo cuenta · entrar". La reunión se corrió
 a más adelante en la semana. La v25 se publicó el 26/10 a la noche, y la v26 —la que saca lo
 inventado de todas las pantallas— es la que conviene tener arriba para la reunión: si alguien
 escanea el QR, recorre la app solo. El PDF y el guion se rehacen contra la v26. El PDF y la lista de lo que el
